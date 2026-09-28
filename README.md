@@ -26,8 +26,9 @@ Depois, no browser, com a consola aberta: `#inicio`, `#registar`, as páginas p�
 
 ## Publicar (Vercel)
 
-A Vercel detecta o Next e constrói com `npm run build` a cada push para `main`. Não há
-`vercel.json`: os cabeçalhos de segurança estão no `headers()` de `next.config.mjs`.
+A Vercel constrói com `npm run build` a cada push para `main`. O `vercel.json` só fixa
+`"framework": "nextjs"`: com o projecto como «Other», a Vercel publicava só a pasta `public/` e
+a página inicial dava 404. Os cabeçalhos de segurança estão no `headers()` de `next.config.mjs`.
 
 Variáveis de ambiente (Vercel → Project → Settings → Environment Variables):
 
