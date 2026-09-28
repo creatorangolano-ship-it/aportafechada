@@ -256,25 +256,57 @@ export function doorTransition(): () => Promise<void> {
 
 /** Abre uma imagem em ecrã cheio, com opção de a colocar em ecrã inteiro de verdade (Fullscreen API).
  *  Só deve ser chamada com conteúdo a que o utilizador já tem acesso (nunca com pré-visualizações trancadas). */
-export function lightbox(url: string | null | undefined): void {
+/** Formato mínimo e máximo do visualizador: do vertical de telemóvel ao panorâmico. */
+const VISOR_MIN = 9 / 16, VISOR_MAX = 16 / 9;
+
+/**
+ * Visualizador de uma foto ou vídeo (clicar numa publicação abre-o).
+ *
+ * No feed todas as publicações têm o mesmo enquadramento; aqui cada ficheiro
+ * aparece no seu formato real, limitado entre 9:16 e 16:9. Fora desse
+ * intervalo, o ficheiro aparece inteiro com barras (object-fit: contain) — nunca cortado.
+ */
+export function lightbox(url: string | null | undefined, tipo: 'image' | 'video' = 'image'): void {
   if (!url) return;
   const el = document.createElement('div');
   el.className = 'lbox';
+  const media = tipo === 'video'
+    ? `<video src="${esc(url)}" controls autoplay playsinline controlsList="nodownload noremoteplayback" disablePictureInPicture oncontextmenu="return false"></video>`
+    : `<img src="${esc(url)}" alt="" draggable="false" oncontextmenu="return false">`;
   el.innerHTML =
-    `<img src="${esc(url)}" alt="" draggable="false" oncontextmenu="return false">` +
-    `<span class="wm c">À PORTA FECHADA</span>` +
+    `<div class="lbox-frame">${media}<span class="wm c">À PORTA FECHADA</span></div>` +
     `<button class="lbox-full" aria-label="Ecrã inteiro" title="Ecrã inteiro">${ic('expand')}</button>` +
     `<button class="lbox-x" aria-label="Fechar" title="Fechar">${ic('x')}</button>`;
   document.body.appendChild(el);
-  const img = el.querySelector<HTMLImageElement>('img')!;
-  const close = () => { el.remove(); document.removeEventListener('keydown', onKey); };
+  const frame = el.querySelector<HTMLElement>('.lbox-frame')!;
+  const m = frame.firstElementChild as HTMLImageElement | HTMLVideoElement;
+
+  // Enquadramento: formato real limitado a [9:16, 16:9], o maior que caiba em 92% do ecrã.
+  let r = tipo === 'video' ? 16 / 9 : 1;
+  const ajustar = () => {
+    const w = Math.min(innerWidth * 0.92, innerHeight * 0.92 * r);
+    frame.style.width = Math.round(w) + 'px';
+    frame.style.height = Math.round(w / r) + 'px';
+  };
+  const medir = () => {
+    const nw = 'videoWidth' in m ? m.videoWidth : m.naturalWidth;
+    const nh = 'videoHeight' in m ? m.videoHeight : m.naturalHeight;
+    if (nw && nh) r = Math.min(VISOR_MAX, Math.max(VISOR_MIN, nw / nh));
+    ajustar();
+  };
+  ajustar();
+  m.addEventListener(tipo === 'video' ? 'loadedmetadata' : 'load', medir);
+  if ('complete' in m && m.complete) medir();
+  addEventListener('resize', ajustar);
+
+  const close = () => { el.remove(); document.removeEventListener('keydown', onKey); removeEventListener('resize', ajustar); };
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
   el.addEventListener('click', (e) => { if (e.target === el) close(); });
   el.querySelector('.lbox-x')!.addEventListener('click', close);
   el.querySelector('.lbox-full')!.addEventListener('click', () => {
-    const req = img.requestFullscreen || (img as any).webkitRequestFullscreen;
-    req?.call(img);
+    const req = frame.requestFullscreen || (frame as any).webkitRequestFullscreen;
+    req?.call(frame);
   });
 }
 

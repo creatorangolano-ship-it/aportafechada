@@ -46,20 +46,18 @@ export async function enrichPosts(posts: any) {
 function mediaHTML(p: any) {
   const mine = p.creator_id === me_().id;
   const wm = p.canSee && !mine ? '<span class="wm c">À PORTA FECHADA</span>' : '';
-  const one = (m: any) => m.type?.startsWith('video') ? `<video src="${esc(m.url)}" controls controlsList="nodownload noremoteplayback" disablePictureInPicture playsinline oncontextmenu="return false" preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy" draggable="false" oncontextmenu="return false" data-act="openImg" data-url="${esc(m.url)}">`;
-  // Numa única foto/vídeo, ajusta a caixa ao formato real do ficheiro (vertical, quadrado ou horizontal)
-  // assim que as dimensões são conhecidas, em vez de forçar sempre um recorte horizontal.
-  const FIT = 'this.parentElement.style.aspectRatio=Math.min(1.91,Math.max(.8,';
-  // Vídeo: aceita desde o vertical de telemóvel (9:16) e nunca é cortado (object-fit: contain no CSS).
-  const FIT_VIDEO = 'this.parentElement.style.aspectRatio=Math.min(1.91,Math.max(.5625,';
-  const oneSingle = (m: any) => m.type?.startsWith('video')
-    ? `<video src="${esc(m.url)}" controls controlsList="nodownload noremoteplayback" disablePictureInPicture playsinline oncontextmenu="return false" preload="metadata" onloadedmetadata="${FIT_VIDEO}this.videoWidth/this.videoHeight))"></video>`
-    : `<img src="${esc(m.url)}" alt="" loading="lazy" draggable="false" oncontextmenu="return false" data-act="openImg" data-url="${esc(m.url)}" onload="${FIT}this.naturalWidth/this.naturalHeight))">`;
+  // No feed, todas as publicações têm o mesmo enquadramento (--post-ratio no CSS), preenchido.
+  // Clicar abre o visualizador com o ficheiro inteiro no formato real (9:16 a 16:9).
+  // Os vídeos não tocam dentro do feed: mostram a primeira imagem e um botão de play.
+  const one = (m: any) => m.type?.startsWith('video')
+    ? `<button class="mtile" data-act="openMedia" data-kind="video" data-url="${esc(m.url)}" aria-label="Ver vídeo"><video src="${esc(m.url)}#t=0.1" muted playsinline preload="metadata" disablePictureInPicture oncontextmenu="return false" tabindex="-1"></video><span class="play">${ic('play')}</span></button>`
+    : `<img src="${esc(m.url)}" alt="" loading="lazy" decoding="async" draggable="false" oncontextmenu="return false" data-act="openMedia" data-kind="image" data-url="${esc(m.url)}">`;
   if (p.canSee) {
     const list = (p.urls || []).filter((m: any) => m.url);
     if (!list.length) return '';
-    if (list.length === 1) return `<div class="media">${oneSingle(list[0])}${wm}</div>`;
-    return `<div class="media multi">${list.slice(0, 4).map((m: any) => `<div>${one(m)}${wm}</div>`).join('')}</div>`;
+    if (list.length === 1) return `<div class="media">${one(list[0])}${wm}</div>`;
+    const shown = list.slice(0, 4);
+    return `<div class="media multi n${shown.length}">${shown.map((m: any) => `<div>${one(m)}${wm}</div>`).join('')}</div>`;
   }
   const c = p.creator;
   const fr = !c.price;
@@ -387,6 +385,7 @@ function tipModal(creatorId: string, liveId?: string | null) {
 export const fanActions = {
   cat(d: Record<string, string>) { S.cat = d.v; rerender(); },
   comprasPage(d: Record<string, string>) { S.comprasPage = Math.max(0, +d.v || 0); rerender(false); },
+  openMedia(d: Record<string, string>) { lightbox(d.url, d.kind === 'video' ? 'video' : 'image'); },
   openImg(d: Record<string, string>) { lightbox(d.url); },
   expandBody(d: Record<string, string>) {
     const p = $(`#post-${d.id} .postbody`); if (!p) return;   // o post pode não ter texto

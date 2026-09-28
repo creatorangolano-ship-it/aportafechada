@@ -683,8 +683,21 @@ body[data-route="feed"] .top{background:var(--bg)}
   .profmain{max-width:680px}
 }
 
-/* Vídeos das publicações: nunca cortados. A caixa segue o formato real do vídeo (9:16 a
-   1.91:1); quando o limite de altura do ecrã aperta, o vídeo aparece inteiro com barras
-   pretas, como no Facebook, em vez de perder o topo e o fundo. */
-.post .media video,.post .media.multi video{object-fit:contain;background:#000}
-.post .media:has(> video){background:#000}
+/* ---------- Enquadramento único das publicações ----------
+   No feed, todas as publicações têm o mesmo formato (--post-ratio), com a foto ou o vídeo
+   a preencher. Clicar abre o visualizador (lib.ts: lightbox), onde cada ficheiro aparece
+   inteiro no formato real, entre 9:16 e 16:9. Mudar o formato do feed = mudar só esta variável. */
+:root{--post-ratio:1/1}
+.post .media,.post .media.locked,.post .media.multi{aspect-ratio:var(--post-ratio)!important;max-height:none}
+.post .media img,.post .media video,.post .media.multi img,.post .media.multi video{object-fit:cover;width:100%;height:100%}
+.post .media .mtile{display:block;position:relative;width:100%;height:100%;padding:0;border:0;background:#000;cursor:zoom-in}
+.post .media img[data-act]{cursor:zoom-in}
+.post .media .play{position:absolute;inset:0;margin:auto;width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35)}
+.post .media .play .ic{width:26px;height:26px;margin-left:3px}
+.post .media.multi{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr}
+.post .media.multi>div{aspect-ratio:auto;min-height:0}
+.post .media.multi.n2{grid-template-rows:1fr}
+.post .media.multi.n3>div:first-child{grid-row:span 2}
+.lbox-frame{position:relative;background:#000;border-radius:8px;overflow:hidden}
+.lbox .lbox-frame img,.lbox .lbox-frame video{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:0;display:block}
+.lbox-frame:fullscreen{border-radius:0}
