@@ -4,21 +4,28 @@
  * A chave `anon` do Supabase é pública por desenho: vai no JavaScript do
  * browser de qualquer visitante, não tem como estar escondida. O que a protege
  * são as políticas RLS — se uma tabela não tem política, a chave anonyma lê-na.
- * Por isso a chave está aqui à vista, e o que é mesmo secreto é a
- * `service_role`, que só vive em `SUPABASE_SERVICE_ROLE_KEY` no servidor (ver
- * `src/app/api/`), nunca no browser.
+ * O que é mesmo secreto é a `service_role`, que só vive em
+ * `SUPABASE_SERVICE_ROLE_KEY` no servidor (ver `src/app/api/`), nunca no browser.
  *
- * As variáveis NEXT_PUBLIC_ existem para poderes mover isto para as variáveis
- * de ambiente da Vercel sem tocar em código. Os valores aqui são o default
- * para o site funcionar sem configuração nenhuma.
+ * Os valores vêm das variáveis de ambiente da Vercel (Settings → Environment
+ * Variables), não do código. Localmente, `vercel env pull .env.local` trá-las.
+ * O Next substitui `process.env.NEXT_PUBLIC_*` pelo valor no momento do build,
+ * por isso cada uma tem de ser escrita por extenso — um `process.env[nome]`
+ * não seria substituído e chegava `undefined` ao browser.
  */
 
-export const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://xkcngjrlfmozlsttuxgs.supabase.co';
+function exige(nome: string, valor: string | undefined): string {
+  if (!valor) {
+    throw new Error(
+      `Falta a variável de ambiente ${nome}. Define-a na Vercel ou corre \`vercel env pull .env.local\`.`,
+    );
+  }
+  return valor;
+}
 
-export const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrY25nanJsZm1vemxzdHR1eGdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzNzQ1NTYsImV4cCI6MjEwNTk1MDU1Nn0.Hv2YEbqEUeZE46oUvW5JZGOpWdmMbWpLoAds_Lcn9pA';
+export const SUPABASE_URL = exige('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+export const SUPABASE_ANON_KEY = exige('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 /**
  * A biblioteca de vídeo das lives já não vem de um CDN: `livekit-client` é uma

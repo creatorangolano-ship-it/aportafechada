@@ -7,6 +7,7 @@ Os dados vivem no Supabase; a SPA desenha e envia pedidos, não decide nada.
 
 ```bash
 npm install
+vercel env pull .env.local   # traz as variáveis de ambiente da Vercel
 npm run dev
 ```
 
@@ -33,7 +34,7 @@ Variáveis de ambiente (Vercel → Project → Settings → Environment Variable
 | `SUPABASE_SERVICE_ROLE_KEY` | API routes (`src/lib/server/guarda.ts`). **Nunca** com prefixo `NEXT_PUBLIC_`. |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `/api/live-token` |
 | `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET` | `/api/create-order`, `/api/paypal-capture` |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | opcionais; o default está em `src/lib/config.ts` |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | obrigatórias; lidas em `src/lib/config.ts`. Na Vercel estão como tipo `config` (públicas). |
 
 ### Funções do servidor: edge functions vs `/api`
 

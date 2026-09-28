@@ -34,3 +34,6 @@ paypal.secret
 # Service workers gerados por ferramentas de PWA
 workbox-*.js
 sw.js.map
+
+.env*
+!.env.example
