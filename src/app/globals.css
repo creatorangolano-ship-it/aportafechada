@@ -604,3 +604,78 @@ body.console .adtop{padding-right:52px}
   body.console .adbell{top:calc(10px + env(safe-area-inset-top,0px));right:16px}
 }
 @media (prefers-reduced-motion:reduce){.adside,.adbody,.qcard{transition:none}}
+
+/* ---------- Feed e publicações, com as medidas do Facebook ----------
+   Três colunas: laterais até 360 px encostadas às margens, feed central até
+   680 px (o do Facebook anda nos 500–680). Fundo cinzento e cartões brancos
+   com sombra leve; cabeçalho com avatar de 40 px; média de ponta a ponta; barra
+   de acções com botões iguais. Abaixo de 1100 px sai a coluna esquerda, abaixo
+   de 900 px fica só o feed. */
+:root{--feed-bg:#F0F2F5}
+:root[data-theme="dark"]{--feed-bg:#0B0A0B}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.avatar.md{width:40px;height:40px;font-size:15px}
+
+html[data-route="feed"],html[data-route="feed"] body{background:var(--feed-bg)}
+body[data-route="feed"] #app{max-width:1400px;padding-inline:16px}
+body[data-route="feed"] .top{background:var(--bg)}
+.feedwrap,.feedwrap.has-left{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,680px) minmax(220px,1fr);gap:32px;align-items:start;padding-top:16px}
+.feedwrap>.feedcol{grid-column:2;gap:16px;min-width:0}
+.feedwrap>.promoside{grid-column:1;width:auto;max-width:300px;position:sticky;top:80px}
+.feedwrap>.rail2{grid-column:3;position:sticky;top:80px;max-width:340px;justify-self:end;width:100%}
+.feedwrap .promostrip{margin-bottom:0}
+.feedwrap .promocard.v{height:300px}
+
+.post{padding:0;gap:0;border:0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}
+:root[data-theme="dark"] .post{box-shadow:none;border:1px solid var(--line)}
+.post .phd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px 0}
+.post .pauthor{display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0}
+.post .pauthor>span{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.post .pauthor b{color:var(--ink);font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post .pmeta{font-size:13px;color:var(--muted)}
+.post .ptx{padding:10px 16px 0}
+.post .ptx:empty{display:none}
+.post .ptx h4{font-size:15px;font-weight:700}
+.post .postbody{font-size:15px;line-height:1.34;margin-top:2px}
+.post .ptx h4+.postbody{margin-top:4px}
+.post .media{margin-top:12px;border-radius:0;aspect-ratio:1/1;max-height:min(80vh,720px);background:var(--surface-3)}
+.post .media.multi{padding:0;gap:2px;max-height:none}
+.post .media.locked{aspect-ratio:4/3}
+.post .media.multi>div{border-radius:0}
+.post .textlock{margin:12px 16px 0}
+.post .pf{margin:12px 12px 4px;padding:4px 0;gap:4px;border-top:1px solid var(--line)}
+.post .pf button{flex:1;justify-content:center;gap:6px;min-height:36px;padding:6px 8px;border-radius:6px;font-size:15px;font-weight:600;color:var(--muted)}
+.post .pf button:hover:not(:disabled){background:var(--surface-2)}
+.post .pf button:disabled{opacity:.5;cursor:default}
+.post .pf button.on{color:var(--acc-text)}
+.post .pf button .num{font-weight:500;font-size:14px}
+.post .pf button.ico{flex:none;width:40px;padding:6px}
+.post .pf .ic{width:20px;height:20px}
+
+@media (max-width:1100px){
+  .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(0,680px) minmax(260px,340px);justify-content:center;gap:24px}
+  .feedwrap>.feedcol{grid-column:1}
+  .feedwrap>.rail2{grid-column:2}
+  /* As promoções da esquerda passam para uma fila horizontal por cima do feed. */
+  .feedwrap>.promoside{grid-column:1;grid-row:1;position:static;flex-direction:row;overflow-x:auto;max-width:none;scrollbar-width:none}
+  .feedwrap>.promoside .promocard.v{width:240px;height:180px;flex:none}
+  .feedwrap.has-left>.feedcol,.feedwrap.has-left>.rail2{grid-row:2}
+}
+@media (max-width:900px){
+  body[data-route="feed"] #app{padding-inline:0}
+  .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(0,680px);gap:12px;padding-top:8px}
+  .feedwrap>.rail2{grid-column:1;grid-row:auto;position:static;max-width:none;justify-self:stretch;padding-inline:12px}
+  .feedwrap>.promoside{padding-inline:12px}
+  .feedwrap>.feedcol{gap:8px}
+  /* Como no Facebook em telemóvel: cartões de ponta a ponta, sem cantos. */
+  .post{border-radius:0;box-shadow:none;border-block:1px solid var(--line)}
+  .feedcol>.box.empty{margin-inline:12px}
+}
+@media (max-width:480px){.post .pf .lbl{display:none}}
+@media (max-width:380px){.post .pf button{font-size:14px}}
+/* Perfil: como no Facebook, apresentação à esquerda (~340 px) e publicações até 680 px. */
+@media (min-width:861px){
+  .profwrap{justify-content:center}
+  .profside{width:340px}
+  .profmain{max-width:680px}
+}

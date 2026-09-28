@@ -73,15 +73,17 @@ function mediaHTML(p: any) {
 export function postHTML(p: any) {
   const c = p.creator, mine = p.creator_id === me_().id;
   const tag = p.access === 'free' ? '<span class="tag plain">Grátis</span>' : p.access === 'subscribers' ? `<span class="tag acc">${ic('lock')}${c.price ? 'Subscritores' : 'Seguidores'}</span>` : `<span class="tag warn">${ic('lock')}${kz(p.price)}</span>`;
+  // Cartão ao estilo do Facebook: cabeçalho e texto com margem, média de ponta a
+  // ponta, e uma barra de acções de largura total com botões iguais.
   return `<article class="box post" id="post-${p.id}">
-   <div class="row between"><a class="row" style="gap:10px;text-decoration:none" href="#perfil-${esc(c.profile.handle)}">${avatarOf(c.profile, 'sm')}<div><b style="color:var(--ink)">${esc(cname(c))}</b><div class="small muted">${ago(p.published_at || p.created_at)}</div></div></a>${tag}</div>
-   <div><h4>${esc(p.title)}</h4>${p.canSee && p.body ? `<p class="postbody clamp" style="margin-top:4px">${esc(p.body)}</p><button class="btn link small more-btn" data-act="expandBody" data-id="${p.id}" hidden>Ver mais</button>` : ''}</div>
+   <header class="phd"><a class="pauthor" href="#perfil-${esc(c.profile.handle)}">${avatarOf(c.profile, 'md')}<span><b>${esc(cname(c))}</b><span class="pmeta">${ago(p.published_at || p.created_at)}</span></span></a>${tag}</header>
+   <div class="ptx">${p.title ? `<h4>${esc(p.title)}</h4>` : ''}${p.canSee && p.body ? `<p class="postbody clamp">${esc(p.body)}</p><button class="btn link small more-btn" data-act="expandBody" data-id="${p.id}" hidden>Ver mais</button>` : ''}</div>
    ${mediaHTML(p)}
    <div class="pf">
-    <button data-act="like" data-id="${p.id}" class="${p.liked ? 'on' : ''}" aria-pressed="${p.liked}" aria-label="Gosto" ${p.canSee ? '' : 'disabled'}>${ic('heart', p.liked ? 'fill="currentColor"' : '')}<span class="num">${dots(p.like_count)}</span></button>
-    ${mine ? '' : `<button data-act="tip" data-id="${c.id}">${ic('gift')}Gorjeta</button>`}
-    ${mine ? '' : `<button data-act="report" data-type="post" data-id="${p.id}" aria-label="Denunciar">${ic('flag')}</button>`}
-    <button class="sp ${p.saved ? 'on' : ''}" data-act="save" data-id="${p.id}" aria-label="Guardar">${ic('bookmark', p.saved ? 'fill="currentColor"' : '')}</button>
+    <button data-act="like" data-id="${p.id}" class="${p.liked ? 'on' : ''}" aria-pressed="${p.liked}" aria-label="Gosto" ${p.canSee ? '' : 'disabled'}>${ic('heart', p.liked ? 'fill="currentColor"' : '')}<span class="lbl">Gosto</span><span class="num">${dots(p.like_count)}</span></button>
+    ${mine ? '' : `<button data-act="tip" data-id="${c.id}">${ic('gift')}<span class="lbl">Gorjeta</span></button>`}
+    <button class="${p.saved ? 'on' : ''}" data-act="save" data-id="${p.id}" aria-label="Guardar">${ic('bookmark', p.saved ? 'fill="currentColor"' : '')}<span class="lbl">Guardar</span></button>
+    ${mine ? '' : `<button class="ico" data-act="report" data-type="post" data-id="${p.id}" aria-label="Denunciar" title="Denunciar">${ic('flag')}</button>`}
    </div></article>`;
 }
 
@@ -163,7 +165,7 @@ export async function vFeed() {
   }
   return `<div class="feedwrap ${promos.esquerda.length ? 'has-left' : ''}">${promoSide(promos.esquerda)}<div class="feedcol">
    ${promoTop(promos)}
-   <div><h1>Início</h1><p class="muted" style="margin-top:6px">Publicações de quem segues e subscreves.</p></div>
+   <h1 class="sr-only">Início</h1>
    ${posts.length ? posts.map(postHTML).join('') : `<div class="box empty"><h3>O teu início está vazio</h3><p style="margin-top:6px">Segue ou subscreve criadores e as publicações deles aparecem aqui.</p><a class="btn pri" style="margin-top:14px" href="#explorar">Explorar criadores</a></div>`}
   </div>${await sideRail(promos.direita)}</div>`;
 }
