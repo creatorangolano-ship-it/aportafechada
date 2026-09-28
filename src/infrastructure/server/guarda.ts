@@ -27,7 +27,7 @@
 import 'server-only';
 
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import { SUPABASE_URL } from '@/lib/config';
+import { SUPABASE_URL } from '@/infrastructure/config';
 
 /** Resposta de erro, no formato que o `fn()` do browser sabe ler. */
 export function erro(mensagem: string, estado = 400): Response {

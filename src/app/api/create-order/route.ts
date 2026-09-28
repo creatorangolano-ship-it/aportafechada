@@ -28,8 +28,8 @@
  * `supabase/AUDITORIA.md` antes de a implementar.
  */
 
-import { exigeSessao, erro } from '@/lib/server/guarda';
-import { porImplementar } from '@/lib/server/porImplementar';
+import { exigeSessao, erro } from '@/infrastructure/server/guarda';
+import { porImplementar } from '@/infrastructure/server/porImplementar';
 
 export const dynamic = 'force-dynamic';
 

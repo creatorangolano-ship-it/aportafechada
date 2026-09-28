@@ -1,11 +1,8 @@
-// Utilitários: cliente Supabase, ícones, formatação, modais, ficheiros
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
+// Utilitários da interface: DOM, ícones, formatação, modais, imagens.
+// O acesso ao Supabase (cliente, funções, armazenamento) vive em src/infrastructure/supabase
+// e é reexportado no fim deste ficheiro para as áreas que ainda não foram migradas.
+import { sb } from '../infrastructure/supabase/client';
 import type { Profile } from './types';
-
-export const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
-});
 
 /* ---------- DOM ---------- */
 
@@ -296,53 +293,6 @@ export function errText(e: unknown): string {
   return m || 'Algo correu mal. Tenta outra vez.';
 }
 
-/** Rotas de `src/app/api/<nome>/route.ts` que já têm a lógica de negócio escrita.
- *  As restantes ainda respondem 501, por isso o `fn()` continua a mandá-las para a
- *  edge function do Supabase com o mesmo nome, que é a que funciona em produção.
- *  Quando uma rota estiver implementada e testada, acrescenta aqui o nome dela. */
-const ROTAS_PRONTAS = new Set<string>([]);
-
-/** Chama uma função do servidor e devolve os dados ou lança um erro com a mensagem.
- *
- *  Por omissão vai à edge function do Supabase (`/functions/v1/<nome>`). Se o
- *  nome estiver em `ROTAS_PRONTAS`, vai ao route handler do Next no mesmo
- *  domínio. O nome e o corpo são os mesmos nos dois casos, por isso os pontos de
- *  chamada não mudam.
- */
-export async function fn<T = unknown>(name: string, body: unknown): Promise<T> {
-  if (!ROTAS_PRONTAS.has(name)) {
-    const { data, error } = await sb.functions.invoke(name, { body: body as Record<string, unknown> });
-    if (error) {
-      let msg = error.message;
-      try { const j = await error.context.json(); msg = j.error || msg; } catch { /* sem corpo */ }
-      throw new Error(msg);
-    }
-    if (data?.error) throw new Error(data.error);
-    return data as T;
-  }
-  const res = await fetch(`/api/${name}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    // A sessão do Supabase vive no localStorage, não num cookie, por isso tem
-    // de ir no cabeçalho em vez de ser o browser a anexá-la sozinha.
-    body: JSON.stringify({ ...(body as object), __access_token: await accessToken() }),
-  });
-  const txt = await res.text();
-  let j: any = null;
-  try { j = txt ? JSON.parse(txt) : null; } catch { /* resposta sem JSON */ }
-  if (!res.ok) throw new Error(j?.error || txt || `Erro ${res.status}`);
-  if (j?.error) throw new Error(j.error);
-  return j as T;
-}
-
-/** O JWT da sessão actual, ou null. Vai no corpo das chamadas ao servidor
- *  porque o auth do Supabase guarda-se em localStorage e não em cookie —
- *  um cookie de sessão seria httpOnly e o browser não o poderia ler. */
-export async function accessToken(): Promise<string | null> {
-  const { data } = await sb.auth.getSession();
-  return data.session?.access_token ?? null;
-}
-
 /** Campo obrigatório de um formulário ou modal.
  *  O despachante de ações em main.ts é global: um handler pode ser chamado sem a janela estar
  *  aberta (clique sintético, ou um re-render que removeu o formulário entre o mousedown e o
@@ -357,35 +307,6 @@ export function field<T extends HTMLInputElement | HTMLSelectElement | HTMLTextA
 export const fieldOr = (sel: string, fallback = ''): string => ($(sel) as HTMLInputElement | null)?.value ?? fallback;
 
 /* ---------- Ficheiros ---------- */
-
-type Cached = { url: string; exp: number };
-const urlCache = new Map<string, Cached>();
-
-/** Limpa as URLs assinadas em cache. Tem de ser chamado ao sair/ trocar de conta: numa máquina
- *  partilhada, o URL assinado de um ficheiro privado ficaria disponível para a conta seguinte. */
-export function clearUrlCache(): void { urlCache.clear(); }
-
-/** URLs temporários para ficheiros privados. Os que o utilizador não pode ver ficam em falta. */
-export async function signedUrls(bucket: string, paths: string[], ttl = 3600): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  // Filtra entradas vazias: createSignedUrls falha no lote inteiro se alguma for null/undefined.
-  const list = [...new Set(paths.filter(Boolean))];
-  const need2 = list.filter((p) => {
-    const c = urlCache.get(bucket + p);
-    if (c && c.exp > Date.now()) { out[p] = c.url; return false; }
-    return true;
-  });
-  if (need2.length) {
-    const { data } = await sb.storage.from(bucket).createSignedUrls(need2, ttl);
-    for (const r of data || []) {
-      if (r.signedUrl && r.path && !r.error) {
-        out[r.path] = r.signedUrl;
-        urlCache.set(bucket + r.path, { url: r.signedUrl, exp: Date.now() + (ttl - 60) * 1000 });
-      }
-    }
-  }
-  return out;
-}
 
 const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export type ImageKind = { type: 'image/jpeg' | 'image/png' | 'image/webp'; ext: 'jpg' | 'png' | 'webp' };
@@ -409,23 +330,6 @@ export async function assertImage(file: File | null | undefined, label = 'a imag
     : { type: 'image/webp', ext: 'webp' };
 }
 
-export async function upload(bucket: string, path: string, file: File, opts: { upsert?: boolean } = {}): Promise<string> {
-  const { error } = await sb.storage.from(bucket).upload(path, file, {
-    upsert: !!opts.upsert,
-    contentType: file.type || undefined,
-    cacheControl: '3600',
-  });
-  if (error) {
-    throw new Error(/Payload too large|exceeded/i.test(error.message)
-      ? 'O ficheiro é demasiado grande.'
-      : error.message);
-  }
-  return path;
-}
-
-export function publicUrl(bucket: string, path: string): string {
-  return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-}
 export const safeName = (n: string | null | undefined): string =>
   String(n || 'ficheiro').normalize('NFD').replace(/[^\w.\-]+/g, '_').slice(-60);
 
@@ -559,3 +463,12 @@ export const go = (r: string): void => {
   if (location.hash === '#' + r) rerender(false);
   else location.hash = r;
 };
+
+/* ---------- Acesso a dados (legado) ----------
+ * Reexportado para as áreas da interface que ainda chamam o Supabase
+ * directamente. As áreas migradas (administração, pagamentos) passam pela
+ * camada de aplicação (src/application) e não usam nada disto.
+ * `npm run check:arch` conta quantas chamadas directas ainda restam. */
+export { sb } from '../infrastructure/supabase/client';
+export { fn, accessToken } from '../infrastructure/supabase/functions';
+export { signedUrls, clearUrlCache, upload, publicUrl } from '../infrastructure/supabase/storage';

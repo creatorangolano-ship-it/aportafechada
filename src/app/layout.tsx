@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
-import { SUPABASE_URL } from '@/lib/config';
+import { SUPABASE_URL } from '@/infrastructure/config';
 import './globals.css';
 
 /**

@@ -24,8 +24,8 @@
  *     todo o resto da app.
  */
 
-import { admin, erro } from '@/lib/server/guarda';
-import { porImplementar } from '@/lib/server/porImplementar';
+import { admin, erro } from '@/infrastructure/server/guarda';
+import { porImplementar } from '@/infrastructure/server/porImplementar';
 
 export const dynamic = 'force-dynamic';
 
