@@ -145,7 +145,10 @@ export async function render(keep = false): Promise<void> {
   }
   if (seq !== renderSeq) return; // outra navegação entretanto
   app.innerHTML = h;
-  $('#foot')!.hidden = !!(S.me?.onboarded) && !INFO.includes(r);
+  // O rodapé (Sobre, Termos, Privacidade…) aparece em todas as páginas, também com sessão.
+  // Só sai das que ocupam o ecrã inteiro: a consola, as mensagens e as salas de live.
+  const base = r.split('-')[0];
+  $('#foot')!.hidden = r === 'admin' || base === 'mensagens' || base === 'live';
   const t10 = $('#footTop10'); if (t10) t10.hidden = r === 'inicio';
   if (!keep) window.scrollTo(0, 0);
   const cs = $('#chatScroll'); if (cs) cs.scrollTop = cs.scrollHeight;

@@ -245,14 +245,7 @@ export async function vPerfil(handle: any) {
      <div class="row" style="justify-content:space-between"><span class="muted small">Cidade</span><b>${esc(c.city)}</b></div>
     </div>
     <div class="row wrapf" style="gap:6px"><span class="tag plain">${esc(c.category)}</span>${c.status === 'approved' ? `<span class="tag ok">${ic('badge')}Verificada</span>` : '<span class="tag plain">Em verificação</span>'}</div>
-   </div>
-   <nav class="stack" style="gap:8px" aria-label="Rodapé do perfil">
-    <a href="#sobre">Sobre a plataforma</a><a href="#funciona">Como funciona</a><a href="#top">Top 10</a>
-    <a href="#termos">Termos e condições</a><a href="#privacidade">Política de privacidade</a><a href="#regras">Regras</a>
-    <a href="#faq">Perguntas frequentes</a><a href="#dmca">Direitos de autor</a><a href="#contacto">Contacto</a>
-    <a href="#afiliados">Afiliados</a><a href="#blog">Blog</a>
-   </nav>
-   <span class="small muted">© ${new Date().getFullYear()} À Porta Fechada</span>`;
+   </div>`;
   return `${c.status !== 'approved' ? `<div class="banner">${ic('clock')}<span><b>O teu perfil está em verificação.</b> Só tu o vês até a equipa aprovar os documentos.</span></div>` : ''}
    <div class="cover" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></div>
    <section class="phead">${prof.avatar_url ? `<div class="big"><img src="${esc(prof.avatar_url)}" alt=""></div>` : `<div class="big">${esc((cname(c) || '?')[0].toUpperCase())}</div>`}

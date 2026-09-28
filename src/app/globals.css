@@ -61,7 +61,10 @@ button,input,select,textarea{font:inherit;color:inherit}
   .tabbar a.on{color:var(--acc-text)}
   .tabbar .ic{width:22px;height:22px}
   .tabbar .count{position:absolute;top:0;left:calc(50% + 6px)}
-  body.authed main{padding-bottom:88px}
+  body.authed main{padding-bottom:24px}
+  /* A barra de separadores fica por cima do fim da página: o rodapé deixa-lhe espaço. */
+  body.authed .pub-foot{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  body.authed main:has(+ .pub-foot[hidden]){padding-bottom:88px}
 }
 main{padding-block:32px 64px;min-height:70vh}
 .foot{border-top:1px solid var(--line);padding-block:22px;color:var(--muted);font-size:13px}
