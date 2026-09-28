@@ -1,10 +1,10 @@
 // Arranque, cabeçalho, notificações, rotas e eventos
-import { sb, $, $$, esc, kz, ic, LOGO, avatarOf, toast, closeModal, errText, ago, rerender, go } from './lib.js';
-import { S, loadMe, loadCfg, loadCounts, refreshMe } from './state.js';
+import { sb, $, $$, esc, kz, ic, LOGO, avatarOf, toast, closeModal, errText, ago, rerender, go, clearUrlCache } from './lib.js';
+import { S, loadMe, loadCfg, loadCounts, refreshMe, isStaff } from './state.js';
 import { handlePaypalReturn, payActions, payChange, paySubmit } from './pay.js';
 import { vInicio, vSignup, vConfirmEmail, vNovaSenha, vOnboarding, vTop, vInfo, INFO, publicActions, publicSubmit, publicChange, startOnboarding } from './views/public.js';
 import { vFeed, vExplorar, vPerfil, vPost, vSubs, vCarteira, vCompras, exploreGrid, fanActions } from './views/fan.js';
-import { vMensagens, msgActions, msgSubmit, msgChange, startMessagesRealtime, stopMessagesRealtime } from './views/messages.js';
+import { vMensagens, msgActions, msgSubmit, msgChange, startMessagesRealtime, stopMessagesRealtime, setRealtimeThread } from './views/messages.js';
 import { vLives, vLive, mountLive, liveActions, liveSubmit } from './views/lives.js';
 import { vEstudio, studioActions, studioSubmit, studioChange, studioInput } from './views/studio.js';
 import { vConta, accountActions, accountSubmit, accountChange } from './views/account.js';
@@ -16,7 +16,6 @@ function setTheme(t) { document.documentElement.dataset.theme = t; try { localSt
 
 /* ---------- Cabeçalho ---------- */
 const PUBLIC = ['inicio', 'registar', 'confirmar', 'nova-senha', 'top', ...INFO];
-const isStaff = (u) => u?.role === 'admin' || u?.role === 'moderator';
 function navFor() {
   const n = [['feed', 'Início', 'home'], ['explorar', 'Explorar', 'compass'], ['lives', 'Lives', 'live'], ['mensagens', 'Mensagens', 'chat']];
   if (S.creator) return [['estudio', 'Estúdio', 'grid'], ...n];
@@ -57,8 +56,15 @@ function header(r) {
 }
 
 /* ---------- Rotas ---------- */
-const route = () => decodeURIComponent((location.hash || '').slice(1)) || 'inicio';
-const home = () => S.creator ? 'estudio' : isStaff(S.me) ? 'admin' : 'feed';
+// Um link partilhado truncado ("#p-%", ou o WhatsApp a cortar a query) faz decodeURIComponent
+// lançar URIError. Sem este try, render() morria antes do seu próprio try e a app ficava
+// presa no "A carregar…" sem forma de recuperar sem recarregar a página.
+const route = () => {
+  let h = (location.hash || '').slice(1);
+  try { h = decodeURIComponent(h); } catch { h = ''; }
+  return h || 'inicio';
+};
+const home = () => S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed';
 let renderSeq = 0;
 
 async function render(keep = false) {
@@ -124,7 +130,7 @@ function startRealtime() {
     }).subscribe();
   startMessagesRealtime();
 }
-function stopRealtime() { if (notifCh) { sb.removeChannel(notifCh); notifCh = null; } stopMessagesRealtime(); }
+function stopRealtime() { if (notifCh) { sb.removeChannel(notifCh); notifCh = null; } setRealtimeThread(null); stopMessagesRealtime(); }
 
 /* ---------- Ações ---------- */
 const A = {
@@ -143,12 +149,14 @@ const A = {
     S.notifs.forEach((n) => (n.read_at = n.read_at || new Date().toISOString())); S.unreadNotifs = 0; header(route());
   },
   async notifGo(d) {
-    await sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', d.id).is('read_at', null);
+    // .eq('user_id', ...) para além do id: sem isto, um id adulterado marcava a notificação
+    // de outra pessoa como lida, e a segurança ficava só na RLS.
+    await sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', d.id).eq('user_id', S.me.id).is('read_at', null);
     S.notifOpen = false; await loadCounts();
     const l = d.link || '';
     go(l.startsWith('post/') ? 'p-' + l.slice(5) : l.startsWith('live/') ? 'live-' + l.slice(5) : l || home());
   },
-  async logout() { S.menu = false; closeModal(); await sb.auth.signOut(); },
+  async logout() { S.menu = false; closeModal(); clearUrlCache(); await sb.auth.signOut(); },
   becomeCreator() { S.menu = false; if (S.creator) { toast('Já tens conta de criador.'); return go('estudio'); } startOnboarding(true); go('registar'); },
 };
 
@@ -175,15 +183,32 @@ document.addEventListener('paste', (e) => {
   const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!t) return;
   e.preventDefault(); const all = [...document.querySelectorAll('.cd')]; all.forEach((i, k) => (i.value = t[k] || '')); all[Math.min(t.length, 5)].focus();
 });
-let qT = null;
+// Um temporizador por campo. Com um único qT partilhado, escribir nas mensagens cancelava a
+// pesquisa de criadores a meio e vice-versa.
+let qT = null, tqT = null, uqT = null, exploreSeq = 0;
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.classList.contains('cd')) { t.value = t.value.replace(/\D/g, '').slice(-1); if (t.value && t.nextElementSibling) t.nextElementSibling.focus(); return; }
-  if (t.id === 'q') { S.q = t.value; clearTimeout(qT); qT = setTimeout(async () => { const g = $('#cgrid'); if (g) g.innerHTML = await exploreGrid(); }, 300); return; }
-  if (t.id === 'tq') { S.tq = t.value; clearTimeout(qT); qT = setTimeout(async () => { await render(true); const n = $('#tq'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 350); return; }
-  if (t.id === 'uq') { S.uq = t.value; clearTimeout(qT); qT = setTimeout(async () => { await render(true); const n = $('#uq'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 350); return; }
+  if (t.id === 'q') {
+    S.q = t.value; clearTimeout(qT);
+    const seq = ++exploreSeq;
+    qT = setTimeout(async () => {
+      const html = await exploreGrid();
+      if (seq !== exploreSeq) return;        // uma pesquisa mais lenta já não interessa
+      const g = $('#cgrid'); if (g) g.innerHTML = html;
+    }, 300);
+    return;
+  }
+  if (t.id === 'tq') { S.tq = t.value; clearTimeout(tqT); tqT = setTimeout(() => { renderKeepFocus('#tq'); }, 350); return; }
+  if (t.id === 'uq') { S.uq = t.value; clearTimeout(uqT); uqT = setTimeout(() => { renderKeepFocus('#uq'); }, 450); return; }
   studioInput(t);
 });
+/** Redesenha mantendo o cursor no fim do campo de pesquisa, para não interromper a escrita. */
+async function renderKeepFocus(sel) {
+  await render(true);
+  const n = $(sel);
+  if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+}
 document.addEventListener('change', async (e) => {
   const t = e.target;
   if (payChange(t)) return;
@@ -217,7 +242,7 @@ window.addEventListener('hashchange', () => { S.ptab = 'pub'; render(false); });
 
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') { S.recovery = true; await loadMe(); location.hash = 'nova-senha'; return; }
-    if (event === 'SIGNED_OUT') { stopRealtime(); S.me = null; S.creator = null; S.reg = null; S.thread = null; S.recovery = false; location.hash = 'inicio'; render(); return; }
+    if (event === 'SIGNED_OUT') { stopRealtime(); clearUrlCache(); S.me = null; S.creator = null; S.reg = null; S.thread = null; S.recovery = false; location.hash = 'inicio'; render(); return; }
     if (event === 'SIGNED_IN') {
       // Se outra conta entrou noutro separador deste navegador (a sessão é partilhada), esta página
       // ficaria a mostrar o utilizador antigo com dados de outra pessoa (ex.: mensagens da conta errada).

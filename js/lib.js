@@ -10,6 +10,22 @@ export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const dots = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 export const kz = (n) => dots(n) + ' Kz';
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Só deixa passar esquemas de URL que não executam código. `esc()` não chega: um `href="javascript:…"`
+ *  escapado continua a ser um link executável quando alguém clica. Tudo o que for `javascript:`,
+ *  `data:`, `vbscript:` ou um esquema desconhecido é trocado por '#'. */
+export function safeHref(url) {
+  const u = String(url ?? '').trim();
+  if (!u) return '';
+  // Relativas internas (#rota, /caminho) e esquemas seguros. `https:`, `http:`, `mailto:`, `tel:`.
+  if (/^[#/?]/.test(u)) return u;
+  if (/^(https?:|mailto:|tel:)/i.test(u)) return u;
+  return '';
+}
+/** Versão para atributos href/src: nunca devolve string vazia (devolve '#' em vez disso). */
+export const safeLink = (url) => safeHref(url) || '#';
+/** true se o URL abre noutro separador de forma segura (usar sempre com rel="noopener"). */
+export const isExternal = (url) => /^https?:/i.test(String(url || ''));
 export const uuid = () => crypto.randomUUID();
 export const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
 
@@ -192,17 +208,49 @@ export async function fn(name, body) {
   return data;
 }
 
+/** Campo obrigatório de um formulário ou modal.
+ *  O despachante de ações em main.js é global: um handler pode ser chamado sem a janela estar
+ *  aberta (clique sintético, ou um re-render que removeu o formulário entre o mousedown e o
+ *  clique). Ler `$(sel).value` diretamente daí dá um TypeError cru; isto dá uma mensagem útil.
+ *  A Window de erro do main.js mostra-a ao utilizador. */
+export function field(sel) {
+  const el = $(sel);
+  if (!el) throw new Error('Este formulário já não está aberto. Fecha e abre outra vez.');
+  return el;
+}
+/** Igual a field(), mas devolve '' em vez de rebentar quando é opcional. */
+export const fieldOr = (sel, fallback = '') => $(sel)?.value ?? fallback;
+
 /* ---------- Ficheiros ---------- */
 const urlCache = new Map();
+/** Limpa as URLs assinadas em cache. Tem de ser chamado ao sair/ trocar de conta: num máquina
+ *  partilhada, o URL assinado de um ficheiro privado ficaria disponível para a conta seguinte. */
+export function clearUrlCache() { urlCache.clear(); }
 /** URLs temporários para ficheiros privados. Os que o utilizador não pode ver ficam em falta. */
 export async function signedUrls(bucket, paths, ttl = 3600) {
   const out = {};
-  const need = paths.filter((p) => { const c = urlCache.get(bucket + p); if (c && c.exp > Date.now()) { out[p] = c.url; return false; } return true; });
+  // Filtra entradas vazias: createSignedUrls falha no lote inteiro se alguma for null/undefined.
+  const list = [...new Set(paths.filter(Boolean))];
+  const need = list.filter((p) => { const c = urlCache.get(bucket + p); if (c && c.exp > Date.now()) { out[p] = c.url; return false; } return true; });
   if (need.length) {
     const { data } = await sb.storage.from(bucket).createSignedUrls(need, ttl);
     for (const r of data || []) if (r.signedUrl && !r.error) { out[r.path] = r.signedUrl; urlCache.set(bucket + r.path, { url: r.signedUrl, exp: Date.now() + (ttl - 60) * 1000 }); }
   }
   return out;
+}
+const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+/** Confirma que o ficheiro é mesmo uma imagem pelos bytes, não pelo atributo File.type.
+ *  `accept="image/*"` e um File.type inventado não chegam: um .html/.svg/.swf guardado num
+ *  bucket público com esse MIME seria servido e executado na origem do Supabase. */
+export async function assertImage(file, label = 'a imagem') {
+  if (!file) throw new Error('Escolhe um ficheiro.');
+  if (file.size > 12e6) throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} é demasiado grande (máx. 12 MB).`);
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isJpeg = head[0] === 0xff && head[1] === 0xd8;
+  const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  const isWebp = String.fromCharCode(...head.slice(0, 4)) === 'RIFF' && String.fromCharCode(...head.slice(8, 12)) === 'WEBP';
+  if (!(isJpeg || isPng || isWebp)) throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} tem de ser JPG, PNG ou WebP.`);
+  return { type: isJpeg ? 'image/jpeg' : isPng ? 'image/png' : 'image/webp', ext: isJpeg ? 'jpg' : isPng ? 'png' : 'webp' };
 }
 export async function upload(bucket, path, file, opts = {}) {
   const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: !!opts.upsert, contentType: file.type || undefined, cacheControl: '3600' });

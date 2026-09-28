@@ -1,5 +1,5 @@
 // Conta: perfil, pagamentos, afiliados, segurança, tornar-se criador
-import { sb, $, $$, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, fn, upload, publicUrl, shrinkImage, cropImage, rerender, go } from '../lib.js';
+import { sb, $, $$, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, fn, upload, publicUrl, shrinkImage, cropImage, assertImage, rerender, go } from '../lib.js';
 import { S, refreshMe } from '../state.js';
 import { CATS, COUNTRIES } from '../config.js';
 import { startOnboarding } from './public.js';
@@ -52,7 +52,7 @@ export async function vConta() {
 
 export const accountActions = {
   ctTab(d) { S.ctTab = d.v; rerender(false); },
-  ctGo(d) { S.ctTab = d.v; },
+  ctGo(d) { S.ctTab = d.v; rerender(false); },
   becomeCreator() { S.menu = false; if (S.creator) { toast('Já tens conta de criador.'); return go('estudio'); } startOnboarding(true); go('registar'); },
   async logoutAll() { await sb.auth.signOut({ scope: 'global' }); },
   async mfaOn() {
@@ -78,7 +78,11 @@ export const accountActions = {
     modal(`<h3>Eliminar conta</h3><p class="muted">Isto apaga o perfil, as publicações, as mensagens, as subscrições e o saldo da carteira. Não pode ser desfeito.</p><div class="field"><label for="delConf">Escreve ELIMINAR para confirmar</label><input id="delConf" autocomplete="off"></div><span class="err" id="delErr" hidden></span><button class="btn pri block" data-act="delAccountOk">Eliminar a minha conta</button>`);
   },
   async delAccountOk() {
-    try { await fn('delete-account', { confirm: $('#delConf').value.trim() }); } catch (e) { return showErr('#delErr', errText(e)); }
+    // A frase de confirmação era pedida ao utilizador mas nunca lida aqui: bastava um clique.
+    // A verificação real também tem de existir no delete-account do servidor.
+    const typed = $('#delConf')?.value.trim() || '';
+    if (typed !== 'ELIMINAR') return showErr('#delErr', 'Escreve ELIMINAR em maiúsculas para confirmar.');
+    try { await fn('delete-account', { confirm: typed }); } catch (e) { return showErr('#delErr', errText(e)); }
     closeModal(); await sb.auth.signOut(); toast('A tua conta foi eliminada');
   },
 };
@@ -106,10 +110,12 @@ export async function accountChange(t) {
   if (t.id !== 'accAvatar' || !t.files[0]) return false;
   const file = t.files[0]; t.value = '';
   try {
+    // Bucket público: confirmar os bytes evita subir HTML/SVG com o content-type do cliente.
+    await assertImage(file, 'a foto de perfil');
     const cropped = await cropImage(file, 1, { shape: 'round', output: 600 });
     if (!cropped) return true;
     const small = await shrinkImage(cropped, 600), path = `${S.me.id}/avatar-${Date.now()}.jpg`;
-    await upload('avatars', path, small, { upsert: true });
+    await upload('avatars', path, new File([small], path.split('/').pop(), { type: 'image/jpeg' }), { upsert: true });
     const { error } = await sb.from('profiles').update({ avatar_url: publicUrl('avatars', path) }).eq('id', S.me.id);
     if (error) throw error;
     await refreshMe(); toast('Foto atualizada'); rerender();

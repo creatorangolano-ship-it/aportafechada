@@ -1,5 +1,8 @@
 // Estúdio do criador: resumo, publicações, lives, subscritores, perfil, ganhos, afiliados
-import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, monthName, upload, publicUrl, safeName, blurPreview, shrinkImage, cropImage, uuid, busy, copyText, rerender, go } from '../lib.js';
+import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, monthName, upload, publicUrl, safeName, blurPreview, shrinkImage, cropImage, assertImage, uuid, busy, copyText, rerender, go } from '../lib.js';
+const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+/** `esc()` não protege um URL dentro de url('…') — ver nota em fan.js. */
+const cssUrl = (u) => `url("${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}")`;
 import { S, refreshMe, netPct } from '../state.js';
 import { CATS, CITIES, BANKS } from '../config.js';
 import { startOnboarding } from './public.js';
@@ -125,7 +128,7 @@ function tabPerfil(c) {
     <span class="err" id="crErr" hidden></span><button class="btn pri" style="align-self:flex-start">Guardar</button></form>
    <div class="stack">
     <div class="box pad stack"><h3>Foto de perfil</h3><div class="row">${avatarOf(S.me, 'lg')}<label class="btn out sm" style="position:relative">Mudar foto<input type="file" accept="image/*" id="avatarFile" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div></div>
-    <div class="box pad stack"><h3>Capa</h3><div class="cover" style="height:120px;${c.cover_url ? `background-image:url('${esc(c.cover_url)}')` : ''}"></div><label class="btn out sm" style="position:relative;align-self:flex-start">Mudar capa<input type="file" accept="image/*" id="coverFile" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>
+    <div class="box pad stack"><h3>Capa</h3><div class="cover" style="height:120px;${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></div><label class="btn out sm" style="position:relative;align-self:flex-start">Mudar capa<input type="file" accept="image/*" id="coverFile" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>
    </div></div>`;
 }
 
@@ -190,7 +193,8 @@ export async function vEstudio() {
 /* ---------- Ações ---------- */
 function readDraft() {
   const a = $('input[name=acc]:checked');
-  S.draft = { title: $('#pTitle')?.value || '', body: $('#pDesc')?.value || '', access: a ? a.value : 'subscribers', price: +($('#pPrice')?.value || 2500) };
+  // ?? e não ||: um criador que escreve 0 de propósito recebia 2500 sem aviso.
+  S.draft = { title: $('#pTitle')?.value || '', body: $('#pDesc')?.value || '', access: a ? a.value : 'subscribers', price: +($('#pPrice')?.value ?? 2500) };
 }
 async function savePost(status, btn) {
   readDraft();
@@ -216,7 +220,14 @@ async function savePost(status, btn) {
     const { error } = await sb.from('posts').insert({ id, creator_id: uid, title: d.title.trim(), access: d.access, price: d.access === 'paid' ? d.price : 0, media, preview_url, status, published_at: status === 'published' ? new Date().toISOString() : null });
     if (error) throw error;
     const { error: e2 } = await sb.from('post_bodies').insert({ post_id: id, body: d.body.trim() });
-    if (e2) throw e2;
+    if (e2) {
+      // A publicação já existe mas ficou sem texto. Sem desfazer, sobrava um post órfão e os
+      // ficheiros já carregados ficavam lá para sempre sem forma de os limpar.
+      await sb.from('posts').delete().eq('id', id).eq('creator_id', uid);
+      for (const m of media) await sb.storage.from('content').remove([m.path]).catch(() => { /* já não existe */ });
+      if (preview_url) await sb.storage.from('previews').remove([`${uid}/${id}.jpg`]).catch(() => { /* já não existe */ });
+      throw new Error('Não foi possível guardar o texto da publicação. Nada foi publicado — tenta outra vez.');
+    }
     S.draft = null; S.draftFiles = []; S.stTab = 'publicacoes';
     await refreshMe();
     toast(status === 'draft' ? 'Rascunho guardado' : S.creator.status === 'approved' ? 'Publicado' : 'Guardado. Fica visível depois da verificação.');
@@ -235,7 +246,8 @@ export const studioActions = {
      <span class="err" id="apErr" hidden></span><button class="btn pri block" data-act="appealGo" id="apBtn">Continuar</button>`);
   },
   async appealGo() {
-    const t = $('#apText').value.trim(), docs = $('#apDocs').checked;
+    if (!S.me) return toast('A sessão expirou. Entra outra vez.');
+    const t = ($('#apText')?.value || '').trim(), docs = $('#apDocs')?.checked;
     if (t.length < 10) return showErr('#apErr', 'Escreve pelo menos 10 caracteres.');
     if (docs) { closeModal(); startOnboarding(true, t); return go('registar'); }
     const { error } = await sb.rpc('appeal_kyc', { p_text: t });
@@ -270,15 +282,16 @@ export async function studioSubmit(f) {
     const t = $('#lvTitle').value.trim(), dt = $('#lvDate').value, tm = $('#lvTime').value, p = +$('#lvPrice').value;
     if (t.length < 4) return showErr('#lvErr', 'Dá um título à live, com pelo menos 4 caracteres.'), true;
     if (!dt || !tm) return showErr('#lvErr', 'Escolhe o dia e a hora.'), true;
-    if (p < 0 || (p > 0 && p < 200)) return showErr('#lvErr', 'O bilhete é grátis (0) ou custa pelo menos 200 Kz.'), true;
+    if (!Number.isFinite(p) || !Number.isInteger(p) || p < 0 || (p > 0 && p < 200)) return showErr('#lvErr', 'O bilhete é grátis (0) ou custa pelo menos 200 Kz.'), true;
     const starts = new Date(`${dt}T${tm}`);
+    if (isNaN(starts.getTime())) return showErr('#lvErr', 'Data ou hora inválidas.'), true;
     const { error } = await sb.from('lives').insert({ creator_id: S.me.id, title: t, starts_at: starts.toISOString(), price: p });
     if (error) return showErr('#lvErr', errText(error)), true;
     toast('Live agendada'); rerender(); return true;
   }
   if (f.id === 'priceForm') {
     const free = $('input[name=pmode]:checked')?.value === 'free', v = free ? 0 : +$('#priceInp').value;
-    if (!free && !(v >= S.cfg.min_price)) return toast(`O preço mínimo é ${kz(S.cfg.min_price)}.`), true;
+    if (!free && (!Number.isFinite(v) || !Number.isInteger(v) || v < S.cfg.min_price)) return toast(`O preço mínimo é ${kz(S.cfg.min_price)}.`), true;
     const { error } = await sb.from('creators').update({ price: v }).eq('id', S.me.id);
     if (error) return toast(errText(error)), true;
     await refreshMe(); toast(free ? 'O teu perfil agora é gratuito' : 'Preço atualizado'); rerender(); return true;
@@ -286,9 +299,14 @@ export async function studioSubmit(f) {
   if (f.id === 'crForm') {
     const bio = $('#crBio').value.trim();
     if (bio.length < 20) return showErr('#crErr', 'A apresentação precisa de pelo menos 20 caracteres.'), true;
-    const { error } = await sb.from('creators').update({ bio, city: $('#crCity').value, category: $('#crCat').value }).eq('id', S.me.id);
+    const city = $('#crCity').value, category = $('#crCat').value;
+    if (!CITIES.includes(city)) return showErr('#crErr', 'Escolhe uma cidade da lista.'), true;
+    if (!CATS.includes(category)) return showErr('#crErr', 'Escolhe uma categoria da lista.'), true;
+    const { error } = await sb.from('creators').update({ bio, city, category }).eq('id', S.me.id);
     if (error) return showErr('#crErr', errText(error)), true;
-    await refreshMe(); toast('Perfil guardado'); return true;
+    // Sem rerender, os <select> de cidade/categoria continuavam a mostrar a escolha antiga e o
+    // cartão do perfil não atualizava — o formulário discordava do que estava guardado.
+    await refreshMe(); toast('Perfil guardado'); rerender(); return true;
   }
   if (f.id === 'bankForm') {
     const iban = $('#bkIban').value.replace(/\s/g, '').toUpperCase(), holder = $('#bkHolder').value.trim();
@@ -299,7 +317,16 @@ export async function studioSubmit(f) {
     toast('Conta bancária guardada'); rerender(); return true;
   }
   if (f.id === 'wdForm') {
-    const v = +$('#wdAmt').value;
+    // O `min` do input não impede submissão programática, e ""→0 / -500 / 1e999 passavam todos.
+    const v = Number($('#wdAmt').value);
+    if (!Number.isFinite(v) || !Number.isInteger(v) || v < S.cfg.min_payout) {
+      return showErr('#wdErr', `O valor tem de ser um número inteiro de pelo menos ${kz(S.cfg.min_payout)}.`), true;
+    }
+    const { data: bal } = await sb.from('profiles').select('earnings_balance').eq('id', S.me.id).maybeSingle();
+    if (bal && v > Number(bal.earnings_balance || 0)) {
+      return showErr('#wdErr', `Só tens ${kz(bal.earnings_balance)} disponíveis para levantar.`), true;
+    }
+    if (!confirm(`Pedir ${kz(v)}?\n\nO valor sai do teu saldo de ganhos e é transferido para a conta que registaste.`)) return true;
     const { error } = await sb.rpc('request_payout', { p_amount: v });
     if (error) return showErr('#wdErr', errText(error)), true;
     await refreshMe(); toast('Pedido de levantamento enviado'); rerender(); return true;
@@ -317,13 +344,18 @@ export async function studioChange(t) {
   }
   if (t.id === 'avatarFile' || t.id === 'coverFile') {
     const f = t.files[0]; t.value = ''; if (!f) return true;
+    const isAvatar = t.id === 'avatarFile';
     try {
-      const isAvatar = t.id === 'avatarFile';
+      // O bucket 'avatars' é público: um ficheiro com HTML/SVG dentro seria servido com o
+      // content-type do cliente. Confirma os bytes antes de subir.
+      const { type } = await assertImage(f, isAvatar ? 'a foto de perfil' : 'a capa');
       const cropped = await cropImage(f, isAvatar ? 1 : 3, { shape: isAvatar ? 'round' : 'rect', output: isAvatar ? 600 : 1800 });
       if (!cropped) return true;
       const small = await shrinkImage(cropped, isAvatar ? 600 : 1800);
+      if (small.type && !IMG_TYPES.includes(small.type)) { await assertImage(small, isAvatar ? 'a foto de perfil' : 'a capa'); }
       const path = `${S.me.id}/${isAvatar ? 'avatar' : 'cover'}-${Date.now()}.jpg`;
-      await upload('avatars', path, small, { upsert: true });
+      // O content-type é o que confirmámos, nunca o que veio no ficheiro escolhido.
+      await upload('avatars', path, new File([small], path.split('/').pop(), { type: 'image/jpeg' }), { upsert: true });
       const url = publicUrl('avatars', path);
       const { error } = isAvatar ? await sb.from('profiles').update({ avatar_url: url }).eq('id', S.me.id) : await sb.from('creators').update({ cover_url: url }).eq('id', S.me.id);
       if (error) throw error;

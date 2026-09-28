@@ -1,5 +1,5 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
-import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, rerender, go, lightbox } from '../lib.js';
+import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox } from '../lib.js';
 import { S, refreshMe } from '../state.js';
 import { openPay } from '../pay.js';
 import { CATS } from '../config.js';
@@ -76,15 +76,22 @@ async function loadPromos() {
   return by;
 }
 function promoHref(p) {
-  const ext = /^https?:\/\//.test(p.link_url || '');
-  return `${p.link_url ? `href="${esc(p.link_url)}"` : 'href="javascript:void(0)"'}${ext ? ' target="_blank" rel="noopener"' : ''}`;
+  // Um link de promoção é clicado por quem está autenticado. `esc()` protege o atributo, mas não o
+  // esquema: href="javascript:…" continuaria a ser um link executável. allowlist em safeHref.
+  const href = safeHref(p.link_url);
+  if (!href) return 'href="#inicio"';
+  return `href="${esc(href)}"${isExternal(href) ? ' target="_blank" rel="noopener noreferrer"' : ''}`;
 }
+/** `esc()` não serve dentro de url('…'): o parser HTML descodifica as entidades ANTES de o CSS ser
+ *  lido, portanto uma aspa no URL fechava o url() e deixava o resto virar uma declaração CSS
+ *  (sobreposições, exfiltração). Estes URLs vêm de publicUrl(), mas a protecção é barata. */
+const cssUrl = (u) => `url("${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}")`;
 /** Um ficheiro de imagem/vídeo, com versão mobile alternativa quando existir (troca por CSS, sem JS). */
 function promoMedia(url, mobileUrl, mediaType) {
   const isVideo = (u) => mediaType?.startsWith('video') || /\.(mp4|webm)$/i.test(u || '');
   const one = (u, cls) => !u ? '' : isVideo(u)
     ? `<video class="promobg ${cls}" src="${esc(u)}" autoplay muted loop playsinline disablePictureInPicture oncontextmenu="return false"></video>`
-    : `<span class="promobg ${cls}" style="background-image:url('${esc(u)}')"></span>`;
+    : `<span class="promobg ${cls}" style="background-image:${cssUrl(u)}"></span>`;
   if (!mobileUrl || mobileUrl === url) return one(url, '');
   return one(url, 'only-desktop') + one(mobileUrl, 'only-mobile');
 }
@@ -118,7 +125,7 @@ async function sideRail(direitaPromos) {
    ${(direitaPromos || []).map(promoCardV).join('')}
    ${on?.length ? `<div><h4>Ao vivo agora</h4>${on.map((l) => `<a class="mini" href="#live-${l.id}">${avatarOf(l.creator.profile, 'sm')}<span class="t"><b>${esc(cname(l.creator))}</b><span>${esc(l.title)}</span></span><span class="tag acc">AO VIVO</span></a>`).join('')}</div>` : ''}
    ${s.length ? `<div><h4>⚡ Sugestões para ti</h4><div class="sugcards">${s.map((c) => `<a class="sugcard" href="#perfil-${esc(c.profile.handle)}">
-     <span class="sugbg" style="${c.cover_url ? `background-image:url('${esc(c.cover_url)}')` : ''}"></span>
+     <span class="sugbg" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></span>
      <span class="sugtag">${c.price ? kz(c.price) + '/mês' : 'Grátis'}</span>
      ${avatarOf(c.profile, 'sugav')}
      <span class="sugmeta"><b>${esc(cname(c))}</b><span>@${esc(c.profile.handle)}</span></span></a>`).join('')}</div></div>` : ''}
@@ -155,7 +162,10 @@ function creatorCard(c) {
 export async function exploreGrid() {
   let q = sb.from('creators').select(CR_SEL).eq('status', 'approved').neq('id', S.me.id).order('follower_count', { ascending: false }).limit(60);
   if (S.cat !== 'Tudo') q = q.eq('category', S.cat);
-  const t = S.q.trim().replace(/[%,()]/g, '');
+  // Sanitiza o termo de pesquisa antes de o meter num filtro .or() do PostgREST: sem remover
+  // vírgulas e parênteses, o texto do utilizador fechava o filtro e injetava ramos extra.
+  // `*` também sai: é o wildcard do ILIKE e transformava a pesquisa num scan completo.
+  const t = S.q.trim().replace(/[%,()*]/g, '').slice(0, 60);
   if (t) q = q.or(`name.ilike.%${t}%,handle.ilike.%${t}%`, { referencedTable: 'profile' });
   const { data, error } = await q;
   if (error) return `<p class="empty">${esc(errText(error))}</p>`;
@@ -180,6 +190,11 @@ export async function vPerfil(handle) {
   if (!prof || !c) return `<div class="empty"><h2>Perfil não encontrado</h2><p style="margin-top:8px">Este perfil não existe ou ainda está em verificação.</p><a class="btn out" style="margin-top:16px" href="#explorar">Voltar a explorar</a></div>`;
   c.profile = prof;
   const mine = c.id === S.me.id;
+  // Um perfil que não passou na verificação só pode ser visto por quem o tem. Sem este if, o
+  // perfil completo (capa, bio, publicações) aparecia público enquanto a página dizia "só tu vês".
+  if (!mine && c.status !== 'approved') {
+    return `<div class="empty"><h2>Perfil ainda não disponível</h2><p style="margin-top:8px">Este perfil está em verificação e só aparece depois de a equipa o aprovar.</p><a class="btn out" style="margin-top:16px" href="#explorar">Voltar a explorar</a></div>`;
+  }
   const [{ data: sub }, { data: fol }, { data: rawPosts }] = await Promise.all([
     sb.from('subscriptions').select('*').eq('fan_id', S.me.id).eq('creator_id', c.id).maybeSingle(),
     sb.from('follows').select('creator_id').eq('follower_id', S.me.id).eq('creator_id', c.id).maybeSingle(),
@@ -220,7 +235,7 @@ export async function vPerfil(handle) {
    </nav>
    <span class="small muted">© ${new Date().getFullYear()} À Porta Fechada</span>`;
   return `${c.status !== 'approved' ? `<div class="banner">${ic('clock')}<span><b>O teu perfil está em verificação.</b> Só tu o vês até a equipa aprovar os documentos.</span></div>` : ''}
-   <div class="cover" style="${c.cover_url ? `background-image:url('${esc(c.cover_url)}')` : ''}"></div>
+   <div class="cover" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></div>
    <section class="phead">${prof.avatar_url ? `<div class="big"><img src="${esc(prof.avatar_url)}" alt=""></div>` : `<div class="big">${esc((cname(c) || '?')[0].toUpperCase())}</div>`}
     <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(cname(c))}${c.status === 'approved' ? `<span style="color:var(--acc);display:inline-flex" title="Identidade verificada">${ic('badge', 'style="width:22px;height:22px"')}</span>` : ''}</h1>
      <div class="muted">@${esc(prof.handle)}</div>
@@ -235,6 +250,11 @@ export async function vPerfil(handle) {
 export async function vPost(id) {
   const { data } = await sb.from('posts').select(POST_SEL).eq('id', id).maybeSingle();
   if (!data) return `<div class="empty"><h2>Publicação não encontrada</h2><a class="btn out" style="margin-top:14px" href="#feed">Voltar ao início</a></div>`;
+  // Mesmo bloqueio que no perfil: posts de rascunho, escondidos ou de um criador por verificar
+  // não podem ser abertos por link direto.
+  if (data.creator_id !== S.me.id && (data.status !== 'published' || data.creator?.status !== 'approved')) {
+    return `<div class="empty"><h2>Publicação não disponível</h2><p style="margin-top:8px">Esta publicação não está disponível.</p><a class="btn out" style="margin-top:14px" href="#feed">Voltar ao início</a></div>`;
+  }
   const [p] = await enrichPosts([data]);
   return `<div style="max-width:640px;margin:0 auto" class="stack"><a class="btn link" href="#perfil-${esc(p.creator.profile.handle)}">${ic('back', 'style="width:16px;height:16px"')}Ver perfil de ${esc(cname(p.creator))}</a>${postHTML(p)}</div>`;
 }
@@ -256,8 +276,15 @@ export async function vSubs() {
 }
 
 /* ---------- Meus conteúdos ---------- */
+// Teto por página. Sem isto a query crescia sem limite e o .in() com todos os UUIDs batia no
+// limite de URL do PostgREST (HTTP 414), dejando a página inteira em erro.
+const COMPRAS_PAGE = 20;
 export async function vCompras() {
-  const { data: purchases } = await sb.from('purchases').select('*').eq('user_id', S.me.id).order('created_at', { ascending: false });
+  const page = Math.max(0, Number(S.comprasPage) || 0);
+  const { data: purchases } = await sb.from('purchases').select('*').eq('user_id', S.me.id)
+    .eq('status', 'paid')            // só compras confirmadas contam como acesso
+    .order('created_at', { ascending: false })
+    .range(page * COMPRAS_PAGE, page * COMPRAS_PAGE + COMPRAS_PAGE - 1);
   const list = purchases || [];
   const postIds = list.filter((x) => x.kind === 'post').map((x) => x.ref_id);
   const msgIds = list.filter((x) => x.kind === 'message').map((x) => x.ref_id);
@@ -303,9 +330,13 @@ export async function vCompras() {
     return null;
   };
   const rows = list.map(rowHTML).filter(Boolean);
+  const hasMore = list.length === COMPRAS_PAGE;
+  const pager = (page > 0 || hasMore) ? `<div class="row" style="justify-content:center;gap:10px;margin-top:18px">
+   ${page > 0 ? `<button class="btn out" data-act="comprasPage" data-v="${page - 1}">Anteriores</button>` : ''}
+   ${hasMore ? `<button class="btn out" data-act="comprasPage" data-v="${page + 1}">Mais</button>` : ''}</div>` : '';
 
   return `<div class="pagehead"><div><h1>Meus conteúdos</h1><p>Publicações, mensagens e bilhetes que já compraste — ficam sempre disponíveis aqui.</p></div></div>
-   ${rows.length ? `<div class="stack" style="gap:14px">${rows.join('')}</div>` : '<div class="box empty">Ainda não compraste nenhum conteúdo.<br><a href="#explorar" class="btn out" style="margin-top:14px">Explorar criadores</a></div>'}`;
+   ${rows.length ? `<div class="stack" style="gap:14px">${rows.join('')}</div>${pager}` : '<div class="box empty">Ainda não compraste nenhum conteúdo.<br><a href="#explorar" class="btn out" style="margin-top:14px">Explorar criadores</a></div>'}`;
 }
 
 /* ---------- Carteira ---------- */
@@ -340,42 +371,64 @@ function tipModal(creatorId, liveId) {
 
 export const fanActions = {
   cat(d) { S.cat = d.v; rerender(); },
+  comprasPage(d) { S.comprasPage = Math.max(0, +d.v || 0); rerender(false); },
   openImg(d) { lightbox(d.url); },
-  expandBody(d) { const p = $(`#post-${d.id} .postbody`); p.classList.remove('clamp'); $(`#post-${d.id} .more-btn`).remove(); },
+  expandBody(d) {
+    const p = $(`#post-${d.id} .postbody`); if (!p) return;   // o post pode não ter texto
+    p.classList.remove('clamp'); $(`#post-${d.id} .more-btn`)?.remove();
+  },
   ptab(d) { S.ptab = d.v; rerender(); },
   goSubs() { go('subscricoes'); },
-  async subscribe(d) {
-    const { data: c } = await sb.from('creators').select('id,price,profile:profiles!creators_id_fkey(name,handle)').eq('id', d.id).single();
-    openPay({ kind: 'subscription', target_id: c.id, amount: c.price, recurring: true, title: 'Subscrever ' + cname(c), sub: 'Acesso às publicações para subscritores durante um mês.', okText: 'Já és subscritor de ' + cname(c) + '.', onPaid: () => rerender() });
+  // Preço, disponibilidade e estado do perfil são lidos no servidor por openPay (js/pay.js).
+  subscribe(d) {
+    openPay({ kind: 'subscription', target_id: d.id, recurring: true, title: 'Subscrever', sub: 'Acesso às publicações para subscritores durante um mês.', okText: 'Subscrição ativa.', onPaid: () => rerender() });
   },
   buyPost(d) {
-    openPay({ kind: 'post', target_id: d.id, amount: Number(d.price), title: 'Desbloquear publicação', sub: 'Fica disponível na tua conta para sempre.', okText: 'Publicação desbloqueada.', onPaid: () => rerender() });
+    openPay({ kind: 'post', target_id: d.id, title: 'Desbloquear publicação', sub: 'Fica disponível na tua conta para sempre.', okText: 'Publicação desbloqueada.', onPaid: () => rerender() });
   },
   tip(d) { tipModal(d.id, d.live || null); },
-  tipAmt(d) { S.tipAmt = +d.v; $$('.amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); const o = $('#tipOther'); if (o) o.value = ''; },
+  // Só o bloco de valores visível: a carteira tem o seu próprio .amts e as duas listas
+  // partilhavam o selector global, o que desmarrava a seleção do outro lado.
+  tipAmt(d) { S.tipAmt = +d.v; $$('#modalRoot .amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); const o = $('#tipOther'); if (o) o.value = ''; },
+  topAmt(d) { S.topAmt = +d.v; $$('main .amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); const o = $('#topOther'); if (o) o.value = ''; },
   tipGo() {
     const o = +$('#tipOther').value, amt = o || S.tipAmt, msg = $('#tipMsg').value.trim();
-    if (amt < S.cfg.min_tip) return showErr('#tipErr', `A gorjeta mínima é ${kz(S.cfg.min_tip)}.`);
+    if (!Number.isFinite(amt) || amt < S.cfg.min_tip) return showErr('#tipErr', `A gorjeta mínima é ${kz(S.cfg.min_tip)}.`);
     const meta = { message: msg }; if (S.tipTarget.liveId) meta.live_id = S.tipTarget.liveId;
     openPay({ kind: 'tip', target_id: S.tipTarget.creatorId, amount: amt, meta, title: 'Gorjeta', sub: msg ? '“' + msg + '”' : 'Um obrigado direto a quem cria.', okText: 'Gorjeta enviada. Obrigado!' });
   },
   async follow(d) {
+    if (!S.me) return toast('Entra na tua conta para seguir.');
+    if (!d.id) return;
     const on = d.on === '1';
     const q = on ? sb.from('follows').delete().eq('follower_id', S.me.id).eq('creator_id', d.id) : sb.from('follows').insert({ follower_id: S.me.id, creator_id: d.id });
     const { error } = await q; if (error) return toast(errText(error));
     toast(on ? 'Deixaste de seguir' : 'A seguir'); rerender();
   },
   async like(d) {
-    const el = $(`#post-${d.id} [data-act=like]`), on = el.classList.contains('on');
-    const n = el.querySelector('.num'); el.classList.toggle('on', !on); n.textContent = dots(Number(n.textContent.replace(/\./g, '')) + (on ? -1 : 1));
-    el.querySelector('svg').setAttribute('fill', on ? 'none' : 'currentColor');
+    const el = $(`#post-${d.id} [data-act=like]`); if (!el) return;
+    if (el.disabled) return;                       // dois toques rápidos disparavam insert+delete em paralelo
+    const on = el.classList.contains('on');
+    const n = el.querySelector('.num');
+    const before = n ? n.textContent : null;
+    el.disabled = true;
+    el.classList.toggle('on', !on);
+    if (n) n.textContent = dots(Number(before.replace(/\./g, '')) + (on ? -1 : 1));
+    el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor');
     const { error } = on ? await sb.from('post_likes').delete().eq('post_id', d.id).eq('user_id', S.me.id) : await sb.from('post_likes').insert({ post_id: d.id, user_id: S.me.id });
-    if (error) toast(errText(error));
+    el.disabled = false;
+    // Reverte o otimismo se a base de dados discordar, para o número não ficar mentindo.
+    if (error) { el.classList.toggle('on', on); if (n) n.textContent = before; el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor'); toast(errText(error)); }
   },
   async save(d) {
-    const el = $(`#post-${d.id} [data-act=save]`), on = el.classList.contains('on');
-    el.classList.toggle('on', !on); el.querySelector('svg').setAttribute('fill', on ? 'none' : 'currentColor');
+    const el = $(`#post-${d.id} [data-act=save]`); if (!el) return;
+    if (el.disabled) return;
+    const on = el.classList.contains('on');
+    el.disabled = true;
+    el.classList.toggle('on', !on); el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor');
     const { error } = on ? await sb.from('saves').delete().eq('post_id', d.id).eq('user_id', S.me.id) : await sb.from('saves').insert({ post_id: d.id, user_id: S.me.id });
+    el.disabled = false;
+    if (error) { el.classList.toggle('on', on); el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor'); }
     toast(error ? errText(error) : on ? 'Removido dos guardados' : 'Guardado');
   },
   async dm(d) {
@@ -394,15 +447,19 @@ export const fanActions = {
      <button class="btn pri block" data-act="repSend" data-type="${d.type}" data-id="${d.id}">Enviar denúncia</button>`);
   },
   async repSend(d) {
-    const reason = $('input[name=rep]:checked').value;
-    const { error } = await sb.from('reports').insert({ reporter_id: S.me.id, target_type: d.type, target_id: d.id, reason, details: $('#repTxt').value.trim() || null });
+    if (!S.me) return toast('Entra na tua conta para enviar uma denúncia.');
+    // O botão pode ser despoletado sem o modal aberto (clique sintético, ou a janela já
+    // fechada): ler $('…').value diretamente rebentava com TypeError.
+    const picked = $('input[name=rep]:checked'), txt = $('#repTxt');
+    const reason = picked?.value;
+    if (!reason) return toast('Escolhe um motivo.');
+    if (!['post', 'creator', 'message', 'live'].includes(d.type) || !d.id) return toast('Denúncia inválida.');
+    const { error } = await sb.from('reports').insert({ reporter_id: S.me.id, target_type: d.type, target_id: d.id, reason, details: txt?.value.trim() || null });
     closeModal(); toast(error ? errText(error) : 'Denúncia enviada. Respondemos em até 24 horas.');
   },
-  topAmt(d) { S.topAmt = +d.v; $$('.amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); $('#topOther').value = ''; },
   topup() {
     const o = +$('#topOther').value, amt = o || S.topAmt || 5000;
-    if (amt < S.cfg.min_topup) return toast(`O carregamento mínimo é ${kz(S.cfg.min_topup)}.`);
+    if (!Number.isFinite(amt) || amt < S.cfg.min_topup) return toast(`O carregamento mínimo é ${kz(S.cfg.min_topup)}.`);
     openPay({ kind: 'topup', amount: amt, title: 'Carregar carteira', sub: 'O saldo fica disponível assim que o pagamento for confirmado.', okText: `Carregaste ${kz(amt)}.`, onPaid: () => rerender() });
   },
 };
-export { refreshMe };

@@ -1,5 +1,5 @@
 // Lives: lista, bilhetes, sala com vídeo (LiveKit) e chat em tempo real
-import { sb, $, esc, kz, ic, avatarOf, toast, errText, fmtDate, hhmm, fn, loadScript, rerender, go } from '../lib.js';
+import { sb, $, esc, kz, ic, avatarOf, toast, errText, fmtDate, fn, loadScript, rerender, go } from '../lib.js';
 import { S } from '../state.js';
 import { openPay } from '../pay.js';
 import { LIVEKIT_SCRIPT } from '../config.js';
@@ -10,8 +10,10 @@ const cname = (c) => c?.profile?.name || c?.profile?.handle || '';
 async function myAccess(ids) {
   if (!ids.length) return { tickets: new Set(), rem: new Set() };
   const [{ data: t }, { data: r }] = await Promise.all([
-    sb.from('purchases').select('ref_id').eq('user_id', S.me.id).eq('kind', 'ticket').in('ref_id', ids),
-    sb.from('live_reminders').select('live_id').eq('user_id', S.me.id).in('live_id', ids),
+    // .eq('status','paid'): sem isto, uma linha de compra deixada por um pagamento falhado ou
+    // expirado dava entrada à live. Sem .limit() o .in() podia rebentar com muitas lives.
+    sb.from('purchases').select('ref_id').eq('user_id', S.me.id).eq('kind', 'ticket').eq('status', 'paid').in('ref_id', ids.slice(0, 200)),
+    sb.from('live_reminders').select('live_id').eq('user_id', S.me.id).in('live_id', ids.slice(0, 200)),
   ]);
   return { tickets: new Set((t || []).map((x) => x.ref_id)), rem: new Set((r || []).map((x) => x.live_id)) };
 }
@@ -28,8 +30,10 @@ function liveCard(l, A) {
 }
 
 export async function vLives() {
-  const { data } = await sb.from('lives').select(L_SEL).in('status', ['live', 'scheduled']).order('starts_at', { ascending: true }).limit(60);
-  const list = (data || []).filter((l) => l.creator?.status === 'approved' || l.creator_id === S.me.id);
+  // O filtro de "criador aprovado" acontece DEPOIS do limite na versão anterior, o que fazia
+  // aparecer menos de 60 lives. O status do criador entra no próprio filtro do servidor.
+  const { data: all } = await sb.from('lives').select(L_SEL).in('status', ['live', 'scheduled']).order('starts_at', { ascending: true }).limit(120);
+  const list = (all || []).filter((l) => l.creator?.status === 'approved' || l.creator_id === S.me.id);
   const A = await myAccess(list.map((l) => l.id));
   const on = list.filter((l) => l.status === 'live'), next = list.filter((l) => l.status === 'scheduled');
   return `<div class="pagehead"><div><h1>Lives</h1><p>Emissões ao vivo dos criadores. Algumas são gratuitas, outras pedem bilhete.</p></div>${S.creator?.status === 'approved' ? `<button class="btn pri" data-act="stGo" data-v="lives">${ic('plus')}Agendar live</button>` : ''}</div>
@@ -39,7 +43,13 @@ export async function vLives() {
 
 /* ---------- Sala ---------- */
 let room = null, chatCh = null, liveCh = null;
+/** Geração da montagem atual. Qualquer operação assíncrona verifica este valor antes de
+ *  tocar em nada: sem ele, sair da página a meio do fetch do chat fazia a continuação de
+ *  mountLive() criar os canais e ligar a câmara DEPOIS do leave() já ter corrido — o criador
+ *  ficava a transmitir sem saber, e os canais ficavam vazados. */
+let mountGen = 0;
 function leave() {
+  mountGen++;                      // invalida qualquer montagem em curso
   try { room?.disconnect(); } catch { /* */ }
   room = null;
   if (chatCh) { sb.removeChannel(chatCh); chatCh = null; }
@@ -80,73 +90,100 @@ function chatLine(m) {
 export async function mountLive() {
   const ctx = S.liveCtx; if (!ctx) return;
   S.cleanup.push(leave);
+  const gen = ++mountGen;
+  const alive = () => gen === mountGen;
   const list = $('#lchatList');
   const { data: msgs } = await sb.from('live_chat').select('*, profile:profiles(handle,name)').eq('live_id', ctx.id).order('created_at', { ascending: false }).limit(80);
+  if (!alive()) return;                                  // o utilizador já saiu enquanto esperávamos
   if (list) { list.innerHTML = (msgs || []).reverse().map(chatLine).join(''); list.scrollTop = list.scrollHeight; }
   chatCh = sb.channel('live-chat-' + ctx.id)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat', filter: `live_id=eq.${ctx.id}` }, async (x) => {
+      if (!alive()) return;
       const { data: p } = await sb.from('profiles').select('handle,name').eq('id', x.new.user_id).maybeSingle();
+      if (!alive()) return;
       const el = $('#lchatList'); if (!el) return;
       el.insertAdjacentHTML('beforeend', chatLine({ ...x.new, profile: p })); el.scrollTop = el.scrollHeight;
     }).subscribe();
   liveCh = sb.channel('live-row-' + ctx.id)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lives', filter: `id=eq.${ctx.id}` }, (x) => {
+      if (!alive()) return;
       if (x.new.status === 'ended' && !ctx.host) { toast('A live terminou'); rerender(); }
       if (x.new.status === 'live' && !ctx.join) rerender();
     }).subscribe();
-  if (ctx.join) await connect(ctx);
+  if (ctx.join) await connect(ctx, alive);
 }
 
-async function connect(ctx) {
+async function connect(ctx, alive) {
   const status = (t) => { const e = $('#lkStatus'); if (e) e.textContent = t; };
   try {
     const [{ url, token }] = await Promise.all([fn('live-token', { live_id: ctx.id }), loadScript(LIVEKIT_SCRIPT)]);
+    if (!alive()) return;                                  // saiu enquanto carregava o token
     const LK = window.LivekitClient;
-    room = new LK.Room({ adaptiveStream: true, dynacast: true });
+    if (!LK) throw new Error('Não foi possível carregar a biblioteca de vídeo.');
+    const r = new LK.Room({ adaptiveStream: true, dynacast: true });
     const box = $('#lkVideo');
     const attach = (track) => {
+      if (!alive()) return;
       if (!box) return;
       const el = track.attach();
       if (track.kind === 'video') { box.innerHTML = ''; el.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000'; box.appendChild(el); status(''); }
       else document.body.appendChild(el);
     };
-    const count = () => { const v = $('#lvViewers'); if (v) v.textContent = `${room.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`; };
-    room.on(LK.RoomEvent.TrackSubscribed, (track) => attach(track))
+    const count = () => { const v = $('#lvViewers'); if (v) v.textContent = `${r.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`; };
+    r.on(LK.RoomEvent.TrackSubscribed, (track) => attach(track))
       .on(LK.RoomEvent.TrackUnsubscribed, (track) => track.detach().forEach((e) => e.remove()))
       .on(LK.RoomEvent.ParticipantConnected, count).on(LK.RoomEvent.ParticipantDisconnected, count)
       .on(LK.RoomEvent.AudioPlaybackStatusChanged, () => {
-        if (!room.canPlaybackAudio && !$('#unmute')) $('#liveStage')?.insertAdjacentHTML('beforeend', `<button class="btn pri unmute" id="unmute" data-act="liveAudio">${ic('volume')}Ativar som</button>`);
+        if (!alive() || !r.canPlaybackAudio || $('#unmute')) return;
+        $('#liveStage')?.insertAdjacentHTML('beforeend', `<button class="btn pri unmute" id="unmute" data-act="liveAudio">${ic('volume')}Ativar som</button>`);
       })
       .on(LK.RoomEvent.Disconnected, () => status('Ligação terminada.'));
-    await room.connect(url, token);
+    await r.connect(url, token);
+    room = r;                                             // só publica a sala depois de ligada
+    if (!alive()) { try { r.disconnect(); } catch { /* */ } return; }
     count();
     if (ctx.host) {
-      await room.localParticipant.enableCameraAndMicrophone();
-      const pub = [...room.localParticipant.videoTrackPublications.values()][0];
+      await r.localParticipant.enableCameraAndMicrophone();
+      // Se o criador tiver saído durante o pedido de permissão, desligava-se mal a câmara ligasse.
+      if (!alive()) { try { r.disconnect(); } catch { /* */ } return; }
+      const pub = [...r.localParticipant.videoTrackPublications.values()][0];
       if (pub?.track) attach(pub.track);
     } else {
       status('À espera do vídeo do criador…');
-      room.remoteParticipants.forEach((p) => p.trackPublications.forEach((t) => t.track && attach(t.track)));
+      r.remoteParticipants.forEach((p) => p.trackPublications.forEach((t) => t.track && attach(t.track)));
     }
   } catch (e) {
+    if (!alive()) return;
     status(/Permission|NotAllowed/i.test(String(e)) ? 'Precisamos de acesso à câmara e ao microfone. Autoriza no navegador e recarrega a página.' : errText(e));
   }
 }
 
 export const liveActions = {
-  buyTicket(d) { openPay({ kind: 'ticket', target_id: d.id, amount: Number(d.price), title: 'Bilhete para a live', sub: 'Dá acesso à emissão e ao chat.', okText: 'Bilhete comprado. Recebes uma notificação quando a live começar.', onPaid: () => rerender() }); },
+  /** Relê o preço no servidor: o data-price do botão é controlado por quem compra. */
+  async buyTicket(d) {
+    const { data: l } = await sb.from('lives').select('id,price,status,creator_id').eq('id', d.id).maybeSingle();
+    if (!l || l.status === 'ended') return toast('Esta live já não está disponível.');
+    if (!l.price) return toast('Esta live tem entrada livre.');
+    openPay({ kind: 'ticket', target_id: l.id, amount: Number(l.price), title: 'Bilhete para a live', sub: 'Dá acesso à emissão e ao chat.', okText: 'Bilhete comprado. Recebes uma notificação quando a live começar.', onPaid: () => rerender() });
+  },
   async remind(d) {
     const on = d.on === '1';
     const { error } = on ? await sb.from('live_reminders').delete().eq('live_id', d.id).eq('user_id', S.me.id) : await sb.from('live_reminders').insert({ live_id: d.id, user_id: S.me.id });
     toast(error ? errText(error) : on ? 'Lembrete removido' : 'Avisamos-te quando começar'); rerender();
   },
   async liveStart(d) {
-    const { error } = await sb.from('lives').update({ status: 'live' }).eq('id', d.id);
+    if (!S.me) return toast('A sessão expirou. Entra outra vez.');
+    if (!d.id) return;
+    // .eq('creator_id', S.me.id): sem isto, o UPDATE só dependia da RLS para não deixar
+    // começar uma live que não é sua.
+    const { error } = await sb.from('lives').update({ status: 'live' }).eq('id', d.id).eq('creator_id', S.me.id);
     if (error) return toast(errText(error));
     toast('Estás ao vivo'); go('live-' + d.id);
   },
   async liveEnd(d) {
-    const { error } = await sb.from('lives').update({ status: 'ended' }).eq('id', d.id);
+    if (!S.me) return toast('A sessão expirou. Entra outra vez.');
+    if (!d.id) return;
+    const { error } = await sb.from('lives').update({ status: 'ended' }).eq('id', d.id).eq('creator_id', S.me.id);
     if (error) return toast(errText(error));
     leave(); toast('Live terminada'); S.stTab = 'lives'; go('estudio');
   },
@@ -161,4 +198,3 @@ export async function liveSubmit(f) {
   if (error) { toast(errText(error)); i.value = v; }
   return true;
 }
-export { hhmm };

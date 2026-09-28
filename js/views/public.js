@@ -1,6 +1,6 @@
 // Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação, Top 10
 import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go, doorTransition } from '../lib.js';
-import { S, loadMe, netPct } from '../state.js';
+import { S, loadMe, netPct, isStaff } from '../state.js';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config.js';
 
 
@@ -121,7 +121,7 @@ export function vOnboarding() {
      <label class="opt"><input type="radio" name="pmode" value="free" ${d.pmode === 'free' ? 'checked' : ''}><span><b>Perfil gratuito</b><span>Quem te segue vê o conteúdo para seguidores. Podes vender publicações à parte e receber gorjetas.</span></span></label>
      <label class="opt"><input type="radio" name="pmode" value="paid" ${d.pmode !== 'free' ? 'checked' : ''}><span><b>Subscrição paga</b><span>Os fãs pagam por mês para ver o conteúdo exclusivo.</span></span></label></div>
      <span class="hint">Podes mudar quando quiseres no estúdio.</span></div>
-    <div class="field" id="oPriceRow" ${d.pmode === 'free' ? 'hidden' : ''} style="max-width:320px"><label for="oPrice">Preço da subscrição (Kz por mês)</label><input id="oPrice" type="number" min="${S.cfg.min_price}" step="100" value="${d.price || 2500}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes ${netPct()}% de cada subscrição.</span></div>
+    <div class="field" id="oPriceRow" ${d.pmode === 'free' ? 'hidden' : ''} style="max-width:320px"><label for="oPrice">Preço da subscrição (Kz por mês)</label><input id="oPrice" type="number" min="${S.cfg.min_price}" step="100" value="${esc(d.price ?? 2500)}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes ${netPct()}% de cada subscrição.</span></div>
     <div class="field"><label for="oBio">Apresentação</label><textarea id="oBio" maxlength="500" placeholder="Em duas ou três frases, o que vão encontrar no teu perfil.">${esc(d.bio || '')}</textarea></div>`;
   else if (id === 'identidade') {
     const f = r.files;
@@ -286,14 +286,12 @@ export function installModal() {
 }
 
 /* ---------- Ações ---------- */
+// onAuthStateChange (main.js) já faz loadMe + render no SIGNED_IN. Aqui só pedimos o segundo
+// fator quando falta; o desenho da página fica para o render que o evento já treats.
 async function afterLogin() {
-  await loadMe();
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') return mfaPrompt();
-  const openDoor = doorTransition();
-  rerender();
   toast('Sessão iniciada');
-  await openDoor();
 }
 function mfaPrompt() {
   modal(`<h3>Verificação em dois passos</h3><p class="small muted">Escreve o código de 6 dígitos da tua app de autenticação.</p><div class="field"><label for="mfaCode">Código</label><input id="mfaCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div><span class="err" id="mfaErr" hidden></span><button class="btn pri block" data-act="mfaVerify">Confirmar</button><button class="btn link" data-act="logout">Sair</button>`, { noClose: true });
@@ -319,16 +317,24 @@ export const publicActions = {
   topTab(d) { S.topTab = d.v; rerender(); },
   installApp() { installModal(); },
   async mfaVerify() {
-    const code = $('#mfaCode').value.trim();
+    const code = ($('#mfaCode')?.value || '').trim();
+    if (!code) return;                                  // o ecrã já não está aberto
     if (!/^\d{6}$/.test(code)) return showErr('#mfaErr', 'O código tem 6 dígitos.');
-    const { data: f } = await sb.auth.mfa.listFactors();
+    const { data: f, error: lerr } = await sb.auth.mfa.listFactors();
+    if (lerr) return showErr('#mfaErr', errText(lerr));
     const factor = f?.totp?.find((x) => x.status === 'verified');
+    // A MFA pode ter sido desligada noutro dispositivo entre a verificação de nível e este ecrã.
+    if (!factor) {
+      closeModal();
+      toast('A verificação em dois passos já não está ativa nesta conta. Entra outra vez.');
+      await sb.auth.signOut();
+      return;
+    }
     const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     if (error) return showErr('#mfaErr', 'Código errado. Confirma a hora do telemóvel e tenta outra vez.');
     closeModal();
-    const openDoor = doorTransition();
-    rerender(); toast('Sessão iniciada');
-    await openDoor();
+    toast('Sessão iniciada');
+    rerender();
   },
 };
 
@@ -380,7 +386,10 @@ export async function publicSubmit(f) {
     if (a !== b) return showErr('#npErr', 'As duas palavras-passe não são iguais.'), true;
     const { error } = await sb.auth.updateUser({ password: a });
     if (error) return showErr('#npErr', errText(error)), true;
-    S.recovery = false; toast('Palavra-passe alterada'); await loadMe(); location.hash = 'feed'; return true;
+    S.recovery = false; toast('Palavra-passe alterada'); await loadMe();
+    // Vai para a página certa para o papel: um criador ou admin não deve aterrar no feed de Torch.
+    location.hash = S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed';
+    return true;
   }
   if (f.id === 'obForm') {
     readOb();
