@@ -10,7 +10,7 @@
     "start": "next start -p 8888",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run build",
-    "test": "node --test \"src/domain/**/*.test.ts\""
+    "test": "node --test \"src/domain/**/*.test.ts\" \"src/application/**/*.test.ts\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

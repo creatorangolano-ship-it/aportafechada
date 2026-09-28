@@ -7,6 +7,7 @@
  * o DOM.
  */
 import { erroValorLivre } from '../shared/money.ts';
+import { ErroDeRegra } from '../shared/errors.ts';
 
 /** O que está a ser comprado. Determina de onde o preço é relido. */
 export type PayKind = 'subscription' | 'post' | 'message' | 'ticket' | 'tip' | 'topup';
@@ -16,7 +17,7 @@ export type MetodoPagamento = 'wallet' | 'mcx' | 'reference' | 'paypal';
 export const TEM_PRECO_FIXO: ReadonlySet<PayKind> = new Set(['subscription', 'post', 'message', 'ticket']);
 
 /** Erro de regra de negócio: a mensagem é para o utilizador ler. */
-export class ErroDeCompra extends Error {}
+export class ErroDeCompra extends ErroDeRegra {}
 
 /** O que o catálogo devolve sobre o item a comprar (só os campos que a regra precisa). */
 export type ItemAVenda = { status?: string | null; price?: number | null; ppv_price?: number | null };
