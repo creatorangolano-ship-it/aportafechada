@@ -16,7 +16,9 @@ Abre http://localhost:8888.
 ## Verificar antes de publicar
 
 ```bash
-npm run verify      # tsc --noEmit + next build
+npm run verify      # tipos + testes + regras da arquitetura + next build
+npm test            # só os testes (domínio e casos de uso, com node --test)
+npm run check:arch  # só as regras das camadas
 ```
 
 Depois, no browser, com a consola aberta: `#inicio`, `#registar`, as páginas públicas e
@@ -53,26 +55,53 @@ RLS, nas funções `SECURITY DEFINER` e nas políticas de storage do Supabase.
 - **`supabase/migrations/`** — os diagnósticos (só lêem, correm primeiro) e as correcções.
 - **`supabase/README.md`** — o inventário do backend.
 
-## Estrutura
+## Arquitetura
+
+Camadas, com as dependências sempre a apontar para dentro (`npm run check:arch` falha se
+alguém as inverter):
 
 ```
-src/app/layout.tsx     HTML base, tema, contentores (#hdr, #app, #modalRoot…)
-src/app/page.tsx       arranca o roteador (lib/main.ts) no browser
-src/app/api/*/route.ts funções do servidor (ver acima)
-src/lib/config.ts      URL do Supabase, anon key, listas (países, categorias, bancos)
-src/lib/lib.ts         ajudantes: escape, datas, dinheiro, upload, fn(), safeHref
-src/lib/state.ts       estado global, sessão, definições, contagens
-src/lib/pay.ts         preços e pagamento — relê o preço na base de dados antes de cobrar
-src/lib/main.ts        rotas, despachante global de acções, realtime
-src/lib/views/*.ts     um ficheiro por área: feed, criador, estúdio, mensagens, admin, públicas
-src/lib/server/        código só de servidor (service_role)
-public/                imagens e manifest
-supabase/              auditoria e migrações SQL
+src/domain/          regras de negócio puras — sem Supabase, sem DOM, testáveis no Node
+  shared/              dinheiro, erros de regra
+  identity/            papéis e matriz de permissões
+  platform/            definições (taxas, mínimos), promoções
+  commerce/            o que se compra, a que preço, por que método
+  backoffice/          verificações (KYC), denúncias, levantamentos (máquina de estados), filas
+src/application/     casos de uso + portas (interfaces dos repositórios e gateways)
+  backoffice/          fachada Backoffice: permissão → regra → repositório
+  commerce/            Pagamentos: cotar, iniciar (Strategy por método), observar (Observer)
+src/infrastructure/  adaptadores e composição
+  supabase/            cliente, funções, armazenamento, repositórios, estratégias de pagamento
+  composicao/          raízes de composição (Factory/Singleton) — o único sítio que liga tudo
+  server/              código só de servidor das API routes (service_role)
+src/lib/             interface: roteador, registo de comandos, vistas
+  registry.ts          Command + Chain of Responsibility para data-act e formulários
+  modulos.ts           cada área é um ficheiro JS carregado só quando é precisa
+  views/*.ts           uma área por ficheiro
+src/app/             Next: layout, página, API routes
 ```
 
-Os ficheiros `index.html`, `app.css`, `js/`, `img/`, `serve.mjs` e `check-imports.mjs` são
-a versão antiga (sem build). O `scripts/port-views.mjs` ainda lê `js/views/`; podem ser
-apagados quando a conversão estiver fechada.
+**Padrões usados:** Command e Chain of Responsibility (comandos da interface), Facade
+(`Backoffice`), Strategy (métodos de pagamento), Observer (estado dos pedidos), State
+(ciclo de vida dos levantamentos), Adapter (repositórios Supabase), Factory/Singleton
+(composição), Proxy de cache (definições com stale-while-revalidate).
+
+**Estado da migração:** a administração e os pagamentos já passam pela camada de
+aplicação. As outras áreas (fã, estúdio, mensagens, lives, conta, pública) ainda chamam o
+Supabase directamente — `npm run check:arch` mostra quantas chamadas faltam em cada uma.
+Migram-se da mesma forma: regras para `domain`, casos de uso e portas para `application`,
+consultas para `infrastructure/supabase`, e a vista fica só com HTML.
+
+## Performance
+
+- Cada área da app é descarregada só quando é visitada; depois da primeira página, as
+  áreas prováveis são pré-carregadas em segundo plano.
+- O arranque não espera pelas definições (cache local) nem pelas contagens do cabeçalho.
+- Tipo de letra alojado pelo site (next/font), `preconnect` ao Supabase, imagem principal
+  em AVIF/WebP pré-carregada só para quem vai ver a página de entrada, imagens das listas
+  com `loading="lazy"`.
+
+Medido no servidor de produção local, página de entrada: LCP 472 ms → 164 ms.
 
 ## Notas
 
@@ -81,3 +110,6 @@ apagados quando a conversão estiver fechada.
 - `pay.ts` ignora o `amount` que o browser lhe manda e relê o preço na tabela. Isto não
   substitui o servidor a recalcular: um `curl` não passa pelo frontend. Ver
   `supabase/migrations/0004_precos.sql`.
+- `index.html`, `app.css`, `js/`, `img/`, `serve.mjs` e `check-imports.mjs` são a versão
+  antiga (sem build) e já não são publicados. O `scripts/port-views.mjs` ainda lê
+  `js/views/`; podem ser apagados quando a migração estiver fechada.
