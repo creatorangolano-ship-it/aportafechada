@@ -1,0 +1,10 @@
+{
+  "name": "À Porta Fechada",
+  "short_name": "Porta Fechada",
+  "description": "Conteúdos exclusivos dos teus criadores favoritos.",
+  "start_url": "./#feed",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#D0103C",
+  "icons": [{ "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
