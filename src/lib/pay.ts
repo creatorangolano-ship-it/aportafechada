@@ -1,5 +1,6 @@
 // Pagamentos: carteira, Multicaixa Express, referência e PayPal
 import { sb, $, esc, kz, ic, modal, closeModal, toast, fn, errText, busy, copyText } from './lib';
+import { register } from './registry';
 import { S, refreshMe } from './state';
 import type { PayKind } from './types';
 
@@ -333,3 +334,5 @@ export function paySubmit(f: HTMLFormElement): boolean {
   if (f.id === 'payForm') { void submit(); return true; }
   return false;
 }
+
+register({ actions: payActions, submit: paySubmit, change: (t) => payChange(t as HTMLInputElement) });

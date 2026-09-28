@@ -154,7 +154,7 @@ export const LOGO = (w = 26, h = 32): string =>
   `<svg width="${w}" height="${h}" viewBox="0 0 26 32" aria-hidden="true"><path d="M2 3.2 18.6.1A2.5 2.5 0 0 1 21.5 2.6v26.8a2.5 2.5 0 0 1-2.9 2.5L2 28.8A2.5 2.5 0 0 1 0 26.3V5.7a2.5 2.5 0 0 1 2-2.5Z" style="fill:var(--acc)"/><path d="M24.5 3v26" style="stroke:var(--ink)" stroke-width="2.2" stroke-linecap="round"/><circle cx="14.8" cy="16" r="1.9" fill="#fff"/></svg>`;
 
 export function avatarOf(p: Partial<Profile> | null | undefined, cls = ''): string {
-  if (p?.avatar_url) return `<span class="avatar ${cls}"><img src="${esc(p.avatar_url)}" alt=""></span>`;
+  if (p?.avatar_url) return `<span class="avatar ${cls}"><img loading="lazy" decoding="async" src="${esc(p.avatar_url)}" alt=""></span>`;
   return `<span class="avatar ${cls}">${esc(((p?.name || p?.handle || '?') + '')[0].toUpperCase())}</span>`;
 }
 

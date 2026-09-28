@@ -1,5 +1,6 @@
 // Mensagens em tempo real, com conteúdo pago enviado pelo criador
 import { sb, $, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, hhmm, fmtDate, signedUrls, upload, safeName, uuid, busy, rerender, field } from '../lib';
+import { register } from '../registry';
 import { S, loadCounts } from '../state';
 import { openPay } from '../pay';
 import type { Actions, ChangeFn, SubmitFn } from '../types';
@@ -54,12 +55,13 @@ async function loadThread(id: string): Promise<Cur> {
   const list = (msgs || []) as Msg[];
   const paths: string[] = [];
   for (const m of list) { m.open = !m.ppv_price || m.sender_id === uid; if (m.open) for (const f of m.media || []) paths.push(f.path); }
-  // Só se pergunta ao servidor pelas compras desta conversa, e só as confirmadas. Trazer todas as
-  // compras do utilizador (sem .eq('status') nem limite) era o que abria conteúdo por pagar.
+  // Só se pergunta ao servidor pelas compras desta conversa (nunca todas as do utilizador).
+  // `purchases` não tem coluna `status`: cada linha já é uma compra concluída (o estado
+  // do pagamento vive em `orders`). Um .eq('status') aqui dava HTTP 400 e a consulta inteira falhava.
   const ppvIds = list.filter((m) => m.ppv_price && m.sender_id !== uid).map((m) => m.id);
   if (ppvIds.length) {
     const { data: bought } = await sb.from('purchases').select('ref_id').eq('user_id', uid)
-      .eq('kind', 'message').eq('status', 'paid').in('ref_id', ppvIds);
+      .eq('kind', 'message').in('ref_id', ppvIds);
     const B = new Set((bought || []).map((x: { ref_id: string }) => x.ref_id));
     for (const m of list) if (B.has(m.id)) { m.open = true; for (const f of m.media || []) paths.push(f.path); }
   }
@@ -86,7 +88,7 @@ function msgHTML(m: Msg): string {
   const me = m.sender_id === S.me!.id;
   const files = (m.urls || []).filter((f) => f.url).map((f) => `<div style="position:relative">${f.type?.startsWith('video')
     ? `<video src="${esc(f.url)}" controls playsinline controlsList="nodownload noremoteplayback" disablePictureInPicture oncontextmenu="return false" style="width:100%;border-radius:8px;display:block"></video>`
-    : `<img src="${esc(f.url)}" alt="" draggable="false" oncontextmenu="return false" style="width:100%;border-radius:8px;display:block;-webkit-user-drag:none;user-select:none">`}<span class="wm c" style="font-size:15px">À PORTA FECHADA</span></div>`).join('');
+    : `<img loading="lazy" decoding="async" src="${esc(f.url)}" alt="" draggable="false" oncontextmenu="return false" style="width:100%;border-radius:8px;display:block;-webkit-user-drag:none;user-select:none">`}<span class="wm c" style="font-size:15px">À PORTA FECHADA</span></div>`).join('');
   if (m.ppv_price) {
     if (me) return `<div class="attach" style="align-self:flex-end"><div class="row">${ic('lock', 'style="width:22px;height:22px;color:var(--acc)"')}<div style="flex:1"><b style="color:var(--ink)">${esc(m.body || 'Conteúdo pago')}</b><div class="small muted">Conteúdo pago · ${kz(m.ppv_price)} · ${(m.media || []).length} ficheiro(s)</div></div></div>${files}<span class="small muted">${hhmm(m.created_at)}</span></div>`;
     if (!m.open) return `<div class="attach"><div class="textlock">${ic('lock', 'style="width:24px;height:24px;color:var(--muted)"')}<b style="color:var(--ink)">${esc(m.body || 'Conteúdo pago')}</b><span class="small muted">${(m.media || []).length} ficheiro(s)</span><button class="btn pri sm" data-act="buyMsg" data-id="${m.id}" data-price="${m.ppv_price}">Desbloquear por ${kz(m.ppv_price)}</button></div><span class="small muted">${hhmm(m.created_at)}</span></div>`;
@@ -227,3 +229,5 @@ export const msgChange: ChangeFn = (t) => {
   }
   return false;
 };
+
+register({ actions: msgActions, submit: msgSubmit, change: msgChange });

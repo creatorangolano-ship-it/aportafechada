@@ -1,5 +1,6 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox } from '../lib';
+import { register } from '../registry';
 import { S, refreshMe } from '../state';
 import { openPay } from '../pay';
 import { CATS } from '../config';
@@ -65,7 +66,7 @@ function mediaHTML(p: any) {
     : `<button class="btn pri sm" data-act="buyPost" data-id="${p.id}" data-price="${p.price}">Obter acesso por ${kz(p.price)}</button>`;
   const msg = p.access === 'subscribers' ? (fr ? 'Só para seguidores' : 'Só para subscritores') : 'Conteúdo pago à parte';
   const n = (p.media || []).length;
-  if (p.preview_url || n) return `<div class="media locked">${p.preview_url ? `<img src="${esc(p.preview_url)}" alt="">` : ''}<div class="lock"><span class="ring">${ic('lock')}</span><b>${msg}</b>${n ? `<span class="small">${n} ${n === 1 ? 'ficheiro' : 'ficheiros'}</span>` : ''}</div>${btn}</div>`;
+  if (p.preview_url || n) return `<div class="media locked">${p.preview_url ? `<img loading="lazy" decoding="async" src="${esc(p.preview_url)}" alt="">` : ''}<div class="lock"><span class="ring">${ic('lock')}</span><b>${msg}</b>${n ? `<span class="small">${n} ${n === 1 ? 'ficheiro' : 'ficheiros'}</span>` : ''}</div>${btn}</div>`;
   return `<div class="textlock">${ic('lock', 'style="width:24px;height:24px;color:var(--muted)"')}<b style="color:var(--ink)">${msg}</b>${btn}</div>`;
 }
 
@@ -229,7 +230,7 @@ export async function vPerfil(handle: any) {
   if (S.ptab === 'pub') body = `<div class="feed">${posts.map(postHTML).join('') || `<p class="empty">${mine ? 'Ainda não publicaste nada.' : 'Ainda sem publicações.'}</p>`}</div>`;
   else if (S.ptab === 'media') {
     const tiles: Array<{ p: any; m: any }> = posts.flatMap((p: any) => (p.canSee ? (p.urls || []).filter((m: any) => m.url).map((m: any) => ({ p, m })) : (p.media?.length ? [{ p, m: null }] : []))).slice(0, 60);
-    body = tiles.length ? `<div class="cgrid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px">${tiles.map(({ p, m }) => `<a class="post" style="padding:0" href="#p-${p.id}"><div class="media ${m ? '' : 'locked'}" style="aspect-ratio:1">${m ? (m.type?.startsWith('video') ? `<video src="${esc(m.url)}" muted preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : (p.preview_url ? `<img src="${esc(p.preview_url)}" alt="">` : '')}${m ? '' : `<div class="lock">${ic('lock')}</div>`}</div></a>`).join('')}</div>` : '<p class="empty">Sem fotos nem vídeos.</p>';
+    body = tiles.length ? `<div class="cgrid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px">${tiles.map(({ p, m }) => `<a class="post" style="padding:0" href="#p-${p.id}"><div class="media ${m ? '' : 'locked'}" style="aspect-ratio:1">${m ? (m.type?.startsWith('video') ? `<video src="${esc(m.url)}" muted preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : (p.preview_url ? `<img loading="lazy" decoding="async" src="${esc(p.preview_url)}" alt="">` : '')}${m ? '' : `<div class="lock">${ic('lock')}</div>`}</div></a>`).join('')}</div>` : '<p class="empty">Sem fotos nem vídeos.</p>';
   } else body = `<div style="max-width:640px" class="stack"><p style="white-space:pre-line">${esc(c.bio)}</p>
     <dl class="kv"><dt>Categoria</dt><dd>${esc(c.category)}</dd><dt>Cidade</dt><dd>${esc(c.city)}, Angola</dd><dt>Na plataforma desde</dt><dd>${fmtDate(c.created_at)}</dd><dt>Subscrição</dt><dd>${c.price ? kz(c.price) + ' por mês' : 'Gratuita'}</dd><dt>Identidade</dt><dd>${c.status === 'approved' ? 'Verificada' : 'Em verificação'}</dd></dl>
     ${mine ? '' : `<button class="btn link small" style="align-self:flex-start" data-act="report" data-type="creator" data-id="${c.id}">Denunciar perfil</button>`}</div>`;
@@ -297,8 +298,9 @@ export async function vSubs() {
 const COMPRAS_PAGE = 20;
 export async function vCompras() {
   const page = Math.max(0, Number(S.comprasPage) || 0);
+  // `purchases` não tem coluna `status`: cada linha já é uma compra concluída (o estado
+  // do pagamento vive em `orders`). Um .eq('status') aqui dava HTTP 400 e a consulta inteira falhava.
   const { data: purchases } = await sb.from('purchases').select('*').eq('user_id', me_().id)
-    .eq('status', 'paid')            // só compras confirmadas contam como acesso
     .order('created_at', { ascending: false })
     .range(page * COMPRAS_PAGE, page * COMPRAS_PAGE + COMPRAS_PAGE - 1);
   const list = purchases || [];
@@ -480,3 +482,21 @@ export const fanActions = {
     openPay({ kind: 'topup', amount: amt, title: 'Carregar carteira', sub: 'O saldo fica disponível assim que o pagamento for confirmado.', okText: `Carregaste ${kz(amt)}.`, onPaid: () => rerender() });
   },
 };
+
+let qT: ReturnType<typeof setTimeout> | undefined;
+let exploreSeq = 0;
+register({
+  actions: fanActions,
+  // Pesquisa do Explorar: redesenha só a grelha, com a última pesquisa a ganhar.
+  input: (t) => {
+    if (t.id !== 'q') return false;
+    S.q = t.value; clearTimeout(qT);
+    const seq = ++exploreSeq;
+    qT = setTimeout(async () => {
+      const html = await exploreGrid();
+      if (seq !== exploreSeq) return; // uma pesquisa mais lenta já não interessa
+      const g = $('#cgrid'); if (g) g.innerHTML = html;
+    }, 300);
+    return true;
+  },
+});

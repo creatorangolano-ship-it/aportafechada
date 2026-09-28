@@ -23,6 +23,14 @@ import { useEffect, useRef, useState } from 'react';
  * fora do browser — e, de passagem, `lib/main.ts` deixa de entrar no pacote do
  * servidor, onde não tinha uso nenhum.
  */
+/**
+ * O download de `lib/main` começa aqui, quando este módulo é avaliado no
+ * browser — e não dentro do `useEffect`, que só corre depois de o React
+ * hidratar a página. São duas coisas que agora acontecem em paralelo em vez de
+ * em fila. No servidor fica `null` (lá não há `document`).
+ */
+const app = typeof window === 'undefined' ? null : import('@/lib/main');
+
 export default function Page() {
   const ref = useRef<HTMLDivElement>(null);
   const [erro, setErro] = useState<Error | null>(null);
@@ -33,7 +41,7 @@ export default function Page() {
     // realtime, duas chamadas a `loadMe`. O boot é idempotente por si só, mas
     // não vale a pena deixar o duplo a acontecer para depois o desligar à mão.
     let vivo = true;
-    void import('@/lib/main')
+    void (app ?? import('@/lib/main'))
       .then((m) => m.boot())
       .catch((e) => { if (vivo) setErro(e instanceof Error ? e : new Error(String(e))); });
     return () => { vivo = false; };

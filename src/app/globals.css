@@ -6,7 +6,7 @@
   --acc:#D0103C; --acc-hover:#AE0C32; --acc-ink:#FFFFFF; --acc-soft:#FBE9ED; --acc-text:#B20E35;
   --ok:#17804A; --ok-bg:#E3F3E9; --warn:#96560A; --warn-bg:#FBEFD9; --info:#1F58B8; --info-bg:#E5EDFA;
   --scrim:rgba(18,10,14,.55);
-  --font:"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font:var(--font-archivo),"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
@@ -106,7 +106,7 @@ main{padding-block:32px 64px;min-height:70vh}
 
 /* Landing */
 .land{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:48px;align-items:center}
-.land-photo{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3.3;background:#ECE7E3 url("/img/hero.jpg") 72% 30%/cover no-repeat}
+.land-photo{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3.3;background:#ECE7E3 url("/img/hero.jpg") 72% 30%/cover no-repeat;background-image:image-set(url("/img/hero.avif") type("image/avif"),url("/img/hero.webp") type("image/webp"),url("/img/hero.jpg") type("image/jpeg"))}
 .land-photo figcaption{position:absolute;left:0;bottom:0;padding:22px 24px;color:#fff;font-size:13px;background:linear-gradient(transparent,rgba(0,0,0,.45));width:100%}
 .land h1{font-size:clamp(34px,4.6vw,56px);line-height:.98;font-variation-settings:"wdth" 80;letter-spacing:-.03em}
 .land h1 em{font-style:normal;color:var(--acc)}
@@ -386,7 +386,7 @@ td.num,th.num{text-align:right}
 /* Home estilo login */
 .home{display:grid;grid-template-columns:1fr minmax(0,440px);gap:64px;align-items:center;max-width:1040px;margin:0 auto;padding-block:24px}
 .blob-wrap{display:grid;place-items:center}
-.blob{width:min(100%,500px);aspect-ratio:1;background:#E9E3DE url("/img/hero.jpg") 76% 24%/160% auto no-repeat;border-radius:57% 43% 46% 54% / 44% 52% 48% 56%}
+.blob{width:min(100%,500px);aspect-ratio:1;background:#E9E3DE url("/img/hero.jpg") 76% 24%/160% auto no-repeat;background-image:image-set(url("/img/hero.avif") type("image/avif"),url("/img/hero.webp") type("image/webp"),url("/img/hero.jpg") type("image/jpeg"));border-radius:57% 43% 46% 54% / 44% 52% 48% 56%}
 .home-side{display:flex;flex-direction:column;gap:14px}
 .lcard{border:1px solid var(--line-2);border-radius:4px;background:var(--surface);padding:40px 44px 30px;display:flex;flex-direction:column;gap:16px}
 .lbrand{display:flex;align-items:center;justify-content:center;gap:12px;font-weight:800;font-size:30px;letter-spacing:-.03em;color:var(--ink);font-variation-settings:"wdth" 82}

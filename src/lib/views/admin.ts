@@ -1,5 +1,6 @@
 // Administração: verificações, denúncias, levantamentos, mensagens de contacto, definições
 import { sb, $, esc, kz, dots, ic, LOGO, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, signedUrls, upload, publicUrl, safeName, safeHref, busy, rerender } from '../lib';
+import { register } from '../registry';
 import { S, loadCfg, isStaff, isAdmin, SETTINGS_SPEC, checkSetting, netPct } from '../state';
 
 import type { FormControl, Profile } from '../types';
@@ -146,7 +147,8 @@ async function reportTable(limit: number, canSuspend = true, f = 'all') {
 /** O conteúdo de uma secção: título e acções na barra de topo, `lead` por baixo, e o corpo. */
 type Pagina = { h: string; lead?: string; acts?: string; body: string };
 
-async function paginaVisao(adm: boolean, n: Contagens): Promise<Pagina> {
+async function paginaVisao(adm: boolean, nP: Promise<Contagens>): Promise<Pagina> {
+  const n = await nP;
   const filas = FILAS.filter((q) => adm || !q.admin);
   const antigos = await Promise.all(filas.map((q) => (n[q.fila] ? maisAntigo(q.t, q.s) : Promise.resolve(null))));
   const cartoes = filas.map((q, i) => {
@@ -179,7 +181,7 @@ async function paginaVisao(adm: boolean, n: Contagens): Promise<Pagina> {
   };
 }
 
-async function paginaLevantamentos(n: Contagens): Promise<Pagina> {
+async function paginaLevantamentos(nP: Promise<Contagens>): Promise<Pagina> {
   const f = filtro('levantamentos');
   const q = sb.from('payouts').select('*, user:profiles!payouts_user_id_fkey(handle,name)');
   const { data } = f === 'open' ? await q.in('status', ['pending', 'review']).order('created_at', { ascending: true }).limit(200)
@@ -190,7 +192,7 @@ async function paginaLevantamentos(n: Contagens): Promise<Pagina> {
   return {
     h: 'Levantamentos',
     lead: 'Faz primeiro a transferência no banco e só depois marca como pago: marcar como pago não pode ser desfeito.',
-    body: `${chips('levantamentos', n.pay)}${f === 'open' && list.length ? `<p class="small muted" style="margin:-4px 0 12px">${dots(list.length)} pedido(s) · <b style="color:var(--ink)">${kz(total)}</b> por transferir</p>` : ''}
+    body: `${chips('levantamentos', (await nP).pay)}${f === 'open' && list.length ? `<p class="small muted" style="margin:-4px 0 12px">${dots(list.length)} pedido(s) · <b style="color:var(--ink)">${kz(total)}</b> por transferir</p>` : ''}
      ${list.length ? `<div class="tw"><table><thead><tr><th>Pedido</th><th>Pessoa</th><th class="num">Valor</th><th>Banco · titular · IBAN</th><th>Estado</th><th></th></tr></thead><tbody>${list.map((p) => `<tr><td>${fmtDate(p.created_at, true)}${['pending', 'review'].includes(p.status) ? waitingBadge(p.created_at) : ''}</td><td>${esc(p.user?.name || '(conta eliminada)')}<br><span class="small muted">@${esc(p.user?.handle || '—')}</span></td><td class="num">${kz(p.amount)}</td><td class="small">${esc(p.bank)} · ${esc(p.holder)}<br><span style="font-variant-numeric:tabular-nums">${esc(p.iban)}</span></td><td>${tagSt(p.status)}${p.note ? `<div class="small muted">${esc(p.note)}</div>` : ''}</td><td>${['pending', 'review'].includes(p.status) ? `<div class="row" style="gap:6px;justify-content:flex-end">${p.status === 'pending' ? `<button class="btn out sm" data-act="payoutSet" data-id="${p.id}" data-s="review">Em revisão</button>` : ''}<button class="btn out sm" data-act="payoutReject" data-id="${p.id}">Recusar</button><button class="btn pri sm" data-act="payoutSet" data-id="${p.id}" data-s="paid">Marcar pago</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="box empty">${f === 'open' ? 'Nenhum levantamento por tratar.' : 'Sem pedidos de levantamento.'}</div>`}`,
   };
@@ -216,7 +218,7 @@ async function paginaMensagens(): Promise<Pagina> {
   };
 }
 
-async function paginaContactos(n: Contagens): Promise<Pagina> {
+async function paginaContactos(nP: Promise<Contagens>): Promise<Pagina> {
   const f = filtro('contactos');
   const { data: open } = f === 'resolved' ? { data: [] } : await sb.from('contact_messages').select('*').eq('status', 'open').order('created_at', { ascending: true }).limit(100);
   const rest = f === 'open' ? 0 : Math.max(0, 100 - (open?.length || 0));
@@ -226,7 +228,7 @@ async function paginaContactos(n: Contagens): Promise<Pagina> {
   return {
     h: 'Suporte',
     lead: 'Mensagens do formulário de contacto. «Responder por email» abre o teu email com o destinatário e o assunto preenchidos; marca como resolvida depois de responderes.',
-    body: `${chips('contactos', n.ct)}${data.length ? `<div class="stack">${data.map((m) => `<div class="box pad stack" style="gap:6px">
+    body: `${chips('contactos', (await nP).ct)}${data.length ? `<div class="stack">${data.map((m) => `<div class="box pad stack" style="gap:6px">
       <div class="row between wrapf"><b style="color:var(--ink)">${esc(m.subject)}</b><span class="row" style="gap:8px"><span class="small muted">${fmtDate(m.created_at, true)}</span>${tagSt(m.status)}${m.status === 'open' ? waitingBadge(m.created_at) : ''}</span></div>
       <span class="small">${esc(m.name)} · <span style="user-select:all">${esc(m.email)}</span></span>
       <p style="white-space:pre-line">${esc(m.body)}</p>
@@ -243,7 +245,7 @@ async function paginaPromocoes(): Promise<Pagina> {
     h: 'Promoções',
     lead: 'Aparecem no Início e no Explorar, na posição que escolheres. «Ativa» controla se está visível já.',
     acts: `<button class="btn pri sm" data-act="promoNew">${ic('plus')}Nova promoção</button>`,
-    body: (promos || []).length ? `<div class="tw"><table><thead><tr><th></th><th>Título</th><th>Tipo</th><th>Posição</th><th class="num">Ordem</th><th>Estado</th><th></th></tr></thead><tbody>${(promos || []).map((p) => `<tr><td>${p.image_url ? (p.media_type?.startsWith('video') ? `<video src="${esc(p.image_url)}" style="width:56px;height:36px;object-fit:cover;border-radius:6px" muted></video>` : `<img src="${esc(p.image_url)}" alt="" style="width:56px;height:36px;object-fit:cover;border-radius:6px">`) : '·'}</td><td><b style="color:var(--ink)">${esc(p.title)}</b>${p.subtitle ? `<div class="small muted">${esc(p.subtitle)}</div>` : ''}</td><td>${typeL[p.content_type] || p.content_type}${(p.mobile_image_url || p.mobile_html) ? ' <span class="small muted">(+ mobile)</span>' : ''}</td><td>${posL[p.position] || p.position}</td><td class="num">${p.sort_order}</td><td>${p.active ? '<span class="tag ok">Ativa</span>' : '<span class="tag plain">Desativada</span>'}</td><td style="text-align:right"><div class="row" style="gap:6px;justify-content:flex-end"><button class="btn out sm" data-act="promoEdit" data-id="${p.id}">Editar</button><button class="btn link sm" data-act="promoDel" data-id="${p.id}">Apagar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem promoções ainda.</div>',
+    body: (promos || []).length ? `<div class="tw"><table><thead><tr><th></th><th>Título</th><th>Tipo</th><th>Posição</th><th class="num">Ordem</th><th>Estado</th><th></th></tr></thead><tbody>${(promos || []).map((p) => `<tr><td>${p.image_url ? (p.media_type?.startsWith('video') ? `<video src="${esc(p.image_url)}" style="width:56px;height:36px;object-fit:cover;border-radius:6px" muted></video>` : `<img loading="lazy" decoding="async" src="${esc(p.image_url)}" alt="" style="width:56px;height:36px;object-fit:cover;border-radius:6px">`) : '·'}</td><td><b style="color:var(--ink)">${esc(p.title)}</b>${p.subtitle ? `<div class="small muted">${esc(p.subtitle)}</div>` : ''}</td><td>${typeL[p.content_type] || p.content_type}${(p.mobile_image_url || p.mobile_html) ? ' <span class="small muted">(+ mobile)</span>' : ''}</td><td>${posL[p.position] || p.position}</td><td class="num">${p.sort_order}</td><td>${p.active ? '<span class="tag ok">Ativa</span>' : '<span class="tag plain">Desativada</span>'}</td><td style="text-align:right"><div class="row" style="gap:6px;justify-content:flex-end"><button class="btn out sm" data-act="promoEdit" data-id="${p.id}">Editar</button><button class="btn link sm" data-act="promoDel" data-id="${p.id}">Apagar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem promoções ainda.</div>',
   };
 }
 
@@ -260,23 +262,26 @@ async function paginaDefinicoes(): Promise<Pagina> {
   };
 }
 
-async function pagina(t: string, adm: boolean, n: Contagens): Promise<Pagina> {
+/** `nP` é a promessa das contagens: as consultas da secção correm ao mesmo tempo que ela. */
+async function pagina(t: string, adm: boolean, nP: Promise<Contagens>): Promise<Pagina> {
   switch (t) {
     case 'verificacoes': {
       const f = filtro('verificacoes');
-      return { h: 'Verificações', lead: 'Confirma documento, selfie, idade (18+) e titular do IBAN antes de aprovar. Os pedidos mais antigos estão no topo.', body: `${chips('verificacoes', n.kyc)}${await kycTable(200, f)}` };
+      const tabela = kycTable(200, f); // começa já, em paralelo com as contagens
+      return { h: 'Verificações', lead: 'Confirma documento, selfie, idade (18+) e titular do IBAN antes de aprovar. Os pedidos mais antigos estão no topo.', body: `${chips('verificacoes', (await nP).kyc)}${await tabela}` };
     }
     case 'denuncias': {
       const f = filtro('denuncias');
-      return { h: 'Denúncias', lead: `«Remover» esconde a publicação, apaga a mensagem ou termina a live.${adm ? '' : ' Suspender um perfil é exclusivo do admin completo.'}`, body: `${chips('denuncias', n.rep)}${await reportTable(200, adm, f)}` };
+      const tabela = reportTable(200, adm, f);
+      return { h: 'Denúncias', lead: `«Remover» esconde a publicação, apaga a mensagem ou termina a live.${adm ? '' : ' Suspender um perfil é exclusivo do admin completo.'}`, body: `${chips('denuncias', (await nP).rep)}${await tabela}` };
     }
-    case 'levantamentos': return paginaLevantamentos(n);
-    case 'contactos': return paginaContactos(n);
+    case 'levantamentos': return paginaLevantamentos(nP);
+    case 'contactos': return paginaContactos(nP);
     case 'utilizadores': return paginaUtilizadores(adm);
     case 'mensagens': return paginaMensagens();
     case 'promocoes': return paginaPromocoes();
     case 'definicoes': return paginaDefinicoes();
-    default: return paginaVisao(adm, n);
+    default: return paginaVisao(adm, nP);
   }
 }
 
@@ -290,8 +295,8 @@ export async function vAdmin() {
   const grupos = gruposPara(adm);
   const abas = grupos.flatMap((g) => g.abas);
   const t = abas.some((a) => a.k === S.adTab) ? S.adTab : 'visao';
-  const n = await contagens(adm);
-  const pg = await pagina(t, adm, n);
+  const nP = contagens(adm);
+  const [n, pg] = await Promise.all([nP, pagina(t, adm, nP)]);
   const u = me_();
   const dark = document.documentElement.dataset.theme === 'dark';
 
@@ -589,3 +594,5 @@ export async function adminSubmit(f: HTMLFormElement) {
   if (netPct() <= 0) return showErr('#setErr', 'A taxa da plataforma ficou em 100% ou mais: os criadores recebiam zero ou um valor negativo. Corrige antes de vender.'), true;
   toast('Definições guardadas'); return true;
 }
+
+register({ actions: adminActions, submit: adminSubmit, change: adminChange });

@@ -1,5 +1,6 @@
 // Lives: lista, bilhetes, sala com vídeo (LiveKit) e chat em tempo real
 import { sb, $, esc, kz, ic, avatarOf, toast, errText, fmtDate, fn, rerender, go } from '../lib';
+import { register } from '../registry';
 import { S } from '../state';
 import { openPay } from '../pay';
 import type { Actions, SubmitFn } from '../types';
@@ -12,9 +13,10 @@ async function myAccess(ids: string[]): Promise<{ tickets: Set<string>; rem: Set
   if (!ids.length) return { tickets: new Set(), rem: new Set() };
   const uid = S.me!.id;
   const [{ data: t }, { data: r }] = await Promise.all([
-    // .eq('status','paid'): sem isto, uma linha de compra deixada por um pagamento falhado ou
-    // expirado dava entrada à live. Sem .limit() o .in() podia rebentar com muitas lives.
-    sb.from('purchases').select('ref_id').eq('user_id', uid).eq('kind', 'ticket').eq('status', 'paid').in('ref_id', ids.slice(0, 200)),
+    // `purchases` não tem coluna `status`: cada linha já é uma compra concluída (o estado
+    // do pagamento vive em `orders`). Um .eq('status') aqui dava HTTP 400 e a consulta inteira falhava.
+    // Sem limite o .in() podia rebentar com muitas lives.
+    sb.from('purchases').select('ref_id').eq('user_id', uid).eq('kind', 'ticket').in('ref_id', ids.slice(0, 200)),
     sb.from('live_reminders').select('live_id').eq('user_id', uid).in('live_id', ids.slice(0, 200)),
   ]);
   return {
@@ -26,7 +28,7 @@ async function myAccess(ids: string[]): Promise<{ tickets: Set<string>; rem: Set
 function liveCard(l: any, A: { tickets: Set<string>; rem: Set<string> }): string {
   const c = l.creator, host = l.creator_id === S.me!.id, has = host || l.price === 0 || A.tickets.has(l.id);
   const img = c.cover_url || c.profile.avatar_url;
-  return `<article class="lcardv"><a class="ph" href="#live-${l.id}" aria-label="${esc(l.title)}">${img ? `<img src="${esc(img)}" alt="">` : `<span class="letter">${esc(cname(c)[0] || '?')}</span>`}${l.status === 'live' ? '<span class="onair">AO VIVO</span>' : `<span class="when">${fmtDate(l.starts_at, true)}</span>`}</a>
+  return `<article class="lcardv"><a class="ph" href="#live-${l.id}" aria-label="${esc(l.title)}">${img ? `<img loading="lazy" decoding="async" src="${esc(img)}" alt="">` : `<span class="letter">${esc(cname(c)[0] || '?')}</span>`}${l.status === 'live' ? '<span class="onair">AO VIVO</span>' : `<span class="when">${fmtDate(l.starts_at, true)}</span>`}</a>
    <div class="row" style="align-items:flex-start">${avatarOf(c.profile, 'sm')}<div style="flex:1;min-width:0"><b style="color:var(--ink)">${esc(l.title)}</b><div class="small muted">${esc(cname(c))} · ${l.price ? 'Bilhete ' + kz(l.price) : 'Entrada livre'}</div></div></div>
    <div class="row wrapf">${l.status === 'live'
      ? (has ? `<a class="btn pri sm" href="#live-${l.id}">Entrar</a>` : `<button class="btn pri sm" data-act="buyTicket" data-id="${l.id}" data-price="${l.price}">Comprar bilhete · ${kz(l.price)}</button>`)
@@ -216,3 +218,5 @@ export const liveSubmit: SubmitFn = async (f) => {
   if (error) { toast(errText(error)); i!.value = v; }
   return true;
 };
+
+register({ actions: liveActions, submit: liveSubmit });

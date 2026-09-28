@@ -1,5 +1,6 @@
 // Conta: perfil, pagamentos, afiliados, segurança, tornar-se criador
 import { sb, $, $$, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, fn, upload, publicUrl, shrinkImage, cropImage, assertImage, rerender, go } from '../lib';
+import { register } from '../registry';
 import { S, refreshMe } from '../state';
 import { CATS, COUNTRIES } from '../config';
 import { startOnboarding } from './public';
@@ -134,3 +135,5 @@ export const accountChange: ChangeFn = async (t) => {
   } catch (e) { toast(errText(e)); }
   return true;
 };
+
+register({ actions: accountActions, submit: accountSubmit, change: accountChange });

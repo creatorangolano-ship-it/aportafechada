@@ -1,5 +1,7 @@
 // Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação, Top 10
 import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go, doorTransition } from '../lib';
+import { register } from '../registry';
+import { INFO } from '../rotas';
 import { S, loadMe, netPct, isStaff } from '../state';
 import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
@@ -232,7 +234,7 @@ export async function vTop() {
 }
 
 /* ---------- Páginas de informação ---------- */
-export const INFO = ['sobre', 'funciona', 'faq', 'regras', 'termos', 'privacidade', 'dmca', 'contacto', 'afiliados', 'blog'];
+export { INFO };
 export function vInfo(r: any) {
   const fee = S.cfg.fee_pct, net = netPct(), aff = S.cfg.affiliate_pct;
   const FAQ = [
@@ -442,3 +444,5 @@ export function publicChange(t: FormControl) {
   }
   return false;
 }
+
+register({ actions: publicActions, submit: publicSubmit, change: publicChange });

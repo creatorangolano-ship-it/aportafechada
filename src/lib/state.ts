@@ -220,11 +220,40 @@ export function checkSetting(key: string, raw: unknown):
   return { value: n };
 }
 
-export async function loadCfg(): Promise<void> {
-  const { data } = await sb.from('settings').select('key,value');
-  for (const r of (data || []) as Array<{ key: keyof Cfg; value: unknown }>) {
-    S.cfg[r.key] = Number(r.value);
-  }
+/*
+ * Definições da plataforma, com cache local (stale-while-revalidate).
+ *
+ * Mudam raramente, mas antes cada abertura da app esperava por elas antes de
+ * desenhar fosse o que fosse. Agora: o último valor conhecido vem do
+ * localStorage na hora, e a leitura do servidor corre em segundo plano e
+ * actualiza a cache. `cfgReady()` resolve logo quando há cache; sem cache
+ * (primeira visita), espera pelo servidor — e só as páginas que mostram ou
+ * validam estes valores é que a chamam (ver `cfg: true` nas rotas de main.ts).
+ */
+const CFG_KEY = 'apf-cfg';
+function aplicarCfg(rows: Array<{ key: string; value: unknown }>): void {
+  for (const r of rows) if (r.key in S.cfg) S.cfg[r.key as keyof Cfg] = Number(r.value);
+}
+let cfgEmCache = false;
+try {
+  const c = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+  if (Array.isArray(c)) { aplicarCfg(c); cfgEmCache = true; }
+} catch { /* modo privado ou cache estragada */ }
+
+let cfgPedido: Promise<void> | null = null;
+export function loadCfg(): Promise<void> {
+  cfgPedido = (async () => {
+    const { data, error } = await sb.from('settings').select('key,value');
+    if (error || !data) return;
+    aplicarCfg(data);
+    try { localStorage.setItem(CFG_KEY, JSON.stringify(data)); } catch { /* modo privado */ }
+  })();
+  return cfgPedido;
+}
+/** Resolve quando `S.cfg` tem valores do servidor ou da cache. */
+export function cfgReady(): Promise<void> {
+  if (cfgEmCache) return Promise.resolve();
+  return (cfgPedido ?? loadCfg()).catch(() => {});
 }
 
 export async function loadMe(): Promise<Profile | null> {
@@ -239,7 +268,9 @@ export async function loadMe(): Promise<Profile | null> {
   S.me = (me as Profile | null) ?? null;
   S.creator = (cr as Creator | null) ?? null;
   if (S.me) S.me.email = session.user.email ?? undefined;
-  await loadCounts();
+  // As contagens (notificações e mensagens por ler) só servem os distintivos do
+  // cabeçalho: não atrasam a página. Quando chegam, o cabeçalho redesenha-se.
+  void loadCounts().then(() => document.dispatchEvent(new Event('apf:header')), () => {});
   return S.me;
 }
 

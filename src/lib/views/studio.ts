@@ -1,5 +1,6 @@
 // Estúdio do criador: resumo, publicações, lives, subscritores, perfil, ganhos, afiliados
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, monthName, upload, publicUrl, safeName, blurPreview, shrinkImage, cropImage, assertImage, uuid, busy, copyText, rerender, go } from '../lib';
+import { register } from '../registry';
 const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 /** `esc()` não protege um URL dentro de url('…') — ver nota em fan.js. */
 const cssUrl = (u: any) => `url("${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}")`;
@@ -57,7 +58,7 @@ const accessTag = (p: any) => p.access === 'free' ? '<span class="tag plain">Gr�
 function postsTable(list: any, actions = true) {
   if (!list.length) return `<div class="box empty">Ainda não publicaste nada. <button class="btn link" data-act="stTab" data-v="nova">Criar a primeira publicação</button></div>`;
   return `<div class="tw"><table><thead><tr><th>Publicação</th><th>Acesso</th><th class="num">Gostos</th><th>Publicado</th>${actions ? '<th></th>' : ''}</tr></thead><tbody>
-   ${list.map((p: any) => `<tr><td><div class="row">${p.preview_url ? `<img class="thumb" src="${esc(p.preview_url)}" alt="">` : `<span class="thumb">${ic('doc')}</span>`}<span>${esc(p.title)}${p.status !== 'published' ? ` <span class="tag plain">${p.status === 'hidden' ? 'Removida' : 'Rascunho'}</span>` : ''}</span></div></td>
+   ${list.map((p: any) => `<tr><td><div class="row">${p.preview_url ? `<img loading="lazy" decoding="async" class="thumb" src="${esc(p.preview_url)}" alt="">` : `<span class="thumb">${ic('doc')}</span>`}<span>${esc(p.title)}${p.status !== 'published' ? ` <span class="tag plain">${p.status === 'hidden' ? 'Removida' : 'Rascunho'}</span>` : ''}</span></div></td>
    <td>${accessTag(p)}</td><td class="num">${dots(p.like_count)}</td><td>${ago(p.published_at || p.created_at)}</td>
    ${actions ? `<td><div class="row" style="gap:6px;justify-content:flex-end">${p.status === 'draft' ? `<button class="btn pri sm" data-act="pubDraft" data-id="${p.id}">Publicar</button>` : ''}<a class="btn out sm" href="#p-${p.id}">Ver</a><button class="btn out sm" data-act="delPost" data-id="${p.id}">${S.confirmDel === p.id ? 'Confirmar' : 'Apagar'}</button></div></td>` : ''}</tr>`).join('')}
    </tbody></table></div>`;
@@ -387,3 +388,5 @@ export function studioInput(t: FormControl) {
   return false;
 }
 export { closeModal, modal, $$ };
+
+register({ actions: studioActions, submit: studioSubmit, change: studioChange, input: (t) => studioInput(t) });

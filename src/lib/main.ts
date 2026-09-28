@@ -1,15 +1,10 @@
 // Arranque, cabeçalho, notificações, rotas e eventos
 import { sb, $, $$, esc, kz, ic, LOGO, avatarOf, toast, closeModal, errText, ago, rerender, go, clearUrlCache } from './lib';
-import { S, loadMe, loadCfg, loadCounts, refreshMe, isStaff, type Notif } from './state';
-import { handlePaypalReturn, payActions, payChange, paySubmit } from './pay';
-import { vInicio, vSignup, vConfirmEmail, vNovaSenha, vOnboarding, vTop, vInfo, INFO, publicActions, publicSubmit, publicChange, startOnboarding } from './views/public';
-import { vFeed, vExplorar, vPerfil, vPost, vSubs, vCarteira, vCompras, exploreGrid, fanActions } from './views/fan';
-import { vMensagens, msgActions, msgSubmit, msgChange, startMessagesRealtime, stopMessagesRealtime, setRealtimeThread } from './views/messages';
-import { vLives, vLive, mountLive, liveActions, liveSubmit } from './views/lives';
-import { vEstudio, studioActions, studioSubmit, studioChange, studioInput } from './views/studio';
-import { vConta, accountActions, accountSubmit, accountChange } from './views/account';
-import { vAdmin, adminActions, adminSubmit, adminChange } from './views/admin';
-import type { Actions, FormControl, View } from './types';
+import { S, loadMe, loadCfg, cfgReady, loadCounts, refreshMe, isStaff, type Notif } from './state';
+import { INFO, PUBLIC } from './rotas';
+import { modulos, carregarTodos, preCarregar } from './modulos';
+import { action, register, handleSubmit, handleChange, handleInput } from './registry';
+import type { FormControl } from './types';
 
 /* ---------- Tema ---------- */
 const isDark = (): boolean => document.documentElement.dataset.theme === 'dark';
@@ -19,8 +14,6 @@ function setTheme(t: 'light' | 'dark'): void {
 }
 
 /* ---------- Cabeçalho ---------- */
-const PUBLIC: string[] = ['inicio', 'registar', 'confirmar', 'nova-senha', 'top', ...INFO];
-
 type NavItem = [string, string, string];
 function navFor(): NavItem[] {
   const n: NavItem[] = [['feed', 'Início', 'home'], ['explorar', 'Explorar', 'compass'], ['lives', 'Lives', 'live'], ['mensagens', 'Mensagens', 'chat']];
@@ -83,12 +76,43 @@ const route = (): string => {
 const home = (): string => (S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed');
 let renderSeq = 0;
 
-const ROUTES: Record<string, View> = {
-  inicio: vInicio, confirmar: vConfirmEmail, 'nova-senha': vNovaSenha, top: vTop,
-  registar: () => (S.me ? vOnboarding() : vSignup()),
-  feed: vFeed, explorar: vExplorar, subscricoes: vSubs, compras: vCompras, carteira: vCarteira, mensagens: vMensagens,
-  lives: vLives, estudio: vEstudio, conta: vConta, admin: vAdmin,
+/**
+ * Tabela de rotas. Cada entrada descarrega a área de que precisa (import
+ * dinâmico) e só então desenha a vista — a página de entrada não paga pelo
+ * código do estúdio, das lives ou da administração.
+ *
+ * `cfg: true` marca as páginas que mostram ou validam valores das definições
+ * (taxas, mínimos). Só essas esperam pelas definições; as outras desenham logo.
+ */
+type Rota = { v: (arg: string) => Promise<string>; cfg?: boolean };
+const ROUTES: Record<string, Rota> = {
+  inicio: { v: () => modulos.public().then((m) => m.vInicio()) },
+  confirmar: { v: () => modulos.public().then((m) => m.vConfirmEmail()) },
+  'nova-senha': { v: () => modulos.public().then((m) => m.vNovaSenha()) },
+  top: { v: () => modulos.public().then((m) => m.vTop()) },
+  registar: { v: () => modulos.public().then((m) => (S.me ? m.vOnboarding() : m.vSignup())), cfg: true },
+  info: { v: (r) => modulos.public().then((m) => m.vInfo(r)), cfg: true },
+  feed: { v: () => modulos.fan().then((m) => m.vFeed()) },
+  explorar: { v: () => modulos.fan().then((m) => m.vExplorar()) },
+  perfil: { v: (h) => modulos.fan().then((m) => m.vPerfil(h)) },
+  p: { v: (id) => modulos.fan().then((m) => m.vPost(id)) },
+  subscricoes: { v: () => modulos.fan().then((m) => m.vSubs()) },
+  compras: { v: () => modulos.fan().then((m) => m.vCompras()) },
+  carteira: { v: () => modulos.fan().then((m) => m.vCarteira()), cfg: true },
+  mensagens: { v: () => modulos.messages().then((m) => m.vMensagens()) },
+  lives: { v: () => modulos.lives().then((m) => m.vLives()) },
+  live: { v: (id) => modulos.lives().then((m) => m.vLive(id)) },
+  estudio: { v: () => modulos.studio().then((m) => m.vEstudio()), cfg: true },
+  conta: { v: () => modulos.account().then((m) => m.vConta()), cfg: true },
+  admin: { v: () => modulos.admin().then((m) => m.vAdmin()), cfg: true },
 };
+
+/** Resolve o nome da rota (e o argumento, em `perfil-x`, `p-x`, `live-x`) para a entrada da tabela. */
+function resolver(r: string): { rota: Rota; arg: string } {
+  for (const pre of ['perfil', 'p', 'live']) if (r.startsWith(pre + '-')) return { rota: ROUTES[pre], arg: r.slice(pre.length + 1) };
+  if (INFO.includes(r)) return { rota: ROUTES.info, arg: r };
+  return { rota: ROUTES[r] || (S.me ? ROUTES.feed : ROUTES.inicio), arg: '' };
+}
 
 export async function render(keep = false): Promise<void> {
   const seq = ++renderSeq;
@@ -109,14 +133,9 @@ export async function render(keep = false): Promise<void> {
   if (!keep) app.innerHTML = `<div class="skel">${LOGO(24, 30)}<span>A carregar<i></i><i></i><i></i></span></div>`;
   let h: string;
   try {
-    if (r.startsWith('perfil-')) h = await vPerfil(r.slice(7));
-    else if (r.startsWith('p-')) h = await vPost(r.slice(2));
-    else if (r.startsWith('live-')) h = await vLive(r.slice(5));
-    else if (INFO.includes(r)) h = vInfo(r);
-    else {
-      const V = ROUTES[r] || (S.me ? vFeed : vInicio);
-      h = await V();
-    }
+    const { rota, arg } = resolver(r);
+    if (rota.cfg) await cfgReady();
+    h = await rota.v(arg);
   } catch (e) {
     console.error(e);
     h = `<div class="empty"><h2>Não foi possível carregar</h2><p style="margin-top:8px">${esc(errText(e))}</p><button class="btn out" style="margin-top:14px" data-act="reload">Tentar outra vez</button></div>`;
@@ -128,7 +147,7 @@ export async function render(keep = false): Promise<void> {
   if (!keep) window.scrollTo(0, 0);
   const cs = $('#chatScroll'); if (cs) cs.scrollTop = cs.scrollHeight;
   const c0 = $<HTMLInputElement>('#cd0'); if (c0) c0.focus();
-  if (r.startsWith('live-')) mountLive();
+  if (r.startsWith('live-')) void modulos.lives().then((m) => m.mountLive());
   // Só mostra "Ver mais" nos textos de publicações que ficam mesmo cortados pelo limite de linhas.
   $$<HTMLButtonElement>('.postbody.clamp').forEach((el) => { const btn = el.nextElementSibling; if (btn?.matches('.more-btn')) (btn as HTMLElement).hidden = el.scrollHeight <= el.clientHeight + 1; });
 }
@@ -148,19 +167,18 @@ function startRealtime(): void {
       S.notifs.unshift(x.new as Notif); S.unreadNotifs++; toast((x.new as Notif).text);
       await refreshMe(); header(route());
     }).subscribe();
-  startMessagesRealtime();
+  // O canal das mensagens vive na área de mensagens: descarrega-a em segundo
+  // plano em vez de a pôr no arranque.
+  void modulos.messages().then((m) => m.startMessagesRealtime());
 }
 
 function stopRealtime(): void {
   if (notifCh) { void sb.removeChannel(notifCh); notifCh = null; }
-  setRealtimeThread(null);
-  stopMessagesRealtime();
+  void modulos.messages().then((m) => { m.setRealtimeThread(null); m.stopMessagesRealtime(); });
 }
 
-/* ---------- Ações ---------- */
-const A: Actions = {
-  ...payActions, ...publicActions, ...fanActions, ...msgActions, ...liveActions,
-  ...studioActions, ...accountActions, ...adminActions,
+/* ---------- Ações globais (cabeçalho, tema, sessão) ---------- */
+register({ actions: {
   closeModal,
   reload() { rerender(false); },
   theme() { setTheme(isDark() ? 'light' : 'dark'); rerender(true); },
@@ -183,8 +201,12 @@ const A: Actions = {
     go(l.startsWith('post/') ? 'p-' + l.slice(5) : l.startsWith('live/') ? 'live-' + l.slice(5) : l || home());
   },
   async logout() { S.menu = false; closeModal(); clearUrlCache(); await sb.auth.signOut(); },
-  becomeCreator() { S.menu = false; if (S.creator) { toast('Já tens conta de criador.'); return go('estudio'); } startOnboarding(true); go('registar'); },
-};
+  async becomeCreator() {
+    S.menu = false;
+    if (S.creator) { toast('Já tens conta de criador.'); return go('estudio'); }
+    (await modulos.public()).startOnboarding(true); go('registar');
+  },
+} });
 
 /* ---------- Eventos ---------- */
 document.addEventListener('click', (e) => {
@@ -195,12 +217,17 @@ document.addEventListener('click', (e) => {
   if (S.menu && !t.closest('.me')) { S.menu = false; header(route()); }
   if (S.notifOpen && !t.closest('.nwrap')) { S.notifOpen = false; header(route()); }
   const el = t.closest<HTMLElement>('[data-act]'); if (!el) return;
-  const f = A[el.dataset.act!]; if (!f) return;
+  const nome = el.dataset.act!;
   if (el.tagName !== 'A') e.preventDefault();
   // O dataset traz `string | undefined` (um `data-x` ausente é undefined, não "").
-// O tipo das acções declara `Record<string, string>` porque nenhum handler deve
-// depender de uma chave estar presente; a conversion é explícita e central.
-Promise.resolve(f({ ...el.dataset } as Record<string, string>)).catch((err) => { console.error(err); toast(errText(err)); });
+  // O tipo das acções declara `Record<string, string>` porque nenhum handler deve
+  // depender de uma chave estar presente; a conversão é explícita e central.
+  const dados = { ...el.dataset } as Record<string, string>;
+  // Um comando de uma área ainda não descarregada (ex.: «Instalar app» no rodapé)
+  // descarrega as áreas que faltam e corre a seguir.
+  const f = action(nome);
+  const corre = f ? Promise.resolve(f(dados)) : carregarTodos().then(() => action(nome)?.(dados));
+  corre.catch((err) => { console.error(err); toast(errText(err)); });
 });
 
 document.addEventListener('keydown', (e) => {
@@ -226,28 +253,17 @@ document.addEventListener('paste', (e) => {
   all[Math.min(text.length, 5)]?.focus();
 });
 
-// Um temporizador por campo. Com um único qT partilhado, escribir nas mensagens cancelava a
-// pesquisa de criadores a meio e vice-versa.
-let qT: ReturnType<typeof setTimeout> | undefined, tqT: ReturnType<typeof setTimeout> | undefined, uqT: ReturnType<typeof setTimeout> | undefined;
-let exploreSeq = 0;
+// Um temporizador por campo. Com um único partilhado, escrever nas mensagens cancelava a
+// pesquisa de utilizadores a meio e vice-versa. (A pesquisa do Explorar vive em views/fan.)
+let tqT: ReturnType<typeof setTimeout> | undefined, uqT: ReturnType<typeof setTimeout> | undefined;
 
 document.addEventListener('input', (e) => {
   const t = e.target as HTMLInputElement | null;
   if (!t) return;
   if (t.classList.contains('cd')) { t.value = t.value.replace(/\D/g, '').slice(-1); (t.nextElementSibling as HTMLInputElement | null)?.focus(); return; }
-  if (t.id === 'q') {
-    S.q = t.value; clearTimeout(qT);
-    const seq = ++exploreSeq;
-    qT = setTimeout(async () => {
-      const html = await exploreGrid();
-      if (seq !== exploreSeq) return;        // uma pesquisa mais lenta já não interessa
-      const g = $('#cgrid'); if (g) g.innerHTML = html;
-    }, 300);
-    return;
-  }
   if (t.id === 'tq') { S.tq = t.value; clearTimeout(tqT); tqT = setTimeout(() => { void renderKeepFocus('#tq'); }, 350); return; }
   if (t.id === 'uq') { S.uq = t.value; clearTimeout(uqT); uqT = setTimeout(() => { void renderKeepFocus('#uq'); }, 450); return; }
-  studioInput(t);
+  handleInput(t);
 });
 
 /** Redesenha mantendo o cursor no fim do campo de pesquisa, para não interromper a escrita. */
@@ -261,21 +277,15 @@ document.addEventListener('change', async (e) => {
   // Um `change` só é disparado por um control de formulário a mudar de valor —
   // nunca por um contentor. A union é o `FormControl` de `types.ts`, e é ela
   // que dá às vistas o `.value` / `.name` / `.checked` sem `any`.
-  const t = e.target as FormControl;
-  if (payChange(t as HTMLInputElement)) return;
-  if (publicChange(t)) return;
-  if (msgChange(t)) return;
-  if (await studioChange(t)) return;
-  if (await adminChange(t)) return;
-  await accountChange(t);
+  await handleChange(e.target as FormControl);
 });
 
 document.addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target as HTMLFormElement;
   try {
-    if (paySubmit(f)) return;
-    for (const h of [publicSubmit, msgSubmit, liveSubmit, studioSubmit, accountSubmit, adminSubmit]) if (await h(f)) return;
+    if (await handleSubmit(f)) return;
+    await carregarTodos(); await handleSubmit(f);
   } catch (err) { console.error(err); toast(errText(err)); }
 });
 
@@ -293,9 +303,16 @@ export async function boot(): Promise<void> {
     u.searchParams.delete('ref');
     history.replaceState(null, '', u.pathname + (u.search || '') + location.hash);
   }
-  await loadCfg().catch(() => {});
+  // Em paralelo: as definições (com cache local) e a sessão. Antes eram em fila,
+  // e a primeira página esperava pelas duas idas ao servidor uma atrás da outra.
+  void loadCfg().catch(() => {});
   await loadMe().catch(() => {});
-  if (S.me) { startRealtime(); await handlePaypalReturn(); }
+  if (S.me) {
+    startRealtime();
+    // O regresso do PayPal só existe com ?pp= ou ?pp_cancel= no URL — só então
+    // vale a pena descarregar a área de pagamentos.
+    if (/[?&]pp(_cancel)?=/.test(location.search)) await (await modulos.pay()).handlePaypalReturn();
+  }
 
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') { S.recovery = true; await loadMe(); location.hash = 'nova-senha'; return; }
@@ -315,4 +332,7 @@ export async function boot(): Promise<void> {
   });
 
   await render();
+  // Com a primeira página desenhada, pré-carrega em segundo plano as áreas para
+  // onde a pessoa mais provavelmente vai a seguir.
+  preCarregar(!S.me ? ['public'] : isStaff(S.me) ? ['admin', 'fan'] : S.creator ? ['studio', 'fan', 'messages'] : ['fan', 'messages']);
 }
