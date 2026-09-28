@@ -26,7 +26,8 @@ Versionar aqui, em migrations SQL numeradas, exactamente o que corre em produç�
 ```
 supabase/
   migrations/
-    0001_verificacao.sql   diagnóstico; só lê (28/09/2026)
+    0001_verificacao.sql   diagnóstico geral; só lê (28/09/2026)
+    0001b_verificacao_papeis.sql  diagnóstico: moderator passa ou não? (28/09/2026)
     0002_rate_limit.sql    limita tentativas em login-handle
     0003_guardas.sql       is_staff()/is_admin() e as guardas das funções admin
     0004_precos.sql        obriga o servidor a recalcular o preço
@@ -39,8 +40,13 @@ supabase/
   README.md                este ficheiro
 ```
 
-Os primeiros quatro já estão escritos — são o resultado de uma auditoria feita com a anon
-key, sem acesso ao teu painel. Começa por ler o `AUDITORIA.md`.
+Cinco migrações já estão escritas — `0001`, `0001b` e `0004` são diagnósticos que só lêem, e
+`0002` e `0003` são correcções. São o resultado de uma auditoria feita com a anon key, sem acesso
+ao teu painel. Começa por ler o `AUDITORIA.md`.
+
+> Numeração: o `0001b` é um irmão do `0001`, não o próximo número. Reservei o `0005` para o
+> dump do esquema, que vai ser enorme — não convém empurrar os restantes diagnósticos para
+> `0009` só por causa disso.
 
 Não inventes o SQL aqui para "ver se funciona": a fonte da verdade é o que está em produção.
 Exporta primeiro (Painel do Supabase → SQL Editor → ou `supabase db dump`), e depois passa
@@ -117,7 +123,7 @@ o saldo com um `UPDATE` direto do browser é o ataque mais óbvio contra uma car
 
 ### 4. Escalão de permissões: moderator ≠ admin
 
-O frontend já esconde as abas e bloqueia os handlers (`guard()` em `js/views/admin.js`).
+O frontend já esconde as abas e bloqueia os handlers (`guard()` em `src/lib/views/admin.ts`).
 O backend é que tem de decidir. Regras que o painel assume:
 
 | | moderator | admin |
@@ -133,6 +139,14 @@ O backend é que tem de decidir. Regras que o painel assume:
 
 `admin_set_payout` é a mais crítica: `status = 'paid'` é a confirmação de que a transferência
 bancária foi feita, e não há como desfazer.
+
+**Isto ainda não está verificado.** Corre `0001b_verificacao_papeis.sql` — a coluna `problema`
+diz, função a função, se o backend está à altura do que o painel promete.
+
+A falha técnica que torna esta tabela crítica: uma função `SECURITY DEFINER` corre com os
+privilégios do dono e **a RLS não se lhe aplica**. Dentro dessas funções não há rede de
+segurança nenhuma — a única coisa entre um moderador e um ban é a comparação de papel escrita
+à mão no corpo. Detalhes em `AUDITORIA.md`, secção «Moderador vs admin».
 
 ### 5. `settings` é só de leitura para toda a gente
 

@@ -1,14 +1,27 @@
 # Dependências / ferramentas locais (não fazem parte do site publicado)
 node_modules/
-.netlify/
+.vercel/
 .DS_Store
 Thumbs.db
 *.log
 npm-debug.log*
 
-# Ficheiros de ambiente. A chave anon do Supabase é pública por desenho (vai no js/config.js
-# e a segurança real está nas políticas RLS), mas a service_role NÃO pode ir para o Git:
-# ignora todas as políticas e dá acesso total à base de dados.
+# Build do Next. `.next/` é gerado a cada `next build` e é grande; versioná-lo
+# faz cada diff divergir do que a Vercel constrói.
+.next/
+out/
+
+# O Next reescreve o tsconfig.json no primeiro build (acrescenta o `include` do
+# `.next/dev/types` e põe `jsx: react-jsx`). É uma alteração legítima e
+# versionada — o ficheiro gerado é `next-env.d.ts`, e esse é que se ignora,
+# porque é types do Next e não código nosso.
+next-env.d.ts
+*.tsbuildinfo
+
+# Ficheiros de ambiente. A chave anon do Supabase é pública por desenho (vai em
+# src/lib/config.ts e a segurança real está nas políticas RLS), mas a
+# service_role NÃO pode ir para o Git: ignora todas as políticas RLS e dá
+# acesso total à base de dados. É a chave que as API routes usam.
 .env
 .env.*
 !.env.example
@@ -18,6 +31,6 @@ npm-debug.log*
 livekit.key
 paypal.secret
 
-# Service workers gerados por ferramentas de PWA (o sw.js é escrito à mão, ver netlify.toml)
+# Service workers gerados por ferramentas de PWA
 workbox-*.js
 sw.js.map

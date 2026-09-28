@@ -1,0 +1,30 @@
+{
+  "name": "aportafechada",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma angolana de subscricoes para criadores",
+  "scripts": {
+    "dev": "next dev -p 8888",
+    "build": "next build",
+    "start": "next start -p 8888",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "livekit-client": "^2.5.7",
+    "next": "^16.3.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

@@ -146,7 +146,7 @@ Isto **não** é auditável sem sessão. Não é defeito conhecido — é o que 
 | 2 | `create-order` e `pay_with_wallet` **recalculam** o preço, ou aceitam o `amount` do browser? | Abrir a definição das duas. Ver abaixo. |
 | 3 | A RLS de `post_bodies` e do bucket `content` exige `purchases.status = 'paid'`? | Abrir as políticas |
 | 4 | `wallet_balance` e `earnings_balance` são escrevíveis directamente, ou só dentro das funções? | Abrir as políticas |
-| 5 | O backend distingue moderator de admin nos levantamentos e nas promoções? | `0002_verificacao.sql` |
+| 5 | O backend distingue moderator de admin nos levantamentos e nas promoções? | `0001b_verificacao_papeis.sql` |
 | 6 | A fuga de câmara/microfone nas lives está resolvida? | Precisa de uma live a sério |
 
 ### Sobre a pergunta 2, que é a que mais pesa
@@ -159,13 +159,92 @@ a ser o que o atacante disser.
 O mesmo para `pay_with_wallet`. Uma carteira tem de ser debitada por uma função que calcula o
 preço a partir da linha da tabela, nunca a partir de um número que veio de fora.
 
+## Moderador vs admin: as guardas do cliente não chegam
+
+Pergunta levantada a 28/09: *um moderador não devia poder banir directamente; falta validação
+do admin.* Verifiquei o frontend e **o frontend está correcto**, em duas camadas:
+
+| Camada | Onde | O que faz |
+|---|---|---|
+| Render | `admin.ts:71` | Um moderador vê «só o admin suspende» em vez do botão. O botão de banir nem é desenhado. |
+| Handler | `admin.ts:149` | `guard('admin')` volta a verificar antes de executar. |
+
+**E é precisamente aqui que está o problema.** O comentário no próprio código (`admin.ts:147`)
+é honesto sobre o limite disto:
+
+> RLS é a fronteira real; isto garante que um handler nunca executa por um clique sintético
+> (o dispatcher de main.js é global e não verifica rota nem papel).
+
+(o comentário no código ainda diz `main.js`; depois da migração o ficheiro chama-se
+`src/lib/main.ts`. A frase não mudou de sentido.)
+
+Ou seja: as guardas do cliente servem para o botão **não aparecer**. Não servem para o botão
+ser **impossível**. Um moderador com o DevTools aberto escreve na consola:
+
+```js
+sb.rpc('admin_resolve_report', { p_report: 42, p_remove: true })   // bane um perfil
+sb.rpc('admin_set_creator_status', { p_creator: 7, p_status: 'suspended' })
+sb.rpc('admin_set_payout', { p_payout: 3, p_status: 'paid' })      // dinheiro real
+sb.rpc('admin_set_role', { p_user: 9, p_role: 'admin' })           // escalação de privilégio
+```
+
+Ou, para as três tabelas que o painel escreve sem RPC pelo meio, um `fetch` directo:
+`promos` (HTML injectado no site inteiro), `settings` (`fee_pct`, `usd_rate`, `min_payout` —
+quem escreve ali controla o dinheiro de toda a gente) e `contact_messages`.
+
+### Porque a auditoria anterior não respondeu
+
+Provei que o **anónimo** é rejeitado. Isso não diz nada sobre o moderador: o anónimo falha
+porque `auth.uid()` é null, e o moderador tem `auth.uid()`. São dois ramos de código
+diferentes dentro da mesma função. Uma função cuja guarda é `auth.uid() is not null` barra o
+anónimo e deixa passar o moderador — que é precisamente o caso perigoso, porque o moderador
+*é* staff e passa num `is_staff()` sem reparar que devia ser `is_admin()`.
+
+Por isso a pergunta 5 da tabela acima só se responde com `0001b_verificacao_papeis.sql`, que
+classifica cada função como **«OK, só admin»** ou **«MODERADOR PASSA»**.
+
+### O que já está preparado para a correcção
+
+`0003_guardas.sql` cria `is_admin()`, `assert_admin()` e as políticas de tabela correctas — as
+linhas 143–183 são SQL executável e usam `is_admin()` para tudo o que mexe em dinheiro, papéis,
+mensagens privadas e promoções. **Mas isso não foi aplicado.**
+
+E a parte decisiva: a secção 3 do `0003`, que é a que reescreve as *funções*, é um **template
+vazio** com marcadores de posição — aqui vai literal, tal como está no ficheiro:
+
+```
+-- NÃO corras o bloco seguinte sem ter lido o corpo actual em 0002. Precisas
+-- da assinatura exacta, que o 0002 imprime na coluna `argumentos`.
+```
+
+(A referência a «0002» no interior do `0003` é nomeação antiga e já desactualizada: o
+diagnóstico da assinatura chama-se hoje `0001_verificacao.sql`, e o `0001b` imprime-a também.)
+
+As policies de tabela estão escritas; **os corpos de `admin_set_payout`,
+`admin_set_creator_status`, `admin_resolve_report` e `admin_set_role` não**.
+
+São eles — e não as tabelas — o caminho pelo qual um moderador chega a banir alguém e mexer no
+dinheiro, por uma razão técnica que vale a pena fixar: uma função `SECURITY DEFINER` corre com
+os privilégios do dono e **as políticas de RLS não se lhe aplicam**. Ou seja, dentro dessas
+funções não há rede nenhuma. A RLS protege as tabelas contra quem escreve nelas directamente;
+não protege quem chama a função. A **única** coisa entre um moderador e um ban é a comparação
+de papel escrita à mão dentro do corpo da função — exactamente o que o `0003` ainda não preencheu.
+
+É a diferença entre as duas camadas de guarda do frontend: naquele caso a política da tabela é
+uma barreira real; neste caso a comparação no corpo é a barreira, e ninguém a reviu.
+
+**Sequência:** correr `0001b` → leer os corpos marcados `MODERADOR PASSA` → preencher a secção 3
+do `0003` com a assinatura que o `0001b` imprimir → correr o `0003` completo → reverificar com
+`0001b` até dar `OK, só admin` em todas.
+
 ## Correcções a aplicar
 
 | Ficheiro | O que resolve |
 |---|---|
 | `migrations/0001_verificacao.sql` | Diagnóstico. Só lê. Responde às perguntas 1, 2 e 5. **Corre primeiro, é inofensivo.** |
+| `migrations/0001b_verificacao_papeis.sql` | Diagnóstico. Só lê. **A pergunta 5 por si só** — se um moderador consegue banir ou mexer no dinheiro. Ver "Moderador vs admin" acima. |
 | `migrations/0002_rate_limit.sql` | Limita tentativas em `login-handle` (lacuna 2). |
-| `migrations/0003_guardas.sql` | Adiciona `is_staff()`/`is_admin()` reutilizáveis e o modelo para fechar a lacuna 1. |
+| `migrations/0003_guardas.sql` | Adiciona `is_staff()`/`is_admin()` reutilizáveis e o modelo para fechar a lacuna 1. **As políticas de tabela estão prontas; a secção 3, a dos corpos das funções, é um template por preencher.** |
 | `migrations/0004_precos.sql` | Obriga o servidor a recalcular o preço (pergunta 2). |
 
 Corre pela ordem dos números. O 0001 primeiro, porque os restantes dependem do que ele te

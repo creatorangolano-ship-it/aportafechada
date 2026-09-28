@@ -1,82 +1,82 @@
 # À Porta Fechada
 
-Plataforma angolana de subscrições para criadores. HTML, CSS e JavaScript com módulos ES
-nativos, servidos pela Netlify. Sem framework, sem empacotador, sem passo de build. Os
-dados vivem no Supabase; a SPA desenha e envia pedidos, não decide nada.
+Plataforma angolana de subscrições para criadores. Next.js + TypeScript, alojado na Vercel.
+Os dados vivem no Supabase; a SPA desenha e envia pedidos, não decide nada.
 
 ## Correr localmente
 
 ```bash
-node serve.mjs 8888
+npm install
+npm run dev
 ```
 
-Abre http://localhost:8888. O `serve.mjs` replica os headers do `netlify.toml`, por isso
-`no-store` local e o que está em produção revalidam do mesmo modo.
-
-Precisas de um servidor estático porque o site usa módulos ES: abrir o `index.html` por
-`file://` falha nos imports. O `serve.mjs` só usa o que vem com o Node, sem dependências.
+Abre http://localhost:8888.
 
 ## Verificar antes de publicar
 
 ```bash
-node check-imports.mjs      # 273 imports contra os exports reais
-node --check js/main.js     # e o mesmo para cada .js
+npm run verify      # tsc --noEmit + next build
 ```
-
-O `check-imports.mjs` percorre todos os `import` do projecto e confirma que cada nome
-importado existe mesmo no módulo de destino. Apanha o tipo de erro que o browser só
-descobre em runtime: importar um nome que foi renomeado, ou retirar um `export` que
-outro ficheiro ainda usa.
 
 Depois, no browser, com a consola aberta: `#inicio`, `#registar`, as páginas públicas e
 `#top` têm de renderizar sem erros.
 
-## Publicar
+## Publicar (Vercel)
 
-Netlify lê o `netlify.toml` e publica a raiz do repositório tal como está. Não há build.
+A Vercel detecta o Next e constrói com `npm run build` a cada push para `main`. Não há
+`vercel.json`: os cabeçalhos de segurança estão no `headers()` de `next.config.mjs`.
 
-**O contrato de cache é `max-age=0, must-revalidate`, e é o que faz as alterações chegarem
-a quem já visitou o site.** Só `app.css` e `js/main.js` estão versionados à mão em
-`index.html` (`?v=`); os outros 11 módulos são importados sem query string e chegam por
-outra via. Se um dia mudares isto para `immutable`, tens de passar a versionar todos os
-ficheiros, ou os utilizadores que voltarem ficam com código velho sem dar por isso.
+Variáveis de ambiente (Vercel → Project → Settings → Environment Variables):
 
-Bump de `?v=` só é preciso para `app.css` e `js/main.js`. Mas se tocares num sub-módulo
-e o behavior não mudar no teu browser, é cache: hard reload, e confirma o header.
+| Variável | Onde se usa |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | API routes (`src/lib/server/guarda.ts`). **Nunca** com prefixo `NEXT_PUBLIC_`. |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | `/api/live-token` |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET` | `/api/create-order`, `/api/paypal-capture` |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | opcionais; o default está em `src/lib/config.ts` |
+
+### Funções do servidor: edge functions vs `/api`
+
+As rotas em `src/app/api/` ainda não têm a lógica de negócio (respondem 501). Até lá, o
+`fn()` em `src/lib/lib.ts` continua a chamar as edge functions do Supabase, que são as que
+funcionam em produção. Quando uma rota estiver implementada e testada, acrescenta o nome
+dela a `ROTAS_PRONTAS` nesse ficheiro.
 
 ## Segurança
 
-O que está no repositório é o frontend. A segurança real está nas políticas RLS, nas
-funções `SECURITY DEFINER` e nas políticas de storage do Supabase — que até September de
-2026 não estavam versionadas em lado nenhum.
+O que está no repositório é o frontend e as API routes. A segurança real está nas políticas
+RLS, nas funções `SECURITY DEFINER` e nas políticas de storage do Supabase.
 
 - **`supabase/AUDITORIA.md`** — o que foi verificado a 28/09/2026 com a anon key, o que
-  está correcto, e as três lacunas encontradas. Começa por aqui.
-- **`supabase/migrations/`** — o diagnóstico (só lê, corre primeiro) e as correcções.
-- **`supabase/README.md`** — o inventário do backend e porque é que o absence dele é o
-  risco mais caro do projecto.
+  está correcto, e as lacunas encontradas. Começa por aqui.
+- **`supabase/migrations/`** — os diagnósticos (só lêem, correm primeiro) e as correcções.
+- **`supabase/README.md`** — o inventário do backend.
 
 ## Estrutura
 
 ```
-index.html          entrada; arranca o tema e carrega main.js
-app.css             estilos
-js/config.js        URL do Supabase, anon key, listas (países, categorias, bancos)
-js/lib.js           ajudantes: escape, datas, dinheiro, upload, safeHref, assertImage
-js/state.js         estado global, sessão, definições, contagens
-js/pay.js           preços e pagamento — relê o preço na base de dados antes de cobrar
-js/main.js          rotas, despachante global de acções, realtime
-js/views/*.js       um ficheiro por área: feed,Criador, estúdio, mensagens, admin, públicas
-supabase/           auditoria e migrações SQL (ver acima)
-serve.mjs           servidor estático para desenvolvimento
-check-imports.mjs   verificador de imports
+src/app/layout.tsx     HTML base, tema, contentores (#hdr, #app, #modalRoot…)
+src/app/page.tsx       arranca o roteador (lib/main.ts) no browser
+src/app/api/*/route.ts funções do servidor (ver acima)
+src/lib/config.ts      URL do Supabase, anon key, listas (países, categorias, bancos)
+src/lib/lib.ts         ajudantes: escape, datas, dinheiro, upload, fn(), safeHref
+src/lib/state.ts       estado global, sessão, definições, contagens
+src/lib/pay.ts         preços e pagamento — relê o preço na base de dados antes de cobrar
+src/lib/main.ts        rotas, despachante global de acções, realtime
+src/lib/views/*.ts     um ficheiro por área: feed, criador, estúdio, mensagens, admin, públicas
+src/lib/server/        código só de servidor (service_role)
+public/                imagens e manifest
+supabase/              auditoria e migrações SQL
 ```
+
+Os ficheiros `index.html`, `app.css`, `js/`, `img/`, `serve.mjs` e `check-imports.mjs` são
+a versão antiga (sem build). O `scripts/port-views.mjs` ainda lê `js/views/`; podem ser
+apagados quando a conversão estiver fechada.
 
 ## Notas
 
-- A `anon` key do Supabase é pública por desenho e vive no `js/config.js`. Isso é
-  correcto: a segurança está nas políticas RLS. A `service_role` **nunca** vai para o Git,
+- A `anon` key do Supabase é pública por desenho. A `service_role` **nunca** vai para o Git,
   e o `.gitignore` cobre `.env*` por causa disso.
-- `js/pay.js` ignora o `amount` que o browser lhe manda e relê o preço na tabela. Isto
-  remove o HTML do caminho de confiança, mas **não substitui** o servidor a recalcular:
-  um `curl` não passa pelo frontend. Ver `supabase/migrations/0004_precos.sql`.
+- `pay.ts` ignora o `amount` que o browser lhe manda e relê o preço na tabela. Isto não
+  substitui o servidor a recalcular: um `curl` não passa pelo frontend. Ver
+  `supabase/migrations/0004_precos.sql`.
