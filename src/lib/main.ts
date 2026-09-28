@@ -35,17 +35,26 @@ export function header(r: string): void {
   const authed = !!(S.me && S.me.onboarded);
   document.body.classList.toggle('authed', authed);
   if (!authed) {
+    document.body.classList.remove('console', 'adnav-open');
     const bare = r === 'inicio' || (r === 'registar' && !S.me);
     $('.top')!.hidden = bare;
     $('#hdr')!.innerHTML = bare ? '' : `${brand}${S.me ? '<button class="btn out sm" data-act="logout">Sair</button>' : `<a class="btn out sm" href="#inicio">Entrar</a>${r === 'registar' ? '' : '<a class="btn pri sm" href="#registar">Criar conta</a>'}`}${theme}`;
     $('#floatTheme')!.innerHTML = bare ? `<div class="float-theme">${theme}</div>` : '';
     $('#tabbar')!.innerHTML = ''; return;
   }
-  const base = r.split('-')[0];
-  const links = navFor().map(([k, l, i]) => `<a href="#${k}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
   const n = S.unreadNotifs;
   const bell = `<div class="nwrap"><button class="tbtn bell" data-act="notif" aria-label="Notificações${n ? ', ' + n + ' por ler' : ''}" aria-expanded="${S.notifOpen}">${ic('bell')}${n ? `<span class="count">${n > 9 ? '9+' : n}</span>` : ''}</button>
    ${S.notifOpen ? `<div class="npanel"><div class="hd"><b style="color:var(--ink)">Notificações</b>${n ? '<button class="btn link small" data-act="notifAll">Marcar tudo como lido</button>' : ''}</div><div style="max-height:420px;overflow-y:auto">${S.notifs.map((x) => `<button class="it ${x.read_at ? '' : 'un'}" data-act="notifGo" data-id="${x.id}" data-link="${esc(x.link || '')}"><span class="dot ${x.read_at ? 'off' : ''}"></span><span style="flex:1"><span style="color:var(--ink)">${esc(x.text)}</span><br><span class="small muted">${ago(x.created_at)}</span></span></button>`).join('') || '<p class="empty">Sem notificações.</p>'}</div></div>` : ''}</div>`;
+  // A administração é uma consola à parte: tem a sua própria barra lateral
+  // (views/admin.ts), por isso o cabeçalho e a barra de separadores do site saem.
+  // O sino fica: vai para #floatTheme, que sobrevive aos re-renders do #app e
+  // que o CSS encosta ao canto da barra de topo da consola.
+  const consola = r === 'admin' && isStaff(S.me);
+  document.body.classList.toggle('console', consola);
+  if (!consola) document.body.classList.remove('adnav-open');
+  if (consola) { $('.top')!.hidden = true; $('#hdr')!.innerHTML = ''; $('#floatTheme')!.innerHTML = `<div class="float-theme adbell">${bell}</div>`; $('#tabbar')!.innerHTML = ''; return; }
+  const base = r.split('-')[0];
+  const links = navFor().map(([k, l, i]) => `<a href="#${k}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
   const wal = !isStaff(S.me) ? `<a class="wpill" href="#carteira" title="Saldo da carteira">${ic('wallet')}<span class="num">${kz(S.me!.wallet_balance)}</span></a>` : '';
   const u = S.me!;
   $('.top')!.hidden = false; $('#floatTheme')!.innerHTML = '';
@@ -198,6 +207,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const s = $('[data-scrim]'); if (s && !s.hasAttribute('data-lock')) closeModal();
     if (S.menu || S.notifOpen) { S.menu = false; S.notifOpen = false; header(route()); }
+    document.body.classList.remove('adnav-open'); // barra lateral da consola em ecrãs pequenos
   }
   const tgt = e.target as HTMLElement | null;
   if (tgt?.classList.contains('cd') && e.key === 'Backspace' && !(tgt as HTMLInputElement).value) {

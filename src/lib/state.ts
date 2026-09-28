@@ -100,6 +100,8 @@ export type AppState = {
   stTab: string;
   ctTab: string;
   adTab: string;
+  /** Filtro escolhido em cada fila da administração (ex.: `{ denuncias: 'open' }`). */
+  adFilter: Record<string, string>;
   topTab: string;
   thread: any;
   cleanup: Array<() => void>; // funções a correr ao sair da página (canais em tempo real, lives)
@@ -158,7 +160,7 @@ export const S: AppState = {
   reg: null,
   cat: 'Tudo',
   q: '',
-  ptab: 'pub', stTab: 'visao', ctTab: 'perfil', adTab: 'visao', topTab: 'week',
+  ptab: 'pub', stTab: 'visao', ctTab: 'perfil', adTab: 'visao', adFilter: {}, topTab: 'week',
   thread: null,
   cleanup: [],
   draft: null,
