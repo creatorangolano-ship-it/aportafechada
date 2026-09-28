@@ -45,7 +45,7 @@ export async function enrichPosts(posts: any) {
 
 function mediaHTML(p: any) {
   const mine = p.creator_id === me_().id;
-  const wm = p.canSee && !mine ? '<span class="wm c">À PORTA FECHADA</span>' : '';
+  const wm = p.canSee && !mine ? '<span class="wm c">@aportafechada.net</span>' : '';
   // No feed, todas as publicações têm o mesmo enquadramento (--post-ratio no CSS), preenchido.
   // Clicar abre o visualizador com o ficheiro inteiro no formato real (9:16 a 16:9).
   // Os vídeos não tocam dentro do feed: mostram a primeira imagem e um botão de play.

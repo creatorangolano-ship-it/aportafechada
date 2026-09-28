@@ -274,7 +274,7 @@ export function lightbox(url: string | null | undefined, tipo: 'image' | 'video'
     ? `<video src="${esc(url)}" controls autoplay playsinline controlsList="nodownload noremoteplayback" disablePictureInPicture oncontextmenu="return false"></video>`
     : `<img src="${esc(url)}" alt="" draggable="false" oncontextmenu="return false">`;
   el.innerHTML =
-    `<div class="lbox-frame">${media}<span class="wm c">À PORTA FECHADA</span></div>` +
+    `<div class="lbox-frame">${media}<span class="wm c">@aportafechada.net</span></div>` +
     `<button class="lbox-full" aria-label="Ecrã inteiro" title="Ecrã inteiro">${ic('expand')}</button>` +
     `<button class="lbox-x" aria-label="Fechar" title="Fechar">${ic('x')}</button>`;
   document.body.appendChild(el);

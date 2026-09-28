@@ -471,8 +471,9 @@ td.num,th.num{text-align:right}
 @media (max-width:980px){.feedwrap.has-left{grid-template-columns:1fr}.promoside{position:static;flex-direction:row;overflow-x:auto;width:auto}.promocard.v{width:240px;height:200px;flex:none}.pagewithside{flex-direction:column}.pwmain{width:100%}}
 @media (max-width:980px){.feedwrap{grid-template-columns:1fr}.rail2{position:static}}
 .wm{position:absolute;right:10px;bottom:8px;font-size:11px;font-weight:700;letter-spacing:.02em;color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;user-select:none}
-.wm.c{right:auto;left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%) rotate(-18deg);font-size:28px;font-weight:800;letter-spacing:.03em;color:rgba(255,255,255,.32);text-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap}
-@media (max-width:560px){.wm.c{font-size:20px}}
+/* Marca de água: @aportafechada.net, direita e exactamente no centro da foto ou do vídeo. */
+.wm.c{right:auto;left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%);font-size:26px;font-weight:800;letter-spacing:.01em;text-transform:none;color:rgba(255,255,255,.4);text-shadow:0 1px 4px rgba(0,0,0,.45);white-space:nowrap;z-index:2}
+@media (max-width:560px){.wm.c{font-size:18px}}
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:24px 20px}
 .lcardv{display:flex;flex-direction:column;gap:10px}
 .lcardv .ph{position:relative;aspect-ratio:16/10;border-radius:8px;overflow:hidden;background:#1a1518}
