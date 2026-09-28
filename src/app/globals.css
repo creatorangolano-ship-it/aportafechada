@@ -682,3 +682,9 @@ body[data-route="feed"] .top{background:var(--bg)}
   .profside{width:340px}
   .profmain{max-width:680px}
 }
+
+/* Vídeos das publicações: nunca cortados. A caixa segue o formato real do vídeo (9:16 a
+   1.91:1); quando o limite de altura do ecrã aperta, o vídeo aparece inteiro com barras
+   pretas, como no Facebook, em vez de perder o topo e o fundo. */
+.post .media video,.post .media.multi video{object-fit:contain;background:#000}
+.post .media:has(> video){background:#000}

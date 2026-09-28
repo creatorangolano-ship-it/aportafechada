@@ -50,8 +50,10 @@ function mediaHTML(p: any) {
   // Numa única foto/vídeo, ajusta a caixa ao formato real do ficheiro (vertical, quadrado ou horizontal)
   // assim que as dimensões são conhecidas, em vez de forçar sempre um recorte horizontal.
   const FIT = 'this.parentElement.style.aspectRatio=Math.min(1.91,Math.max(.8,';
+  // Vídeo: aceita desde o vertical de telemóvel (9:16) e nunca é cortado (object-fit: contain no CSS).
+  const FIT_VIDEO = 'this.parentElement.style.aspectRatio=Math.min(1.91,Math.max(.5625,';
   const oneSingle = (m: any) => m.type?.startsWith('video')
-    ? `<video src="${esc(m.url)}" controls controlsList="nodownload noremoteplayback" disablePictureInPicture playsinline oncontextmenu="return false" preload="metadata" onloadedmetadata="${FIT}this.videoWidth/this.videoHeight))"></video>`
+    ? `<video src="${esc(m.url)}" controls controlsList="nodownload noremoteplayback" disablePictureInPicture playsinline oncontextmenu="return false" preload="metadata" onloadedmetadata="${FIT_VIDEO}this.videoWidth/this.videoHeight))"></video>`
     : `<img src="${esc(m.url)}" alt="" loading="lazy" draggable="false" oncontextmenu="return false" data-act="openImg" data-url="${esc(m.url)}" onload="${FIT}this.naturalWidth/this.naturalHeight))">`;
   if (p.canSee) {
     const list = (p.urls || []).filter((m: any) => m.url);
