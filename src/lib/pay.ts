@@ -1,10 +1,15 @@
-// Pagamentos: carteira, Multicaixa Express, referência e PayPal
-import { sb, $, esc, kz, ic, modal, closeModal, toast, fn, errText, busy, copyText } from './lib';
+// Pagamentos (camada de apresentação): o ecrã de pagamento e o acompanhamento do pedido.
+//
+// Preço, métodos disponíveis, validação do telefone e o arranque de cada método vivem no caso
+// de uso `Pagamentos` (src/application/commerce): uma estratégia por método (Strategy) e um
+// seguimento de pedidos por eventos (Observer). Aqui só se desenha e se reage.
+import { $, esc, kz, ic, modal, closeModal, toast, errText, busy, copyText } from './lib';
 import { register } from './registry';
-import { S, refreshMe } from './state';
-import type { PayKind } from './types';
-
-type Method = 'wallet' | 'mcx' | 'reference' | 'paypal';
+import { S, refreshMe, cfgReady } from './state';
+import { pagamentos } from '../infrastructure/composicao/pagamentos';
+import { metodoInicial, type MetodoPagamento as Method, type PayKind } from '../domain/commerce/purchase.ts';
+import { emDolares } from '../domain/shared/money.ts';
+import type { Referencia } from '../application/commerce/ports.ts';
 
 /**
  * O que o chamador passa a `openPay`.
@@ -36,55 +41,19 @@ type Paying = OpenPayOpts & {
   method: Method;
   stage: 'form' | 'wait' | 'reference' | 'ok';
   phone?: string;
-  phoneRaw?: string;
   orderId?: string;
-  ref?: { entity: string; reference: string | number; amount: number; expires: string };
+  ref?: Referencia;
 };
 
 let P: Paying | null = null;
 
-const METHODS: Array<[Method, string, string]> = [
-  ['wallet', 'Saldo da carteira', 'phone'],
-  ['mcx', 'Multicaixa Express', 'phone'],
-  ['reference', 'Referência Multicaixa', 'bank'],
-  ['paypal', 'PayPal ou cartão internacional', 'card'],
-];
-
-/** Onde o preço de cada tipo de compra é guardado. Ausente = o valor é escolhido pelo utilizador. */
-const PRICE_TABLE: Record<string, { table: string; cols: string }> = {
-  subscription: { table: 'creators', cols: 'id,price,status,profile:profiles!creators_id_fkey(name,handle)' },
-  post: { table: 'posts', cols: 'id,price,status,creator_id,creator:creators(status)' },
-  message: { table: 'messages', cols: 'id,ppv_price,thread_id' },
-  ticket: { table: 'lives', cols: 'id,price,status,creator_id' },
+/** Nome e ícone de cada método no ecrã. A lista de métodos disponíveis vem do caso de uso. */
+const METODO_UI: Record<Method, [string, string]> = {
+  wallet: ['Saldo da carteira', 'wallet'],
+  mcx: ['Multicaixa Express', 'phone'],
+  reference: ['Referência Multicaixa', 'bank'],
+  paypal: ['PayPal ou cartão internacional', 'card'],
 };
-
-/**
- * Relê o preço no servidor. É a única fonte do valor: nem o `data-price` do botão, nem um
- * argumento do chamador, nem o localStorage decidem quanto se paga. O servidor tem de
- * confirmar outra vez (RLS + create-order), mas o frontend deixa de oferecer o valor errado
- * a um atacante que adultere o DOM.
- */
-async function resolvePrice(kind: PayKind, targetId: string | null | undefined): Promise<{ price: number; label: string | null }> {
-  const spec = PRICE_TABLE[kind];
-  if (!spec) throw new Error('Tipo de compra desconhecido.'); // gorjeta/carregamento não passam por aqui
-  if (!targetId) throw new Error('Falta o alvo da compra.');
-  const { data, error } = await sb.from(spec.table).select(spec.cols).eq('id', targetId).maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error('Este conteúdo já não existe.');
-  // Bloqueios de estado: comprar uma publicação de rascunho ou o bilhete de uma live terminada
-  // pagava-se na mesma, com o dinheiro entregue e nada entregue.
-  const d = data as any;
-  if (kind === 'subscription' && d.status !== 'approved') throw new Error('Este perfil não está disponível para subscrição.');
-  if (kind === 'post' && d.status !== 'published') throw new Error('Esta publicação não está disponível.');
-  if (kind === 'message' && !d.ppv_price) throw new Error('Este conteúdo já não está à venda.');
-  if (kind === 'ticket' && (d.status === 'ended' || !d.price)) throw new Error('Esta live já não está disponível.');
-  const price = Number(kind === 'message' ? d.ppv_price : d.price);
-  if (!Number.isFinite(price) || price <= 0) throw new Error('O preço deste conteúdo não está disponível.');
-  return { price: Math.round(price), label: kind === 'subscription' ? (d.profile?.name || d.profile?.handle) : null };
-}
-
-/** Teto de segurança para valores escolhidos pelo utilizador (gorjeta / carregamento). */
-const MAX_FREE_AMOUNT = 2_000_000;
 
 /**
  * Abre o pagamento.
@@ -96,35 +65,23 @@ const MAX_FREE_AMOUNT = 2_000_000;
 export async function openPay(o: OpenPayOpts): Promise<void> {
   if (!S.me) return toast('Entra na tua conta para pagar.');
   const bal = Number(S.me?.wallet_balance || 0);
-  let amount = o.amount;
+  let amount: number;
   try {
-    if (PRICE_TABLE[o.kind]) {
-      const r = await resolvePrice(o.kind, o.target_id);
-      amount = r.price;
-      // Se o preço do servidor for diferente do que estava no ecrã, o que vale é o do servidor.
-      if (o.amount != null && Number(o.amount) !== amount) {
-        console.warn(`Preço de ${o.kind} corrigido: ${o.amount} → ${amount}`);
-      }
-    } else {
-      amount = Number(o.amount);
-      const min = o.kind === 'tip' ? Number(S.cfg.min_tip) : Number(S.cfg.min_topup);
-      if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount < (min || 1) || amount > MAX_FREE_AMOUNT) {
-        return toast(`O valor tem de ser um número inteiro entre ${kz(min || 1)} e ${kz(MAX_FREE_AMOUNT)}.`);
-      }
-    }
+    await cfgReady(); // os mínimos de gorjeta/carregamento vêm das definições
+    // O preço vem sempre do catálogo (base de dados); o do ecrã é ignorado.
+    amount = await pagamentos().cotar(o.kind, o.target_id, o.amount, S.cfg);
   } catch (e) {
     return toast(errText(e));
   }
-  P = { ...o, amount, method: o.kind !== 'topup' && bal >= amount ? 'wallet' : 'mcx', stage: 'form' };
+  P = { ...o, amount, method: metodoInicial(o.kind, bal, amount), stage: 'form' };
   draw();
 }
 
 /** Câmbio para o PayPal. Com usd_rate a 0 ou em falta (definições ainda não carregadas) a
  *  divisão dava Infinity e o botão mostrava "≈ Infinity USD". */
 const usdOf = (kzAmount: number | null | undefined): string => {
-  const rate = Number(S.cfg.usd_rate) || 0;
-  if (!rate) return '—';
-  return (Number(kzAmount || 0) / rate).toFixed(2) + ' USD';
+  const usd = emDolares(Number(kzAmount || 0), Number(S.cfg.usd_rate));
+  return usd === null ? '—' : usd.toFixed(2) + ' USD';
 };
 
 function draw(): void {
@@ -152,7 +109,7 @@ function draw(): void {
   }
 
   const needsAmount = p.amount == null;
-  const methods = METHODS.filter(([m]) => !(m === 'wallet' && p.kind === 'topup'));
+  const methods = pagamentos().metodos(p.kind).map((m) => [m, ...METODO_UI[m]] as const);
   modal(`<div><h3>${esc(p.title || '')}</h3>${p.sub ? `<p class="small muted" style="margin-top:4px">${esc(p.sub)}</p>` : ''}</div>
    ${needsAmount ? '' : `<div class="sumline"><span>Total</span><b style="color:var(--ink);font-size:18px" class="num">${kz(p.amount)}${p.recurring ? '<span class="small muted" style="font-weight:500">/mês</span>' : ''}</b></div>`}
    <form id="payForm" class="stack" novalidate>
@@ -173,43 +130,26 @@ async function submit(): Promise<void> {
     if (e) { e.hidden = false; e.textContent = m; }
   };
 
-  if (p.method === 'mcx') {
-    const v = ($<HTMLInputElement>('#payPhone')?.value || '').replace(/\D/g, '').replace(/^244/, '');
-    if (!/^9\d{8}$/.test(v)) return err('Escreve um número angolano com 9 dígitos, a começar por 9.');
-    p.phone = v.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-    p.phoneRaw = v;
-  }
-
+  const telefone = p.method === 'mcx' ? ($<HTMLInputElement>('#payPhone')?.value || '') : undefined;
   busy(btn, true, 'A processar…');
   try {
-    if (p.method === 'wallet') {
-      const { data, error } = await sb.rpc('pay_with_wallet', {
-        p_kind: p.kind, p_target: p.target_id ?? null,
-        p_amount: p.amount ?? null, p_meta: p.meta || {},
-      });
-      if (error) throw error;
-      p.orderId = data as string;
-      return done();
+    const r = await pagamentos().iniciar(p.method, {
+      kind: p.kind, target_id: p.target_id ?? null, amount: p.amount ?? null, meta: p.meta || {}, telefone,
+    });
+    p.orderId = r.orderId;
+    if (telefone) p.phone = telefone.replace(/\D/g, '').replace(/^244/, '').replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    switch (r.tipo) {
+      case 'pago': return done();
+      case 'redirecionar':
+        try {
+          sessionStorage.setItem('apf-pp', JSON.stringify({ id: r.orderId, okText: p.okText, back: location.hash }));
+        } catch { /* modo privado */ }
+        location.href = r.url;
+        return;
+      case 'referencia': p.ref = r.ref; p.stage = 'reference'; break;
+      case 'aguardar': p.stage = 'wait'; break;
     }
-    const res = await fn<{ order_id: string; approve_url?: string; entity?: string; reference?: string | number; amount?: number; expires?: string }>(
-      'create-order',
-      { kind: p.kind, target_id: p.target_id ?? null, amount: p.amount ?? null, method: p.method, phone: p.phoneRaw, meta: p.meta || {} },
-    );
-    p.orderId = res.order_id;
-    if (p.method === 'paypal') {
-      try {
-        sessionStorage.setItem('apf-pp', JSON.stringify({ id: res.order_id, okText: p.okText, back: location.hash }));
-      } catch { /* modo privado */ }
-      location.href = res.approve_url!;
-      return;
-    }
-    watch(p.orderId);
-    if (p.method === 'reference') {
-      p.ref = res as unknown as Paying['ref'];
-      p.stage = 'reference';
-    } else {
-      p.stage = 'wait';
-    }
+    watch(r.orderId);
     draw();
   } catch (e) {
     busy(btn, false);
@@ -233,18 +173,7 @@ const watchers = new Map<string, () => void>();
 /** Acompanha o pedido em tempo real (e por verificação periódica como reserva). */
 function watch(orderId: string): void {
   stopWatcher(orderId);
-  const ch = sb.channel('order-' + orderId)
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
-      (x) => onStatus(orderId, (x.new as any).status))
-    .subscribe();
-  const t = setInterval(async () => {
-    const { data } = await sb.from('orders').select('status').eq('id', orderId).maybeSingle();
-    if (data) onStatus(orderId, (data as any).status);
-  }, 6000);
-  const stop = () => { clearInterval(t); clearTimeout(timer); void sb.removeChannel(ch); };
-  const timer = setTimeout(stop, 30 * 60 * 1000);
-  watchers.set(orderId, stop);
+  watchers.set(orderId, pagamentos().observar(orderId, (estado) => onStatus(orderId, estado)));
 }
 
 function stopWatcher(orderId: string): void {
@@ -294,8 +223,8 @@ export async function handlePaypalReturn(): Promise<void> {
   history.replaceState(null, '', location.pathname + (saved.back || location.hash || ''));
   modal(`<h3>A confirmar com o PayPal</h3><div class="spin"></div>`, { noClose: true });
   try {
-    const r = await fn<{ status: string }>('paypal-capture', { order_id: id });
-    if (r.status === 'paid') {
+    const estado = await pagamentos().capturarPaypal(id!);
+    if (estado === 'paid') {
       await refreshMe();
       modal(`<div class="okmark">${ic('check')}</div><h3 style="text-align:center">Pagamento confirmado</h3><p class="muted" style="text-align:center">${esc(saved.okText || 'Obrigado!')}</p><button class="btn pri block" data-act="closeModal">Fechar</button>`);
       document.dispatchEvent(new CustomEvent('apf:paid'));

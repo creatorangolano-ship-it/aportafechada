@@ -9,8 +9,9 @@
     "build": "next build",
     "start": "next start -p 8888",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run build",
-    "test": "node --test \"src/domain/**/*.test.ts\" \"src/application/**/*.test.ts\""
+    "verify": "npm run typecheck && npm test && npm run check:arch && npm run build",
+    "test": "node --test \"src/domain/**/*.test.ts\" \"src/application/**/*.test.ts\"",
+    "check:arch": "node scripts/check-architecture.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
