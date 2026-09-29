@@ -48,6 +48,12 @@ export type Profile = {
   wallet_balance: number;
   earnings_balance: number;
   created_at: string;
+  /** Perfil principal da plataforma: ninguém o bane, adverte ou lhe muda o papel. */
+  is_owner?: boolean;
+  /** Banimento: `banned_at` preenchido e `banned_until` nulo (permanente) ou no futuro. */
+  banned_at?: string | null;
+  banned_until?: string | null;
+  follower_count?: number;
   /** Só existe depois de `loadMe`, que a junta a partir da sessão. */
   email?: string;
   // Colunas que ainda não tipámos.

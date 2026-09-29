@@ -1,4 +1,4 @@
-# À Porta Fechada
+# A Porta Fechada
 
 Plataforma angolana de subscrições para criadores. Next.js + TypeScript, alojado na Vercel.
 Os dados vivem no Supabase; a SPA desenha e envia pedidos, não decide nada.

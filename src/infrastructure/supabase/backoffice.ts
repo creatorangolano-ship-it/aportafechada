@@ -124,6 +124,9 @@ export const repositoriosSupabase: RepositoriosDoBackoffice = {
     async utilizadores(pesquisa) { return (ok(await sb.rpc('admin_users', { p_search: pesquisa || null })) as Linha[]) || []; },
     async mudarPapel(utilizadorId, papel) { ok(await sb.rpc('admin_set_role', { p_user: utilizadorId, p_role: papel })); },
     async mudarEstadoDoCriador(criadorId, estado) { ok(await sb.rpc('admin_set_creator_status', { p_creator: criadorId, p_status: estado })); },
+    async banir(utilizadorId, motivo, dias) { ok(await sb.rpc('admin_ban_user', { p_user: utilizadorId, p_reason: motivo, p_days: dias })); },
+    async levantarBanimento(utilizadorId) { ok(await sb.rpc('admin_unban_user', { p_user: utilizadorId })); },
+    async advertir(utilizadorId, motivo) { ok(await sb.rpc('admin_warn_user', { p_user: utilizadorId, p_reason: motivo })); },
     async conversas() { return (ok(await sb.rpc('admin_threads')) as Linha[]) || []; },
     async mensagens(conversaId) {
       const mensagens = (ok(await sb.rpc('admin_thread_messages', { p_thread: conversaId })) as Linha[]) || [];

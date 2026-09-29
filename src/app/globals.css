@@ -779,3 +779,16 @@ body[data-route="feed"] .top{background:var(--bg)}
   body.authed main:has(+ .pub-foot[hidden]){padding-bottom:88px}
   body.authed .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
 }
+
+/* ---------- Perfis de fã ---------- */
+.sugcard.fa{background:linear-gradient(135deg,var(--acc-soft),var(--surface-3))}
+.sugcard.fa::after{background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.45))}
+.faprof{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.faprof-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.faprof-id{flex:1;min-width:0}
+.faprof-id h1{font-size:clamp(22px,4vw,28px);overflow-wrap:anywhere}
+.faprof-id .muted{display:flex;align-items:center;gap:8px;margin-top:4px}
+.faprof-num{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:14px}
+.faprof-num b{color:var(--ink)}
+.faprof-num .ic{width:15px;height:15px;vertical-align:-2px;margin-right:3px}
+@media (max-width:560px){.faprof-top .btn{width:100%}}

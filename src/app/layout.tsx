@@ -17,11 +17,11 @@ const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], display: 'swap', v
  * Por isso não há `metadata` por rota — há um só, aqui.
  */
 export const metadata: Metadata = {
-  title: 'À Porta Fechada',
+  title: 'A Porta Fechada',
   description: 'Conteúdos exclusivos dos teus criadores favoritos, com pagamentos em kwanzas.',
   manifest: '/manifest.webmanifest',
   icons: { icon: '/img/icon.svg' },
-  appleWebApp: { capable: true, title: 'À Porta Fechada' },
+  appleWebApp: { capable: true, title: 'A Porta Fechada' },
 };
 
 export const viewport: Viewport = {
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             modais e toasts vivem em #modalRoot e #toastRoot. */}
         <header className="top"><div className="wrap" id="hdr" /></header>
         {children}
-        <footer className="pub-foot" id="foot"><div className="wrap"><nav aria-label="Rodapé"><a href="#sobre">Sobre a plataforma</a><a href="#funciona">Como funciona</a><a href="#top" id="footTop10">Top 10</a><a href="#termos">Termos e condições</a><a href="#privacidade">Política de privacidade</a><a href="#regras">Regras</a><a href="#faq">Perguntas frequentes</a><a href="#dmca">Direitos de autor</a><a href="#contacto">Contacto</a><a href="#afiliados">Afiliados</a><a href="#blog">Blog</a><a href="#inicio" data-act="installApp">Instalar app</a></nav><div className="co">© <span id="yr">2026</span> À Porta Fechada · <b>Luanda, Angola</b></div></div></footer>
+        <footer className="pub-foot" id="foot"><div className="wrap"><nav aria-label="Rodapé"><a href="#sobre">Sobre a plataforma</a><a href="#funciona">Como funciona</a><a href="#top" id="footTop10">Top 10</a><a href="#termos">Termos e condições</a><a href="#privacidade">Política de privacidade</a><a href="#regras">Regras</a><a href="#faq">Perguntas frequentes</a><a href="#dmca">Direitos de autor</a><a href="#contacto">Contacto</a><a href="#afiliados">Afiliados</a><a href="#blog">Blog</a><a href="#inicio" data-act="installApp">Instalar app</a></nav><div className="co">© <span id="yr">2026</span> A Porta Fechada · <b>Luanda, Angola</b></div></div></footer>
         <div id="floatTheme" />
         <nav className="tabbar" id="tabbar" />
         <div id="modalRoot" />

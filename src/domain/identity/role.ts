@@ -13,6 +13,7 @@ export const ROLES: readonly Role[] = ['fan', 'creator', 'moderator', 'admin'];
 export type Permissao =
   | 'moderar'                 // verificações, denúncias (arquivar/remover conteúdo), suporte
   | 'suspender_perfis'
+  | 'banir_contas'            // banir e advertir qualquer conta (excepto o perfil principal)
   | 'gerir_levantamentos'     // mexe em dinheiro real
   | 'ver_financas'
   | 'ver_mensagens_privadas'  // auditoria de conversas
@@ -23,6 +24,7 @@ export type Permissao =
 const MATRIZ: Record<Permissao, readonly Role[]> = {
   moderar: ['moderator', 'admin'],
   suspender_perfis: ['admin'],
+  banir_contas: ['admin'],
   gerir_levantamentos: ['admin'],
   ver_financas: ['admin'],
   ver_mensagens_privadas: ['admin'],

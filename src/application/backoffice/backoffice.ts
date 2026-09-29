@@ -13,6 +13,7 @@
 import { pode, recusaMudarPapel, type Permissao, type Role } from '../../domain/identity/role.ts';
 import { ErroDeRegra, exigir } from '../../domain/shared/errors.ts';
 import { recusaDecisao } from '../../domain/backoffice/kyc.ts';
+import { recusaAdvertencia, recusaBanimento, type Alvo } from '../../domain/identity/moderacao.ts';
 import { eEstadoLevantamento, podeTransitar, recusaMotivo, type EstadoLevantamento } from '../../domain/backoffice/payout.ts';
 import { validarDefinicoes } from '../../domain/platform/settings.ts';
 import { recusaPromocao } from '../../domain/platform/promo.ts';
@@ -99,6 +100,20 @@ export class Backoffice {
     if (!ESTADOS_DO_CRIADOR.includes(estado)) throw new ErroDeRegra('Estado inválido.');
     if (criadorId === this.#actor.id) throw new ErroDeRegra('Não podes mudar o teu próprio estado.');
     await this.#r.comunidade.mudarEstadoDoCriador(criadorId, estado);
+  }
+  /** Banir uma conta (qualquer papel), por uns dias ou de vez. Não vale para a própria nem para o perfil principal. */
+  async banirConta(alvo: Alvo, motivo: string, dias: number | null): Promise<void> {
+    exigir(recusaBanimento(this.#actor, alvo, motivo, dias));
+    await this.#r.comunidade.banir(alvo.id, motivo.trim(), dias);
+  }
+  async levantarBanimento(utilizadorId: string): Promise<void> {
+    this.#exige('banir_contas');
+    await this.#r.comunidade.levantarBanimento(utilizadorId);
+  }
+  /** Advertência: fica registada e a pessoa recebe uma notificação. */
+  async advertir(alvo: Alvo, motivo: string): Promise<void> {
+    exigir(recusaAdvertencia(this.#actor, alvo, motivo));
+    await this.#r.comunidade.advertir(alvo.id, motivo.trim());
   }
   async conversas() { this.#exige('ver_mensagens_privadas'); return this.#r.comunidade.conversas(); }
   async mensagensDaConversa(id: string) { this.#exige('ver_mensagens_privadas'); return this.#r.comunidade.mensagens(id); }

@@ -24,6 +24,7 @@ function falsos() {
     suporte: { listar: async () => [], resolver: (id) => reg(`ct ${id}`) },
     comunidade: {
       utilizadores: async () => [], mudarPapel: (id, p) => reg(`role ${id} ${p}`), mudarEstadoDoCriador: (id, e) => reg(`cr ${id} ${e}`),
+      banir: (id, m, d) => reg(`ban ${id} ${m} ${d}`), levantarBanimento: (id) => reg(`unban ${id}`), advertir: (id, m) => reg(`warn ${id} ${m}`),
       conversas: async () => [], mensagens: async () => ({ mensagens: [], urls: {} }),
     },
     promocoes: { listar: async () => [], obter: async () => null, guardar: (id) => reg(`promo ${id}`), apagar: (id) => reg(`promo- ${id}`), enviarFicheiro: async () => 'url' },
@@ -80,4 +81,20 @@ test('KYC, papéis e definições passam pelas regras do domínio', async () => 
   await recusa(b.gravarDefinicoes([{ key: 'fee_pct', raw: '20' }, { key: 'usd_rate', raw: '0' }]));
   await b.gravarDefinicoes([{ key: 'fee_pct', raw: '25' }]);
   assert.deepEqual(chamadas, ['kyc k1 false Documento cortado', 'role u2 moderator', 'set fee_pct=25']);
+});
+
+test('banir e advertir: qualquer conta, menos a própria e o perfil principal', async () => {
+  const { repos, chamadas } = falsos();
+  const b = new Backoffice(repos, admin);
+  await b.banirConta({ id: 'mod1' }, 'Spam repetido', 7);
+  await b.banirConta({ id: 'fa1' }, 'Fraude nos pagamentos', null);
+  await b.advertir({ id: 'cr1' }, 'Conteúdo fora das regras');
+  await recusa(b.banirConta({ id: 'a1' }, 'motivo válido', 7));
+  await recusa(b.banirConta({ id: 'dono', is_owner: true }, 'motivo válido', null));
+  await recusa(b.advertir({ id: 'dono', is_owner: true }, 'motivo válido'));
+  await recusa(b.banirConta({ id: 'x' }, 'abc', 7));
+  await recusa(b.banirConta({ id: 'x' }, 'motivo válido', 3));
+  await recusa(new Backoffice(repos, moderador).banirConta({ id: 'x' }, 'motivo válido', 7));
+  await b.levantarBanimento('fa1');
+  assert.deepEqual(chamadas, ['ban mod1 Spam repetido 7', 'ban fa1 Fraude nos pagamentos null', 'warn cr1 Conteúdo fora das regras', 'unban fa1']);
 });

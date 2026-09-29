@@ -40,7 +40,7 @@ function authShell(card: any, second: any) {
    <div class="blob-wrap" aria-hidden="true"><div class="blob"></div></div>
    <div class="home-side">
     <div class="lcard">
-     <div class="lbrand">${LOGO(34, 42)}<span>À Porta Fechada</span></div>
+     <div class="lbrand">${LOGO(34, 42)}<span>A Porta Fechada</span></div>
      <p class="ltag">Os teus criadores favoritos, os conteúdos que só partilham contigo.</p>
      ${card}
     </div>
@@ -175,7 +175,7 @@ function validOb(id: any) {
     if (!d.name || d.name.length < 2) return 'Escreve o teu nome.';
     if (!/^[a-z0-9._]{3,20}$/i.test(d.handle || '')) return 'O nome de utilizador tem 3 a 20 caracteres: letras, números, ponto ou traço baixo.';
     if (!d.birth) return 'Indica a data de nascimento.';
-    if ((Date.now() - new Date(d.birth!).getTime()) / 31557600000 < 18) return 'A À Porta Fechada só está disponível para maiores de 18 anos.';
+    if ((Date.now() - new Date(d.birth!).getTime()) / 31557600000 < 18) return 'A Porta Fechada só está disponível para maiores de 18 anos.';
   }
   if (id === 'interesses' && !d.interests.length) return 'Escolhe pelo menos um tema.';
   if (id === 'criador') {
@@ -238,7 +238,7 @@ export { INFO };
 export function vInfo(r: any) {
   const fee = S.cfg.fee_pct, net = netPct(), aff = S.cfg.affiliate_pct;
   const FAQ = [
-    ['O que é a À Porta Fechada?', 'Uma plataforma onde criadores vendem conteúdo exclusivo aos fãs através de subscrições, publicações pagas, gorjetas, mensagens e lives.'],
+    ['O que é A Porta Fechada?', 'Uma plataforma onde criadores vendem conteúdo exclusivo aos fãs através de subscrições, publicações pagas, gorjetas, mensagens e lives.'],
     ['Quem pode usar?', 'Só maiores de 18 anos. Todos os criadores confirmam a identidade com documento antes de poderem receber pagamentos.'],
     ['Como me torno criador?', 'Cria conta, escolhe “Quero ser criador” e completa três etapas: perfil de criador, documento com selfie e conta bancária. A equipa responde em até 48 horas.'],
     ['Que conteúdos posso publicar?', 'Fotografias, vídeos, texto e lives, dentro das regras da comunidade. Cada publicação pode ser grátis, para subscritores ou vendida à parte.'],
@@ -255,7 +255,7 @@ export function vInfo(r: any) {
     ['Como denuncio um perfil ou conteúdo?', 'Usa “Denunciar” no perfil ou na publicação. Respondemos em até 24 horas.'],
   ];
   const P: Record<string, string> = {
-    sobre: `<h1>Sobre a plataforma</h1><p class="lead">A À Porta Fechada liga criadores angolanos a quem gosta do trabalho deles, com pagamentos em kwanzas.</p>
+    sobre: `<h1>Sobre a plataforma</h1><p class="lead">A Porta Fechada liga criadores angolanos a quem gosta do trabalho deles, com pagamentos em kwanzas.</p>
      <h2>Para quem é</h2><ul><li><b>Fãs</b> subscrevem criadores, compram conteúdos, enviam gorjetas e mensagens e assistem a lives.</li><li><b>Criadores</b> verificados publicam, definem os preços e recebem na conta bancária.</li><li><b>Afiliados</b> ganham ${aff}% sobre o que as pessoas que convidaram gastam ou ganham.</li></ul>
      <h2>Formas de ganhar</h2><ul><li>Subscrição mensal</li><li>Publicações vendidas à parte</li><li>Gorjetas em perfis e lives</li><li>Mensagens com conteúdo pago</li><li>Bilhetes para lives</li><li>Comissões de afiliado</li></ul>
      <h2>O que não somos</h2><p>Não somos um site de encontros nem uma agência. Só conteúdo digital, só maiores de 18.</p>`,
@@ -267,8 +267,8 @@ export function vInfo(r: any) {
     regras: `<h1>Regras da comunidade</h1><p class="lead">Estas regras protegem criadores e fãs. Quebrá-las pode levar à remoção do conteúdo ou da conta.</p>
      <ul><li>Só maiores de 18, tanto quem publica como quem aparece nos conteúdos.</li><li>Todas as pessoas nos conteúdos deram consentimento e estão verificadas.</li><li>Nada de violência, ódio, assédio ou conteúdo ilegal.</li><li>Publica só o que é teu ou aquilo para que tens autorização.</li><li>É proibido partilhar fora da plataforma conteúdos pagos de outros.</li><li>Não é permitido marcar encontros nem vender serviços presenciais.</li><li>Uma conta por pessoa. Pagamentos só para contas em nome do titular.</li></ul>`,
     termos: `<h1>Termos e condições</h1>
-     <p class="lead">Bem-vindo à plataforma À Porta Fechada, operada por <b>${COMPANY.legalName}</b> (NIF ${COMPANY.nif}, sede em ${COMPANY.address}). Estes Termos e Condições regulam o uso da plataforma e dos serviços oferecidos. Ao acessar e utilizar a plataforma, concordas com os termos aqui descritos. Caso não concordes, por favor não utilizes a plataforma.</p>
-     <h2>1. Definições</h2><p><b>À Porta Fechada:</b> a plataforma e os serviços nela oferecidos. <b>Utilizador:</b> qualquer pessoa que acede ou utiliza os serviços. <b>Criador:</b> utilizador que publica conteúdo e recebe pagamentos. <b>Conteúdo:</b> qualquer informação, texto, imagem, áudio ou vídeo disponibilizado na plataforma.</p>
+     <p class="lead">Bem-vindo à plataforma A Porta Fechada, operada por <b>${COMPANY.legalName}</b> (NIF ${COMPANY.nif}, sede em ${COMPANY.address}). Estes Termos e Condições regulam o uso da plataforma e dos serviços oferecidos. Ao acessar e utilizar a plataforma, concordas com os termos aqui descritos. Caso não concordes, por favor não utilizes a plataforma.</p>
+     <h2>1. Definições</h2><p><b>A Porta Fechada:</b> a plataforma e os serviços nela oferecidos. <b>Utilizador:</b> qualquer pessoa que acede ou utiliza os serviços. <b>Criador:</b> utilizador que publica conteúdo e recebe pagamentos. <b>Conteúdo:</b> qualquer informação, texto, imagem, áudio ou vídeo disponibilizado na plataforma.</p>
      <h2>2. Uso da plataforma</h2><p>O utilizador deve ter 18 anos ou mais e usar a plataforma apenas para propósitos legais, de acordo com estes Termos. É proibido usar a plataforma para marcar encontros presenciais, fins ilegais ou fraudulentos, ou que possam prejudicar terceiros. Reservamo-nos o direito de suspender ou bloquear o acesso de utilizadores que violem estes Termos.</p>
      <h2>3. Conta de utilizador</h2><p>Para aceder a alguns serviços é preciso criar conta, com informações verdadeiras e atualizadas. Para te tornares criador e receberes pagamentos, confirmamos a tua identidade e idade com documento de identificação e uma selfie com esse documento. És responsável por manter a segurança da tua conta e palavra-passe; não nos responsabilizamos por acessos não autorizados. Cada pessoa só pode ter uma conta, e a conta de qualquer utilizador pode ser removida sem aviso prévio ao violar as regras da plataforma, ainda que tenha saldo ou ganhos por levantar (nesse caso, sujeitos a análise conforme a secção 7).</p>
      <h2>4. Serviços oferecidos</h2><p>Um espaço onde criadores publicam conteúdo digital e ganham através de subscrições, publicações vendidas à parte, gorjetas, mensagens pagas e bilhetes de live. A plataforma cobra uma percentagem de serviço sobre as vendas, que cobre pagamentos, alojamento e operação.</p>
@@ -282,7 +282,7 @@ export function vInfo(r: any) {
      <h2>12. Contacto</h2><p>Para qualquer dúvida sobre estes Termos, contacta-nos pelo email <b>${COMPANY.email}</b>.</p>
      <p class="small muted" style="margin-top:24px">Data da última atualização: 27 de setembro de 2026.</p>`,
     privacidade: `<h1>Política de privacidade</h1>
-     <p class="lead">A tua privacidade é importante para nós. Esta Política de Privacidade explica como <b>${COMPANY.legalName}</b> coleta, usa, armazena e protege os teus dados ao utilizares a plataforma À Porta Fechada. Ao acessar e utilizar a plataforma, concordas com os termos desta política.</p>
+     <p class="lead">A tua privacidade é importante para nós. Esta Política de Privacidade explica como <b>${COMPANY.legalName}</b> coleta, usa, armazena e protege os teus dados ao utilizares a plataforma A Porta Fechada. Ao acessar e utilizar a plataforma, concordas com os termos desta política.</p>
      <h2>1. Responsável pelo tratamento</h2><p><b>${COMPANY.legalName}</b>, NIF ${COMPANY.nif}, com sede em ${COMPANY.address}, é a entidade responsável pelos dados pessoais tratados nesta plataforma. Para qualquer pedido relacionado com proteção de dados, escreve para <b>${COMPANY.dpoEmail}</b>.</p>
      <h2>2. Coleta de dados pessoais</h2><p>Podemos coletar: nome completo, nome de utilizador, endereço de email, data de nascimento, documento de identificação e selfie de verificação (para criadores), dados bancários e de pagamento, endereço IP, dados de navegação e preferências, conteúdo publicado ou enviado, e outras informações fornecidas voluntariamente. A coleta ocorre quando o utilizador se cadastra, contacta-nos, utiliza os nossos serviços ou navega na plataforma.</p>
      <h2>3. Uso dos dados</h2><p>Os dados coletados podem ser utilizados para: criar e gerir a tua conta; verificar idade e identidade; processar pagamentos e levantamentos; melhorar a experiência do utilizador e personalizar conteúdo; enviar comunicações informativas; garantir a segurança e prevenção contra fraudes; e cumprir obrigações legais.</p>

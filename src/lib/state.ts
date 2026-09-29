@@ -1,5 +1,6 @@
 // Estado da aplicação e dados do utilizador com sessão
-import { sb } from './lib';
+import { sb, modal } from './lib';
+import { banimentoAtivo } from '../domain/identity/moderacao.ts';
 import type { Session } from '@supabase/supabase-js';
 import type { Cfg, Creator, Profile } from './types';
 
@@ -267,6 +268,15 @@ export async function loadMe(): Promise<Profile | null> {
   ]);
   S.me = (me as Profile | null) ?? null;
   S.creator = (cr as Creator | null) ?? null;
+  // Conta banida com sessão ainda aberta: termina a sessão e explica porquê. (O Supabase
+  // Auth já recusa novas entradas e renovações; isto trata de quem já estava dentro.)
+  if (S.me && banimentoAtivo(S.me)) {
+    const ate = S.me.banned_until ? ` até ${new Date(S.me.banned_until).toLocaleDateString('pt-PT')}` : '';
+    S.me = null; S.creator = null;
+    await sb.auth.signOut();
+    setTimeout(() => modal(`<h3>Conta banida</h3><p class="muted">A tua conta foi banida${ate} pela equipa de A Porta Fechada. Se achas que foi um engano, fala connosco em <a href="#contacto" data-act="closeModal">Contacto</a>.</p><button class="btn pri block" data-act="closeModal">Fechar</button>`), 300);
+    return null;
+  }
   if (S.me) S.me.email = session.user.email ?? undefined;
   // As contagens (notificações e mensagens por ler) só servem os distintivos do
   // cabeçalho: não atrasam a página. Quando chegam, o cabeçalho redesenha-se.

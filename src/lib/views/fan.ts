@@ -159,20 +159,29 @@ function promoHtmlBlock(p: any) {
 
 /* ---------- Início ---------- */
 async function sideRail(banner: string) {
-  const [{ data: on }, { data: sug }] = await Promise.all([
+  const [{ data: on }, { data: sug }, fasSug] = await Promise.all([
     sb.from('lives').select('id,title,creator:creators(id,profile:profiles!creators_id_fkey(handle,name,avatar_url))').eq('status', 'live').limit(5),
     sb.from('creators').select(CR_SEL).eq('status', 'approved').neq('id', me_().id).order('follower_count', { ascending: false }).limit(12),
+    fasVisiveis(12),
   ]);
   const [{ data: fol }, { data: subs }] = await Promise.all([
     sb.from('follows').select('creator_id').eq('follower_id', me_().id),
     sb.from('subscriptions').select('creator_id').eq('fan_id', me_().id).eq('status', 'active'),
   ]);
   const known = new Set([...(fol || []), ...(subs || [])].map((x) => x.creator_id));
-  const s = (sug || []).filter((c) => !known.has(c.id)).slice(0, 4);
+  // Até 4 sugestões: criadores primeiro, fãs a completar (pelo menos um, se houver).
+  const cr = (sug || []).filter((c) => !known.has(c.id));
+  const fa = fasSug.filter((p) => !known.has(p.id));
+  const nCr = Math.min(cr.length, fa.length ? 3 : 4);
+  const s = [...cr.slice(0, nCr), ...fa.slice(0, 4 - nCr).map((p) => ({ fa: true, profile: p }))];
   return `<aside class="rail2">
    ${banner}
    ${on?.length ? `<div><h4>Ao vivo agora</h4>${on.map((l: any) => `<a class="mini" href="#live-${l.id}">${avatarOf(l.creator.profile, 'sm')}<span class="t"><b>${esc(cname(l.creator))}</b><span>${esc(l.title)}</span></span><span class="tag acc">AO VIVO</span></a>`).join('')}</div>` : ''}
-   ${s.length ? `<div><h4>⚡ Sugestões para ti</h4><div class="sugcards">${s.map((c: any) => `<a class="sugcard" href="#perfil-${esc(c.profile.handle)}">
+   ${s.length ? `<div><h4>⚡ Sugestões para ti</h4><div class="sugcards">${s.map((c: any) => c.fa ? `<a class="sugcard fa" href="#perfil-${esc(c.profile.handle)}">
+     <span class="sugbg"></span>
+     <span class="sugtag">Fã</span>
+     ${avatarOf(c.profile, 'sugav')}
+     <span class="sugmeta"><b>${esc(c.profile.name || c.profile.handle)}</b><span>@${esc(c.profile.handle)}</span></span></a>` : `<a class="sugcard" href="#perfil-${esc(c.profile.handle)}">
      <span class="sugbg" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></span>
      <span class="sugtag">${c.price ? kz(c.price) + '/mês' : 'Grátis'}</span>
      ${avatarOf(c.profile, 'sugav')}
@@ -204,6 +213,31 @@ export async function vFeed() {
 }
 
 /* ---------- Explorar ---------- */
+/** Campos públicos de um perfil de fã. */
+const FA_SEL = 'id,handle,name,avatar_url,country,interests,follower_count,created_at';
+
+/**
+ * Fãs para sugerir ou encontrar: contas de fã já registadas, não banidas, que não
+ * sejam a própria. `termo` filtra por nome ou @ (o mesmo saneamento da pesquisa
+ * de criadores).
+ */
+async function fasVisiveis(limite: number, termo = ''): Promise<any[]> {
+  let q = sb.from('profiles').select(FA_SEL).eq('role', 'fan').eq('onboarded', true).is('banned_at', null)
+    .neq('id', me_().id).order('follower_count', { ascending: false }).order('created_at', { ascending: false }).limit(limite);
+  if (termo) q = q.or(`name.ilike.%${termo}%,handle.ilike.%${termo}%`);
+  const { data } = await q;
+  return data || [];
+}
+
+/** Cartão de fã nos resultados do Explorar (mesmo formato dos criadores, marcado «Fã»). */
+function faCard(p: any) {
+  const ph = p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="" loading="lazy">` : `<span class="letter">${esc(((p.name || p.handle || '?') + '')[0].toUpperCase())}</span>`;
+  return `<a class="ccard" href="#perfil-${esc(p.handle)}"><span class="ph">${ph}</span>
+   <span><span class="nm">${esc(p.name || p.handle)} <span class="tag plain">Fã</span></span>
+   <span class="ln"><span>@${esc(p.handle)}${p.country ? ' · ' + esc(p.country) : ''}</span></span>
+   <span class="ln" style="margin-top:2px"><span>${dots(p.follower_count || 0)} seguidor${p.follower_count === 1 ? '' : 'es'}</span></span></span></a>`;
+}
+
 function creatorCard(c: any) {
   const ph = c.profile.avatar_url ? `<img src="${esc(c.profile.avatar_url)}" alt="" loading="lazy">` : c.cover_url ? `<img src="${esc(c.cover_url)}" alt="" loading="lazy">` : `<span class="letter">${esc((cname(c) || '?')[0].toUpperCase())}</span>`;
   return `<a class="ccard" href="#perfil-${esc(c.profile.handle)}"><span class="ph">${ph}</span>
@@ -219,15 +253,17 @@ export async function exploreGrid() {
   // `*` também sai: é o wildcard do ILIKE e transformava a pesquisa num scan completo.
   const t = S.q.trim().replace(/[%,()*]/g, '').slice(0, 60);
   if (t) q = q.or(`name.ilike.%${t}%,handle.ilike.%${t}%`, { referencedTable: 'profile' });
-  const { data, error } = await q;
+  // Com um termo de pesquisa (e sem filtro de categoria, que é só dos criadores), procura também fãs.
+  const [{ data, error }, fas] = await Promise.all([q, t && S.cat === 'Tudo' ? fasVisiveis(24, t) : Promise.resolve([])]);
   if (error) return `<p class="empty">${esc(errText(error))}</p>`;
-  return (data || []).map(creatorCard).join('') || '<p class="empty">Nenhum criador encontrado. Experimenta outra palavra ou categoria.</p>';
+  const html = (data || []).map(creatorCard).join('') + fas.map(faCard).join('');
+  return html || `<p class="empty">${t ? 'Ninguém encontrado com esse nome.' : 'Nenhum criador encontrado.'} Experimenta outra palavra ou categoria.</p>`;
 }
 export async function vExplorar() {
   const ints = me_().interests || [];
   const promos = await loadPromos();
   const main = `<div class="pagehead"><div><h1>Explorar</h1><p>Criadores angolanos com conteúdos que não encontras noutro lado.</p></div><a class="btn out" href="#top">${ic('trophy')}Top 10</a></div>
-   <label class="search">${ic('search')}<input id="q" type="search" placeholder="Procurar por nome ou nome de utilizador" value="${esc(S.q)}" aria-label="Procurar criadores"></label>
+   <label class="search">${ic('search')}<input id="q" type="search" placeholder="Procurar criadores e pessoas por nome ou @" value="${esc(S.q)}" aria-label="Procurar criadores e pessoas"></label>
    <div class="chips" role="group" aria-label="Categorias">${['Tudo', ...CATS].map((c) => `<button class="chip ${S.cat === c ? 'on' : ''}" data-act="cat" data-v="${c}">${c}</button>`).join('')}</div>
    ${ints.length && S.cat === 'Tudo' && !S.q ? `<p class="suggest">Os teus interesses: ${ints.map(esc).join(', ')}. Toca numa categoria para filtrar.</p>` : ''}
    <div class="cgrid" id="cgrid">${await exploreGrid()}</div>`;
@@ -235,9 +271,29 @@ export async function vExplorar() {
 }
 
 /* ---------- Perfil ---------- */
+async function perfilDeFa(p: any): Promise<string> {
+  const mine = p.id === me_().id;
+  const ban = !!p.banned_at && (!p.banned_until || new Date(p.banned_until) > new Date());
+  if (ban && !mine) return `<div class="empty"><h2>Perfil indisponível</h2><p style="margin-top:8px">Esta conta não está disponível.</p><a class="btn out" style="margin-top:16px" href="#explorar">Voltar a explorar</a></div>`;
+  const { data: fol } = mine ? { data: null } : await sb.from('follows').select('creator_id').eq('follower_id', me_().id).eq('creator_id', p.id).maybeSingle();
+  const seguido = !!fol;
+  const n = Number(p.follower_count) || 0;
+  const desde = new Date(p.created_at).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+  return `<div class="faprof box pad">
+    <div class="faprof-top">${avatarOf(p, 'lg')}
+     <div class="faprof-id"><h1>${esc(p.name || p.handle)}</h1><div class="muted">@${esc(p.handle)} <span class="tag plain">${p.role === 'fan' ? 'Fã' : p.role === 'admin' ? 'Equipa' : p.role === 'moderator' ? 'Equipa' : 'Membro'}</span></div></div>
+     ${mine ? '<a class="btn out" href="#conta">Editar perfil</a>' : `<button class="btn ${seguido ? 'out' : 'pri'}" data-act="follow" data-id="${esc(p.id)}" data-on="${seguido ? 1 : 0}">${seguido ? 'A seguir' : 'Seguir'}</button>`}</div>
+    <div class="faprof-num"><span><b>${dots(n)}</b> seguidor${n === 1 ? '' : 'es'}</span><span>Desde ${esc(desde)}</span>${p.country ? `<span>${ic('pin')}${esc(p.country)}</span>` : ''}</div>
+    ${(p.interests || []).length ? `<div><div class="small muted" style="margin-bottom:6px">Interesses</div><div class="row wrapf" style="gap:6px">${p.interests.map((x: string) => `<span class="tag plain">${esc(x)}</span>`).join('')}</div></div>` : ''}
+    ${!mine ? `<button class="btn link small" style="align-self:flex-start" data-act="report" data-type="creator" data-id="${esc(p.id)}">Denunciar perfil</button>` : ''}
+  </div>`;
+}
+
 export async function vPerfil(handle: any) {
-  const { data: prof } = await sb.from('profiles').select('id,handle,name,avatar_url,created_at').eq('handle', handle).maybeSingle();
+  const { data: prof } = await sb.from('profiles').select(FA_SEL + ',role,banned_at,banned_until').eq('handle', handle).maybeSingle<any>();
   const { data: c } = prof ? await sb.from('creators').select('*').eq('id', prof.id).maybeSingle() : { data: null };
+  // Perfil sem página de criador: mostra o perfil de fã (seguível), a menos que esteja banido.
+  if (prof && !c) return perfilDeFa(prof);
   if (!prof || !c) return `<div class="empty"><h2>Perfil não encontrado</h2><p style="margin-top:8px">Este perfil não existe ou ainda está em verificação.</p><a class="btn out" style="margin-top:16px" href="#explorar">Voltar a explorar</a></div>`;
   c.profile = prof;
   const mine = c.id === me_().id;

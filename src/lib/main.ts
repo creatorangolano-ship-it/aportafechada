@@ -25,7 +25,7 @@ function navFor(): NavItem[] {
 
 export function header(r: string): void {
   const theme = `<button class="tbtn" data-act="theme" aria-label="${isDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro'}" title="${isDark() ? 'Modo claro' : 'Modo escuro'}">${ic(isDark() ? 'sun' : 'moon')}</button>`;
-  const brand = `<a class="brand" href="#inicio">${LOGO()}<span>À Porta Fechada</span></a>`;
+  const brand = `<a class="brand" href="#inicio">${LOGO()}<span>A Porta Fechada</span></a>`;
   // A rota fica no <body> para o CSS poder dar a cada página o seu próprio
   // enquadramento (o feed é mais largo e tem fundo cinzento, como o do Facebook).
   document.body.dataset.route = document.documentElement.dataset.route = r.split('-')[0];

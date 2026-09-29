@@ -235,7 +235,7 @@ export function doorTransition(): () => Promise<void> {
   try {
     const el = document.createElement('div');
     el.className = 'door-overlay';
-    el.innerHTML = `<div class="door-leaf">${LOGO(100, 124)}</div><div class="door-label">À Porta Fechada</div>`;
+    el.innerHTML = `<div class="door-leaf">${LOGO(100, 124)}</div><div class="door-label">A Porta Fechada</div>`;
     document.body.appendChild(el);
     el.offsetHeight; // força o layout antes de animar
     return () => new Promise<void>((resolve) => {
@@ -319,6 +319,7 @@ export function errText(e: unknown): string {
   if (/User already registered/i.test(m)) return 'Já existe uma conta com este email. Entra ou recupera a palavra-passe.';
   if (/Password should be/i.test(m)) return 'A palavra-passe precisa de pelo menos 8 caracteres.';
   if (/rate limit/i.test(m)) return 'Demasiadas tentativas. Espera um minuto e tenta outra vez.';
+  if (/banned/i.test(m)) return 'Esta conta está banida. Se achas que é um engano, fala connosco em Contacto.';
   if (/Token has expired|invalid.*otp/i.test(m)) return 'O código expirou ou está errado. Pede um novo.';
   if (/Failed to fetch|NetworkError/i.test(m)) return 'Sem ligação à internet. Tenta outra vez.';
   if (/duplicate key.*handle/i.test(m)) return 'Esse nome de utilizador já existe.';

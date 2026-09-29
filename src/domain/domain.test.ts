@@ -141,3 +141,13 @@ test('promoções: fixa ganha, as outras rodam; posição no feed', () => {
   assert.equal(posicaoNoFeed(null, 2, 10), 2, 'automática: a sorteada');
   assert.equal(posicaoNoFeed(5, 2, 3), 3, 'nunca depois do fim');
 });
+
+import { banimentoAtivo } from './identity/moderacao.ts';
+
+test('banimento activo: permanente, temporário a decorrer e já terminado', () => {
+  const agora = new Date('2026-09-29T12:00:00Z');
+  assert.ok(banimentoAtivo({ banned_at: '2026-09-01T00:00:00Z', banned_until: null }, agora));
+  assert.ok(banimentoAtivo({ banned_at: '2026-09-28T00:00:00Z', banned_until: '2026-10-05T00:00:00Z' }, agora));
+  assert.ok(!banimentoAtivo({ banned_at: '2026-09-01T00:00:00Z', banned_until: '2026-09-08T00:00:00Z' }, agora));
+  assert.ok(!banimentoAtivo({ banned_at: null }, agora));
+});

@@ -17,6 +17,7 @@ import { accoesPossiveis } from '../../domain/backoffice/report.ts';
 import { porTratar } from '../../domain/backoffice/payout.ts';
 import { SETTINGS_SPEC } from '../../domain/platform/settings.ts';
 import { ROLES } from '../../domain/identity/role.ts';
+import { DURACOES_BANIMENTO } from '../../domain/identity/moderacao.ts';
 import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import type { FormControl } from '../types';
 
@@ -187,11 +188,32 @@ async function paginaUtilizadores(b: Backoffice): Promise<Pagina> {
   let users: Linha[] = [], erro = '';
   try { users = await b.utilizadores(S.uq || null); } catch (e) { erro = errText(e); }
   const podeSuspender = b.pode('suspender_perfis');
+  const podeBanir = b.pode('banir_contas');
+  /** Pode o admin actual agir sobre esta conta? Nunca sobre a própria nem sobre o perfil principal. */
+  const intocavel = (u: Linha) => u.id === b.actor.id || !!u.is_owner;
+  const estado = (u: Linha) => {
+    const ban = u.banned_at
+      ? `<span class="tag warn" title="${esc(u.ban_reason || '')}">Banida${u.banned_until ? ' até ' + fmtDate(u.banned_until) : ' (permanente)'}</span>`
+      : '<span class="tag ok">Activa</span>';
+    const adv = Number(u.warnings_count) ? ` <span class="tag plain">${dots(u.warnings_count)} advertência${Number(u.warnings_count) === 1 ? '' : 's'}</span>` : '';
+    return ban + adv;
+  };
+  const accoes = (u: Linha) => {
+    if (intocavel(u)) return '';
+    const b1 = podeSuspender && u.is_creator ? (u.creator_status === 'suspended'
+      ? `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="approved">Reativar criador</button>`
+      : `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="suspended">Suspender criador</button>`) : '';
+    const b2 = podeBanir ? `<button class="btn out sm" data-act="uWarn" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Advertir</button>` : '';
+    const b3 = !podeBanir ? '' : u.banned_at
+      ? `<button class="btn out sm" data-act="uUnban" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Levantar banimento</button>`
+      : `<button class="btn pri sm" data-act="uBan" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Banir</button>`;
+    return b1 + b2 + b3 ? `<div class="row wrapf" style="gap:6px;justify-content:flex-end">${b1}${b2}${b3}</div>` : '';
+  };
   return {
     h: 'Utilizadores',
-    lead: adm ? 'Muda papéis e suspende criadores. O teu próprio papel não pode ser alterado daqui.' : 'Só consulta: papéis, suspensões, saldos e ganhos são do admin completo.',
+    lead: adm ? 'Muda papéis, adverte ou bane qualquer conta — fã, criador ou equipa. A tua conta e o perfil principal da plataforma não podem ser alterados daqui.' : 'Só consulta: papéis, banimentos, saldos e ganhos são do admin completo.',
     body: `<div class="row wrapf" style="gap:12px;margin-bottom:16px"><div class="field" style="flex:1;max-width:420px;margin:0"><input id="uq" type="search" placeholder="Procurar por nome, @utilizador ou email" aria-label="Procurar utilizadores" value="${esc(S.uq || '')}"></div><span class="small muted">${dots(users.length)} resultado(s)</span></div>
-     ${erro ? `<p class="empty">${esc(erro)}</p>` : users.length ? `<div class="tw"><table><thead><tr><th>Pessoa</th><th>Email</th><th>Desde</th><th>Papel</th><th>Criador</th><th></th></tr></thead><tbody>${users.map((u) => `<tr><td>@${esc(u.handle)}<br><span class="small muted">${esc(u.name)}</span></td><td class="small" style="user-select:all">${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${adm && u.id !== b.actor.id ? `<select data-act="uRoleSel" data-id="${esc(u.id)}" aria-label="Papel de @${esc(u.handle)}">${ROLES.map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${RL[r]}</option>`).join('')}</select>` : RL[u.role] || esc(u.role)}</td><td>${u.is_creator ? `${tagSt(u.creator_status)} · ${kz(u.creator_price || 0)}/mês` : '—'}</td><td style="text-align:right">${podeSuspender && u.is_creator ? (u.creator_status === 'suspended' ? `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="approved">Reativar</button>` : `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="suspended">Suspender</button>`) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem resultados.</div>'}`,
+     ${erro ? `<p class="empty">${esc(erro)}</p>` : users.length ? `<div class="tw"><table><thead><tr><th>Pessoa</th><th>Email</th><th>Desde</th><th>Papel</th><th>Criador</th><th>Estado</th><th></th></tr></thead><tbody>${users.map((u) => `<tr><td>@${esc(u.handle)}${u.is_owner ? ' <span class="tag acc">Perfil principal</span>' : ''}<br><span class="small muted">${esc(u.name)}</span></td><td class="small" style="user-select:all">${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${adm && !intocavel(u) ? `<select data-act="uRoleSel" data-id="${esc(u.id)}" aria-label="Papel de @${esc(u.handle)}">${ROLES.map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${RL[r]}</option>`).join('')}</select>` : RL[u.role] || esc(u.role)}</td><td>${u.is_creator ? `${tagSt(u.creator_status)} · ${kz(u.creator_price || 0)}/mês` : '—'}</td><td>${estado(u)}</td><td style="text-align:right">${accoes(u)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem resultados.</div>'}`,
   };
 }
 
@@ -297,7 +319,7 @@ export async function vAdmin() {
 
   return `<div class="console-shell">
    <aside class="adside" id="adSide" aria-label="Administração">
-    <div class="adbrand"><a class="brand" href="#admin">${LOGO(20, 25)}<span>À Porta Fechada</span></a><span class="tag ${adm ? 'acc' : 'info'}">${adm ? 'Admin' : 'Moderação'}</span></div>
+    <div class="adbrand"><a class="brand" href="#admin">${LOGO(20, 25)}<span>A Porta Fechada</span></a><span class="tag ${adm ? 'acc' : 'info'}">${adm ? 'Admin' : 'Moderação'}</span></div>
     <nav class="adnav">${nav}</nav>
     <div class="adfoot">
      <a href="#explorar">${ic('compass')}<span>Ver a plataforma</span></a>
@@ -393,6 +415,39 @@ export const adminActions = {
   },
   async ctResolve(d: Record<string, string>) {
     if (await tentar(() => bo().resolverPedidoDeSuporte(d.id), 'Marcada como resolvida')) rerender();
+  },
+
+  /* ---------- Banir e advertir contas ---------- */
+  uBan(d: Record<string, string>) {
+    if (!bo().pode('banir_contas')) return toast('Sem permissão para esta ação.');
+    modal(`<h3>Banir @${esc(d.h)}</h3>
+     <p class="small muted">A conta deixa de conseguir entrar. Se for criador, a página e as subscrições param.</p>
+     <div class="field"><label for="banDias">Duração</label><select id="banDias">${DURACOES_BANIMENTO.map((x) => `<option value="${x.dias ?? ''}" ${x.dias === 7 ? 'selected' : ''}>${x.rotulo}</option>`).join('')}</select></div>
+     <div class="field"><label for="banMotivo">Motivo</label><textarea id="banMotivo" rows="3" maxlength="300" placeholder="Ex.: fraude nos pagamentos, conteúdo proibido, assédio…"></textarea><span class="small muted">Fica registado; só a equipa e a própria pessoa o vêem.</span></div>
+     <span class="err" id="banErr" hidden></span>
+     <button class="btn pri block" data-act="uBanOk" data-id="${esc(d.id)}">Banir conta</button>`);
+  },
+  async uBanOk(d: Record<string, string>) {
+    const v = $('#banDias')?.value;
+    const dias = v ? Number(v) : null;
+    try { await bo().banirConta({ id: d.id }, $('#banMotivo')?.value || '', dias); } catch (e) { return showErr('#banErr', errText(e)); }
+    closeModal(); toast('Conta banida'); rerender();
+  },
+  async uUnban(d: Record<string, string>) {
+    if (!confirm(`Levantar o banimento de @${d.h}? A conta volta a poder entrar.`)) return;
+    if (await tentar(() => bo().levantarBanimento(d.id), 'Banimento levantado')) rerender();
+  },
+  uWarn(d: Record<string, string>) {
+    if (!bo().pode('banir_contas')) return toast('Sem permissão para esta ação.');
+    modal(`<h3>Advertir @${esc(d.h)}</h3>
+     <p class="small muted">A pessoa recebe uma notificação com o motivo, e a advertência fica no histórico da conta.</p>
+     <div class="field"><label for="advMotivo">Motivo</label><textarea id="advMotivo" rows="3" maxlength="300" placeholder="Ex.: linguagem ofensiva nas mensagens."></textarea></div>
+     <span class="err" id="advErr" hidden></span>
+     <button class="btn pri block" data-act="uWarnOk" data-id="${esc(d.id)}">Enviar advertência</button>`);
+  },
+  async uWarnOk(d: Record<string, string>) {
+    try { await bo().advertir({ id: d.id }, $('#advMotivo')?.value || ''); } catch (e) { return showErr('#advErr', errText(e)); }
+    closeModal(); toast('Advertência enviada'); rerender();
   },
 
   async adThread(d: Record<string, string>) {
