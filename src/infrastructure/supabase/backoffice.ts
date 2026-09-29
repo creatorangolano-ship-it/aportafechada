@@ -138,7 +138,12 @@ export const repositoriosSupabase: RepositoriosDoBackoffice = {
     },
     async obter(id) { return ok(await sb.from('promos').select('*').eq('id', id).maybeSingle()); },
     async guardar(id, dados) {
-      ok(id ? await sb.from('promos').update(dados).eq('id', id) : await sb.from('promos').insert(dados));
+      const r = id ? await sb.from('promos').update(dados).eq('id', id) : await sb.from('promos').insert(dados);
+      // As colunas do banner (mobile_slot, pinned, cta) vêm da migração 0006.
+      if (r.error && /mobile_slot|pinned|cta/.test(String((r.error as { message?: string }).message))) {
+        throw new Error('Falta aplicar a migração supabase/migrations/0006_promos_banner.sql no Supabase.');
+      }
+      ok(r);
     },
     async apagar(id) { ok(await sb.from('promos').delete().eq('id', id)); },
     async enviarFicheiro(ficheiro, sufixo) {

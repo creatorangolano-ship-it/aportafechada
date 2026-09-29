@@ -113,7 +113,10 @@ export class Backoffice {
    */
   async guardarPromocao(id: string | null, dados: Linha, ficheiros: { principal?: File | null; mobile?: File | null } = {}): Promise<void> {
     this.#exige('gerir_promocoes');
-    exigir(recusaPromocao({ titulo: String(dados.title ?? ''), tipo: String(dados.content_type), posicao: String(dados.position), html: dados.html ?? null }));
+    exigir(recusaPromocao({
+      titulo: String(dados.title ?? ''), tipo: String(dados.content_type), coluna: String(dados.position),
+      html: dados.html ?? null, posicaoTelemovel: dados.mobile_slot ?? null, textoBotao: dados.cta ?? null,
+    }));
     const linha = { ...dados };
     if (linha.content_type !== 'html') {
       if (ficheiros.principal) {

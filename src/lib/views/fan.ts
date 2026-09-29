@@ -1,5 +1,6 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox } from '../lib';
+import { colunaDe, posicaoNoFeed, promocaoDaVisita, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import { register } from '../registry';
 import { S, refreshMe } from '../state';
 import { openPay } from '../pay';
@@ -88,11 +89,56 @@ export function postHTML(p: any) {
 }
 
 /* ---------- Promoções (cartões geridos em Admin > Promoções, posição escolhida lá) ---------- */
-async function loadPromos() {
+/**
+ * Banner de promoções.
+ *
+ * Computador: um banner vertical de 300 × 600 (1:2) na coluna esquerda do feed, fixo
+ * enquanto a pessoa desce. Telemóvel (sem colunas): o mesmo banner, largo e baixo (3:1),
+ * entre as publicações, numa posição que muda de visita para visita.
+ *
+ * Uma promoção de cada vez: cada visita mostra a seguinte da lista (pela ordem definida
+ * na administração), para todas terem a sua vez.
+ */
+async function loadPromos(): Promise<any[]> {
   const { data } = await sb.from('promos').select('*').eq('active', true).order('sort_order', { ascending: true }).limit(18);
-  const by: Record<string, any[]> = { topo: [], esquerda: [], direita: [] };
-  for (const p of data || []) (by[p.position] || by.topo).push(p);
-  return by;
+  return data || [];
+}
+
+/** Contador da rotação: avança uma posição por visita (sessionStorage marca a visita). */
+function voltaDaVisita(): number {
+  try {
+    const guardado = sessionStorage.getItem('apf-promo-visita');
+    if (guardado !== null) return Number(guardado) || 0;
+    const i = (Number(localStorage.getItem('apf-promo-rotacao')) || 0) + 1;
+    localStorage.setItem('apf-promo-rotacao', String(i));
+    sessionStorage.setItem('apf-promo-visita', String(i));
+    return i;
+  } catch { return 0; } // modo privado: fica a primeira
+}
+
+/** Posição sorteada para esta visita (1 a 3), usada quando a promoção está em «Automática». */
+function sorteioDaVisita(): number {
+  try {
+    const g = sessionStorage.getItem('apf-promo-pos');
+    if (g !== null) return Number(g) || 1;
+    const p = 1 + Math.floor(Math.random() * 3);
+    sessionStorage.setItem('apf-promo-pos', String(p));
+    return p;
+  } catch { return 1; }
+}
+
+/** O banner. `forma`: 'lateral' (1:2, coluna esquerda) ou 'feed' (3:1, entre publicações, só telemóvel). */
+function promoBanner(p: any, forma: 'lateral' | 'feed'): string {
+  const cls = forma === 'lateral' ? 'pbanner pbanner-side' : 'pbanner pbanner-feed';
+  if (p.content_type === 'html') return `<div class="${cls} html">${promoHtmlBlock(p)}<span class="pbanner-tag">Patrocinado</span></div>`;
+  // No telemóvel usa a imagem mobile, se a administração a tiver carregado.
+  const url = forma === 'feed' && p.mobile_image_url ? p.mobile_image_url : p.image_url;
+  const video = p.media_type?.startsWith('video') || /\.(mp4|webm)$/i.test(url || '');
+  const fundo = !url ? '' : video
+    ? `<video class="pbanner-bg" src="${esc(url)}" autoplay muted loop playsinline disablePictureInPicture></video>`
+    : `<img class="pbanner-bg" src="${esc(url)}" alt="" loading="lazy" decoding="async">`;
+  return `<a class="${cls}" ${promoHref(p)}>${fundo}<span class="pbanner-tag">Patrocinado</span>
+    <span class="pbanner-txt"><b>${esc(p.title)}</b>${p.subtitle ? `<span>${esc(p.subtitle)}</span>` : ''}<span class="pbanner-cta">${esc(p.cta || TEXTO_BOTAO_PADRAO)}</span></span></a>`;
 }
 function promoHref(p: any) {
   // Um link de promoção é clicado por quem está autenticado. `esc()` protege o atributo, mas não o
@@ -104,32 +150,15 @@ function promoHref(p: any) {
 /** `esc()` não serve dentro de url('…'): o parser HTML descodifica as entidades ANTES de o CSS ser
  *  lido, portanto uma aspa no URL fechava o url() e deixava o resto virar uma declaração CSS
  *  (sobreposições, exfiltração). Estes URLs vêm de publicUrl(), mas a protecção é barata. */
-const cssUrl = (u: any) => `url("${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}")`;
-/** Um ficheiro de imagem/vídeo, com versão mobile alternativa quando existir (troca por CSS, sem JS). */
-function promoMedia(url: any, mobileUrl: any, mediaType: any) {
-  const isVideo = (u: any) => mediaType?.startsWith('video') || /\.(mp4|webm)$/i.test(u || '');
-  const one = (u: any, cls: any) => !u ? '' : isVideo(u)
-    ? `<video class="promobg ${cls}" src="${esc(u)}" autoplay muted loop playsinline disablePictureInPicture oncontextmenu="return false"></video>`
-    : `<span class="promobg ${cls}" style="background-image:${cssUrl(u)}"></span>`;
-  if (!mobileUrl || mobileUrl === url) return one(url, '');
-  return one(url, 'only-desktop') + one(mobileUrl, 'only-mobile');
-}
-function promoTxt(p: any) { return p.content_type === 'html' ? '' : `<span class="promotxt"><b>${esc(p.title)}</b>${p.subtitle ? `<span>${esc(p.subtitle)}</span>` : ''}</span>`; }
+// Aspas simples: o resultado vai dentro de style="…", e aspas duplas fechavam o atributo.
+const cssUrl = (u: any) => `url('${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}')`;
 function promoHtmlBlock(p: any) {
   if (!p.mobile_html) return `<div class="promoembed">${p.html}</div>`;
   return `<div class="promoembed only-desktop">${p.html}</div><div class="promoembed only-mobile">${p.mobile_html}</div>`;
 }
-function promoCard(p: any, vClass: any) {
-  if (p.content_type === 'html') return `<div class="promocard html ${vClass}">${promoHtmlBlock(p)}</div>`;
-  return `<a class="promocard ${vClass}" ${promoHref(p)}>${promoMedia(p.image_url, p.mobile_image_url, p.media_type)}${promoTxt(p)}</a>`;
-}
-const promoCardH = (p: any) => promoCard(p, '');
-const promoCardV = (p: any) => promoCard(p, 'v');
-const promoTop = (by: any) => by.topo.length ? `<div class="promostrip">${by.topo.map(promoCardH).join('')}</div>` : '';
-const promoSide = (list: any) => list.length ? `<aside class="promoside">${list.map(promoCardV).join('')}</aside>` : '';
 
 /* ---------- Início ---------- */
-async function sideRail(direitaPromos: any) {
+async function sideRail(banner: string) {
   const [{ data: on }, { data: sug }] = await Promise.all([
     sb.from('lives').select('id,title,creator:creators(id,profile:profiles!creators_id_fkey(handle,name,avatar_url))').eq('status', 'live').limit(5),
     sb.from('creators').select(CR_SEL).eq('status', 'approved').neq('id', me_().id).order('follower_count', { ascending: false }).limit(12),
@@ -141,7 +170,7 @@ async function sideRail(direitaPromos: any) {
   const known = new Set([...(fol || []), ...(subs || [])].map((x) => x.creator_id));
   const s = (sug || []).filter((c) => !known.has(c.id)).slice(0, 4);
   return `<aside class="rail2">
-   ${(direitaPromos || []).map(promoCardV).join('')}
+   ${banner}
    ${on?.length ? `<div><h4>Ao vivo agora</h4>${on.map((l: any) => `<a class="mini" href="#live-${l.id}">${avatarOf(l.creator.profile, 'sm')}<span class="t"><b>${esc(cname(l.creator))}</b><span>${esc(l.title)}</span></span><span class="tag acc">AO VIVO</span></a>`).join('')}</div>` : ''}
    ${s.length ? `<div><h4>⚡ Sugestões para ti</h4><div class="sugcards">${s.map((c: any) => `<a class="sugcard" href="#perfil-${esc(c.profile.handle)}">
      <span class="sugbg" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></span>
@@ -163,11 +192,15 @@ export async function vFeed() {
     const { data } = await sb.from('posts').select(POST_SEL).in('creator_id', ids).eq('status', 'published').order('published_at', { ascending: false }).limit(30);
     posts = await enrichPosts(data || []);
   }
-  return `<div class="feedwrap ${promos.esquerda.length ? 'has-left' : ''}">${promoSide(promos.esquerda)}<div class="feedcol">
-   ${promoTop(promos)}
+  const promo = promocaoDaVisita(promos, voltaDaVisita());
+  const coluna = promo ? colunaDe(promo.position) : 'esquerda';
+  const lista = posts.map(postHTML);
+  if (promo && lista.length) lista.splice(posicaoNoFeed(promo.mobile_slot, sorteioDaVisita(), lista.length), 0, promoBanner(promo, 'feed'));
+  const lateral = promo ? promoBanner(promo, 'lateral') : '';
+  return `<div class="feedwrap">${lateral && coluna === 'esquerda' ? `<aside class="pbanner-col">${lateral}</aside>` : '<div></div>'}<div class="feedcol">
    <h1 class="sr-only">Início</h1>
-   ${posts.length ? posts.map(postHTML).join('') : `<div class="box empty"><h3>O teu início está vazio</h3><p style="margin-top:6px">Segue ou subscreve criadores e as publicações deles aparecem aqui.</p><a class="btn pri" style="margin-top:14px" href="#explorar">Explorar criadores</a></div>`}
-  </div>${await sideRail(promos.direita)}</div>`;
+   ${posts.length ? lista.join('') : `<div class="box empty"><h3>O teu início está vazio</h3><p style="margin-top:6px">Segue ou subscreve criadores e as publicações deles aparecem aqui.</p><a class="btn pri" style="margin-top:14px" href="#explorar">Explorar criadores</a></div>`}
+  </div>${await sideRail(coluna === 'direita' ? lateral : '')}</div>`;
 }
 
 /* ---------- Explorar ---------- */
@@ -193,13 +226,12 @@ export async function exploreGrid() {
 export async function vExplorar() {
   const ints = me_().interests || [];
   const promos = await loadPromos();
-  const main = `${promoTop(promos)}<div class="pagehead"><div><h1>Explorar</h1><p>Criadores angolanos com conteúdos que não encontras noutro lado.</p></div><a class="btn out" href="#top">${ic('trophy')}Top 10</a></div>
+  const main = `<div class="pagehead"><div><h1>Explorar</h1><p>Criadores angolanos com conteúdos que não encontras noutro lado.</p></div><a class="btn out" href="#top">${ic('trophy')}Top 10</a></div>
    <label class="search">${ic('search')}<input id="q" type="search" placeholder="Procurar por nome ou nome de utilizador" value="${esc(S.q)}" aria-label="Procurar criadores"></label>
    <div class="chips" role="group" aria-label="Categorias">${['Tudo', ...CATS].map((c) => `<button class="chip ${S.cat === c ? 'on' : ''}" data-act="cat" data-v="${c}">${c}</button>`).join('')}</div>
    ${ints.length && S.cat === 'Tudo' && !S.q ? `<p class="suggest">Os teus interesses: ${ints.map(esc).join(', ')}. Toca numa categoria para filtrar.</p>` : ''}
    <div class="cgrid" id="cgrid">${await exploreGrid()}</div>`;
-  if (!promos.esquerda.length && !promos.direita.length) return main;
-  return `<div class="pagewithside">${promoSide(promos.esquerda)}<div class="pwmain">${main}</div>${promoSide(promos.direita)}</div>`;
+  return main;
 }
 
 /* ---------- Perfil ---------- */

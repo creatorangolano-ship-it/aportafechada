@@ -116,3 +116,28 @@ test('levantamentos: máquina de estados', () => {
   assert.ok(eIrreversivel('paid') && !eIrreversivel('review'));
   assert.ok(recusaMotivo('abc') && !recusaMotivo('IBAN errado'));
 });
+
+import { recusaPromocao, promocaoDaVisita, posicaoNoFeed, colunaDe } from './platform/promo.ts';
+
+test('promoções: validação do banner', () => {
+  const base = { titulo: 'Festival', tipo: 'card', coluna: 'esquerda', html: null };
+  assert.equal(recusaPromocao(base), null);
+  assert.match(recusaPromocao({ ...base, coluna: 'topo' })!, /Coluna/);
+  assert.match(recusaPromocao({ ...base, posicaoTelemovel: 4 })!, /telemóvel/);
+  assert.equal(recusaPromocao({ ...base, posicaoTelemovel: 5 }), null);
+  assert.match(recusaPromocao({ ...base, textoBotao: 'x' })!, /botão/);
+  assert.equal(colunaDe('topo'), 'esquerda', 'promoções antigas no topo vão para a esquerda');
+  assert.equal(colunaDe('direita'), 'direita');
+});
+
+test('promoções: fixa ganha, as outras rodam; posição no feed', () => {
+  const a = { id: 'a', pinned: false }, b = { id: 'b', pinned: false }, c = { id: 'c', pinned: true };
+  assert.equal(promocaoDaVisita([a, b], 0), a);
+  assert.equal(promocaoDaVisita([a, b], 1), b);
+  assert.equal(promocaoDaVisita([a, b], 2), a);
+  assert.equal(promocaoDaVisita([a, c, b], 7), c, 'a fixa aparece sempre');
+  assert.equal(promocaoDaVisita([], 3), null);
+  assert.equal(posicaoNoFeed(5, 2, 10), 5, 'posição escolhida');
+  assert.equal(posicaoNoFeed(null, 2, 10), 2, 'automática: a sorteada');
+  assert.equal(posicaoNoFeed(5, 2, 3), 3, 'nunca depois do fim');
+});

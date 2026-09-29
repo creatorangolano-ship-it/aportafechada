@@ -445,28 +445,10 @@ td.num,th.num{text-align:right}
 .sugmeta b{color:#fff;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sugmeta span{color:rgba(255,255,255,.85);font-size:12px;text-shadow:0 1px 3px rgba(0,0,0,.55)}
 
-.promostrip{display:flex;gap:12px;overflow-x:auto;padding-bottom:2px;margin-bottom:18px;scrollbar-width:none;justify-content:center;width:100%}
-.promostrip::-webkit-scrollbar{display:none}
-@media (max-width:560px){.promostrip{justify-content:center}.promostrip .promocard{width:min(320px,84vw)}}
-.promocard{position:relative;flex:none;width:min(480px,84vw);height:170px;border-radius:16px;overflow:hidden;text-decoration:none;background:#1a1a1a;scroll-snap-align:start}
-.promobg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background-size:cover;background-position:center;opacity:1}
-.promocard::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%);pointer-events:none}
-.promocard.html{background:var(--surface-2)}
-.promocard.html::after{display:none}
-.promoembed{width:100%;height:100%;overflow:auto}
-.promoembed img,.promoembed video{max-width:100%;height:auto}
 .only-mobile{display:none}
 @media (max-width:560px){.only-mobile{display:block}.only-desktop{display:none}}
-.promotxt{position:absolute;left:16px;right:16px;bottom:14px;z-index:2;display:flex;flex-direction:column;gap:3px}
-.promotxt b{color:#fff;font-size:16px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
-.promotxt span{color:rgba(255,255,255,.9);font-size:12.5px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
-@media (max-width:560px){.promocard{height:110px}}
 
-.promoside{width:280px;flex:none;display:flex;flex-direction:column;gap:14px;position:sticky;top:96px}
-.promocard.v{width:100%;height:340px}
 .feedwrap.has-left{grid-template-columns:280px minmax(0,480px) 300px}
-.pagewithside{display:flex;gap:24px;align-items:stretch}
-.pwmain{flex:1;min-width:0}
 @media (max-width:1180px) and (min-width:981px){.feedwrap.has-left{grid-template-columns:240px minmax(0,1fr) 260px}}
 @media (max-width:980px){.feedwrap.has-left{grid-template-columns:1fr}.promoside{position:static;flex-direction:row;overflow-x:auto;width:auto}.promocard.v{width:240px;height:200px;flex:none}.pagewithside{flex-direction:column}.pwmain{width:100%}}
 @media (max-width:980px){.feedwrap{grid-template-columns:1fr}.rail2{position:static}}
@@ -625,10 +607,7 @@ body[data-route="feed"] #app{max-width:1400px;padding-inline:16px}
 body[data-route="feed"] .top{background:var(--bg)}
 .feedwrap,.feedwrap.has-left{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,680px) minmax(220px,1fr);gap:32px;align-items:start;padding-top:16px}
 .feedwrap>.feedcol{grid-column:2;gap:16px;min-width:0}
-.feedwrap>.promoside{grid-column:1;width:auto;max-width:300px;position:sticky;top:80px}
 .feedwrap>.rail2{grid-column:3;position:sticky;top:80px;max-width:340px;justify-self:end;width:100%}
-.feedwrap .promostrip{margin-bottom:0}
-.feedwrap .promocard.v{height:300px}
 
 .post{padding:0;gap:0;border:0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}
 :root[data-theme="dark"] .post{box-shadow:none;border:1px solid var(--line)}
@@ -661,15 +640,12 @@ body[data-route="feed"] .top{background:var(--bg)}
   .feedwrap>.feedcol{grid-column:1}
   .feedwrap>.rail2{grid-column:2}
   /* As promoções da esquerda passam para uma fila horizontal por cima do feed. */
-  .feedwrap>.promoside{grid-column:1;grid-row:1;position:static;flex-direction:row;overflow-x:auto;max-width:none;scrollbar-width:none}
-  .feedwrap>.promoside .promocard.v{width:240px;height:180px;flex:none}
   .feedwrap.has-left>.feedcol,.feedwrap.has-left>.rail2{grid-row:2}
 }
 @media (max-width:900px){
   body[data-route="feed"] #app{padding-inline:0}
   .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(0,680px);gap:12px;padding-top:8px}
   .feedwrap>.rail2{grid-column:1;grid-row:auto;position:static;max-width:none;justify-self:stretch;padding-inline:12px}
-  .feedwrap>.promoside{padding-inline:12px}
   .feedwrap>.feedcol{gap:8px}
   /* Como no Facebook em telemóvel: cartões de ponta a ponta, sem cantos. */
   .post{border-radius:0;box-shadow:none;border-block:1px solid var(--line)}
@@ -702,3 +678,49 @@ body[data-route="feed"] .top{background:var(--bg)}
 .lbox-frame{position:relative;background:#000;border-radius:8px;overflow:hidden}
 .lbox .lbox-frame img,.lbox .lbox-frame video{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:0;display:block}
 .lbox-frame:fullscreen{border-radius:0}
+
+/* ---------- Banner de promoções ----------
+   Computador: 300 × 600 (1:2) na coluna esquerda, fixo ao descer. Telemóvel: 3:1 entre as
+   publicações. Uma promoção por visita. */
+.pbanner{position:relative;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:12px;background:var(--surface-3);text-decoration:none;color:#fff;isolation:isolate}
+.pbanner-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.pbanner::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.72) 100%)}
+.pbanner.html::after{display:none}
+.pbanner-tag{position:absolute;top:10px;left:10px;background:rgba(255,255,255,.9);color:#161014;border-radius:4px;padding:2px 8px;font-size:11.5px;font-weight:600}
+.pbanner-txt{display:flex;flex-direction:column;gap:3px;padding:16px}
+.pbanner-txt b{font-size:18px;font-weight:700;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.pbanner-txt>span:not(.pbanner-cta){font-size:13.5px;opacity:.92;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.pbanner-cta{margin-top:8px;align-self:flex-start;background:var(--acc);color:var(--acc-ink);border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600}
+.pbanner:hover .pbanner-cta{background:var(--acc-hover)}
+.pbanner.html .promoembed{height:100%}
+.pbanner-col{grid-column:1;position:sticky;top:80px;justify-self:end;width:100%;max-width:300px}
+.pbanner-side{width:100%;aspect-ratio:1/2}
+.pbanner-feed{display:none;aspect-ratio:3/1}
+.pbanner-feed .pbanner-txt{padding:12px 14px;flex-direction:row;align-items:flex-end;justify-content:space-between;gap:12px}
+.pbanner-feed .pbanner-txt b{font-size:16px}
+.pbanner-feed .pbanner-cta{margin-top:0;flex:none}
+@media (max-width:1100px){
+  .pbanner-col{display:none}
+  .pbanner-feed{display:flex}
+}
+@media (max-width:900px){.pbanner-feed{border-radius:0}}
+@media (max-width:480px){.pbanner-feed{aspect-ratio:2/1}.pbanner-feed .pbanner-txt>span:not(.pbanner-cta){display:none}}
+/* Botão do banner: centrado, «Clica aqui», a pulsar (anel que se expande e desvanece). */
+.pbanner-txt{align-items:center;text-align:center}
+.pbanner-cta{align-self:center;margin-top:12px;padding:10px 22px;font-size:15px;font-weight:700;border-radius:999px;animation:pbanner-pulso 1.8s ease-out infinite}
+.pbanner-feed .pbanner-txt{flex-direction:column;align-items:center;justify-content:flex-end;gap:6px}
+.pbanner-feed .pbanner-cta{margin-top:2px}
+@keyframes pbanner-pulso{
+  0%{box-shadow:0 0 0 0 rgba(208,16,60,.65);transform:scale(1)}
+  50%{transform:scale(1.06)}
+  70%{box-shadow:0 0 0 14px rgba(208,16,60,0)}
+  100%{box-shadow:0 0 0 0 rgba(208,16,60,0);transform:scale(1)}
+}
+@media (prefers-reduced-motion:reduce){.pbanner-cta{animation:none}}
+.pfields{border:1px solid var(--line);border-radius:10px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:12px}
+.pfields legend{padding:0 6px;font-weight:700;color:var(--ink);font-size:14px}
+.rail2>.pbanner-side{width:100%;max-width:340px}
+@media (max-width:1100px){.rail2>.pbanner-side{display:none}}
+/* Anúncio em HTML personalizado dentro do banner. */
+.promoembed{width:100%;height:100%;overflow:auto}
+.promoembed img,.promoembed video{max-width:100%;height:auto}

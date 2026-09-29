@@ -17,6 +17,7 @@ import { accoesPossiveis } from '../../domain/backoffice/report.ts';
 import { porTratar } from '../../domain/backoffice/payout.ts';
 import { SETTINGS_SPEC } from '../../domain/platform/settings.ts';
 import { ROLES } from '../../domain/identity/role.ts';
+import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import type { FormControl } from '../types';
 
 /** A fachada para quem está a agir agora. As vistas só são chamadas com sessão (ver main.ts). */
@@ -225,15 +226,15 @@ async function paginaContactos(b: Backoffice, nP: PContagens): Promise<Pagina> {
 }
 
 async function paginaPromocoes(b: Backoffice): Promise<Pagina> {
-  const posL: Record<string, string> = { topo: 'Topo', esquerda: 'Lado esquerdo', direita: 'Lado direito' };
-  const typeL: Record<string, string> = { card: 'Cartão', media: 'Vídeo/GIF', html: 'HTML' };
+  const typeL: Record<string, string> = { card: 'Imagem', media: 'Vídeo/GIF', html: 'HTML' };
+  const telemovel = (p: Linha) => (p.mobile_slot ? `Depois da ${p.mobile_slot}.ª publicação` : 'Automática');
   return {
     h: 'Promoções',
-    lead: 'Aparecem no Início e no Explorar, na posição que escolheres. «Ativa» controla se está visível já.',
+    lead: 'Cada visita ao feed mostra um banner: no computador, vertical na coluna escolhida; no telemóvel, entre as publicações. Uma promoção «fixa» aparece sempre; as outras rodam, uma por visita, pela ordem.',
     acts: `<button class="btn pri sm" data-act="promoNew">${ic('plus')}Nova promoção</button>`,
     body: await ler(async () => {
       const promos = await b.promocoes();
-      return promos.length ? `<div class="tw"><table><thead><tr><th></th><th>Título</th><th>Tipo</th><th>Posição</th><th class="num">Ordem</th><th>Estado</th><th></th></tr></thead><tbody>${promos.map((p) => `<tr><td>${p.image_url ? (p.media_type?.startsWith('video') ? `<video src="${esc(p.image_url)}" style="width:56px;height:36px;object-fit:cover;border-radius:6px" muted></video>` : `<img loading="lazy" decoding="async" src="${esc(p.image_url)}" alt="" style="width:56px;height:36px;object-fit:cover;border-radius:6px">`) : '·'}</td><td><b style="color:var(--ink)">${esc(p.title)}</b>${p.subtitle ? `<div class="small muted">${esc(p.subtitle)}</div>` : ''}</td><td>${typeL[p.content_type] || esc(p.content_type)}${(p.mobile_image_url || p.mobile_html) ? ' <span class="small muted">(+ mobile)</span>' : ''}</td><td>${posL[p.position] || esc(p.position)}</td><td class="num">${esc(p.sort_order)}</td><td>${p.active ? '<span class="tag ok">Ativa</span>' : '<span class="tag plain">Desativada</span>'}</td><td style="text-align:right"><div class="row" style="gap:6px;justify-content:flex-end"><button class="btn out sm" data-act="promoEdit" data-id="${esc(p.id)}">Editar</button><button class="btn link sm" data-act="promoDel" data-id="${esc(p.id)}">Apagar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem promoções ainda.</div>';
+      return promos.length ? `<div class="tw"><table><thead><tr><th></th><th>Título</th><th>Computador</th><th>Telemóvel</th><th>Exibição</th><th class="num">Ordem</th><th>Estado</th><th></th></tr></thead><tbody>${promos.map((p) => `<tr><td>${p.image_url ? (p.media_type?.startsWith('video') ? `<video src="${esc(p.image_url)}" style="width:36px;height:56px;object-fit:cover;border-radius:6px" muted></video>` : `<img loading="lazy" decoding="async" src="${esc(p.image_url)}" alt="" style="width:36px;height:56px;object-fit:cover;border-radius:6px">`) : '·'}</td><td><b style="color:var(--ink)">${esc(p.title)}</b><div class="small muted">${typeL[p.content_type] || esc(p.content_type)}${p.subtitle ? ' · ' + esc(p.subtitle) : ''}</div></td><td>Coluna ${colunaDe(p.position)}</td><td>${telemovel(p)}</td><td>${p.pinned ? '<span class="tag acc">Fixa</span>' : '<span class="tag plain">Roda</span>'}</td><td class="num">${esc(p.sort_order)}</td><td>${p.active ? '<span class="tag ok">Ativa</span>' : '<span class="tag plain">Desativada</span>'}</td><td style="text-align:right"><div class="row" style="gap:6px;justify-content:flex-end"><button class="btn out sm" data-act="promoEdit" data-id="${esc(p.id)}">Editar</button><button class="btn link sm" data-act="promoDel" data-id="${esc(p.id)}">Apagar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem promoções ainda.</div>';
     }),
   };
 }
@@ -430,7 +431,11 @@ export const adminActions = {
     const eHtml = content_type === 'html';
     const dados: Linha = {
       title: title || (eHtml ? 'Anúncio HTML' : ''), subtitle: subtitle || null, link_url: link || null,
-      sort_order: +$('#promoSort').value || 0, active: $('#promoActive').checked, position: $('#promoPos').value, content_type,
+      sort_order: +$('#promoSort').value || 0, active: $('#promoActive').checked, content_type,
+      position: $('input[name=promoCol]:checked')?.value || 'esquerda',
+      mobile_slot: $('#promoSlot').value ? Number($('#promoSlot').value) : null,
+      pinned: $('input[name=promoShow]:checked')?.value === 'fixa',
+      cta: $('#promoCta').value.trim() || null,
       image_url: eHtml ? null : S.promoImageUrl || null, mobile_image_url: eHtml ? null : S.promoMobileImageUrl || null,
       media_type: content_type === 'media' ? S.promoMediaType || null : null,
       html: eHtml ? $('#promoHtml').value : null, mobile_html: eHtml ? ($('#promoHtmlMobile').value.trim() || null) : null,
@@ -456,25 +461,29 @@ function promoForm(p: any) {
    <div class="field"><label for="promoTitle">Título${ct === 'html' ? ' (só para organização interna)' : ''}</label><input id="promoTitle" maxlength="80" value="${esc(p?.title || '')}" placeholder="Ex.: Promoção de lançamento"></div>
    <div id="promoCardFields" ${ct !== 'card' ? 'hidden' : ''}>
     <div class="field"><label for="promoSubtitle">Subtítulo (opcional)</label><input id="promoSubtitle" maxlength="120" value="${esc(p?.subtitle || '')}" placeholder="Ex.: 30 dias grátis para novos criadores"></div>
-    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Imagem de fundo (usada também em telemóvel, salvo se deres uma versão mobile abaixo)</b><span class="small muted" id="promoF">${ct === 'card' && p?.image_url ? 'Já tem imagem, escolhe para substituir' : 'JPG ou PNG'}</span><input type="file" accept="image/*" id="promoFile"></label>
-    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Versão mobile (opcional)</b><span class="small muted" id="promoFM">${ct === 'card' && p?.mobile_image_url ? 'Já tem imagem mobile, escolhe para substituir' : 'Só se quiseres um recorte diferente em ecrãs pequenos'}</span><input type="file" accept="image/*" id="promoFileMobile"></label>
+    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Imagem para computador — vertical, recomendado 600 × 1200 px (1:2)</b><span class="small muted" id="promoF">${ct === 'card' && p?.image_url ? 'Já tem imagem, escolhe para substituir' : 'JPG ou PNG'}</span><input type="file" accept="image/*" id="promoFile"></label>
+    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Imagem para telemóvel — horizontal, recomendado 1200 × 600 px (2:1)</b><span class="small muted" id="promoFM">${ct === 'card' && p?.mobile_image_url ? 'Já tem imagem mobile, escolhe para substituir' : 'Só se quiseres um recorte diferente em ecrãs pequenos'}</span><input type="file" accept="image/*" id="promoFileMobile"></label>
    </div>
    <div id="promoMediaFields" ${ct !== 'media' ? 'hidden' : ''}>
     <div class="field"><label for="promoMediaSubtitle">Legenda sobre o vídeo (opcional)</label><input id="promoMediaSubtitle" maxlength="120" value="${ct === 'media' ? esc(p?.subtitle || '') : ''}" placeholder="Ex.: Nova coleção disponível"></div>
-    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Vídeo ou GIF</b><span class="small muted" id="promoMediaF">${ct === 'media' && p?.image_url ? 'Já tem ficheiro, escolhe para substituir' : 'MP4 ou GIF, toca sozinho e em loop'}</span><input type="file" accept="video/mp4,image/gif" id="promoMediaFile"></label>
-    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Versão mobile (opcional)</b><span class="small muted" id="promoMediaFM">${ct === 'media' && p?.mobile_image_url ? 'Já tem ficheiro mobile, escolhe para substituir' : 'Só se quiseres um vídeo/GIF diferente em ecrãs pequenos'}</span><input type="file" accept="video/mp4,image/gif" id="promoMediaFileMobile"></label>
+    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Vídeo ou GIF para computador — vertical (1:2)</b><span class="small muted" id="promoMediaF">${ct === 'media' && p?.image_url ? 'Já tem ficheiro, escolhe para substituir' : 'MP4 ou GIF, toca sozinho e em loop'}</span><input type="file" accept="video/mp4,image/gif" id="promoMediaFile"></label>
+    <label class="drop">${ic('upload', 'style="width:22px;height:22px"')}<b style="color:var(--ink)">Vídeo ou GIF para telemóvel — horizontal (2:1, opcional)</b><span class="small muted" id="promoMediaFM">${ct === 'media' && p?.mobile_image_url ? 'Já tem ficheiro mobile, escolhe para substituir' : 'Só se quiseres um vídeo/GIF diferente em ecrãs pequenos'}</span><input type="file" accept="video/mp4,image/gif" id="promoMediaFileMobile"></label>
    </div>
    <div id="promoHtmlFields" ${ct !== 'html' ? 'hidden' : ''}>
     <div class="field"><label for="promoHtml">Código HTML (desktop)</label><textarea id="promoHtml" rows="6" placeholder="&lt;div style=&quot;...&quot;&gt;o teu anúncio&lt;/div&gt;">${esc(p?.html || '')}</textarea><span class="small muted">Inserido tal como está na página. Deve ser responsivo por si só (usa % em vez de pixels fixos); usa apenas HTML de confiança.</span></div>
     <div class="field"><label for="promoHtmlMobile">Código HTML mobile (opcional)</label><textarea id="promoHtmlMobile" rows="5" placeholder="Deixa em branco para usar o mesmo HTML em telemóvel">${esc(p?.mobile_html || '')}</textarea></div>
    </div>
    <div class="field"><label for="promoLink">Link ao tocar (opcional, ignorado no HTML personalizado)</label><input id="promoLink" value="${esc(p?.link_url || '')}" placeholder="#explorar ou https://..."></div>
-   <div class="field"><label for="promoPos">Posição</label><select id="promoPos">
-     <option value="topo" ${(!p || p.position === 'topo') ? 'selected' : ''}>Topo (cartão horizontal)</option>
-     <option value="esquerda" ${p?.position === 'esquerda' ? 'selected' : ''}>Lado esquerdo (cartão vertical)</option>
-     <option value="direita" ${p?.position === 'direita' ? 'selected' : ''}>Lado direito (cartão vertical)</option>
-    </select></div>
-   <div class="field"><label for="promoSort">Ordem (menor aparece primeiro)</label><input id="promoSort" type="number" value="${p?.sort_order ?? 0}"></div>
+   <div class="field"><label for="promoCta">Texto do botão</label><input id="promoCta" maxlength="30" value="${esc(p?.cta || '')}" placeholder="${TEXTO_BOTAO_PADRAO}"><span class="small muted">Em branco fica «${TEXTO_BOTAO_PADRAO}». O botão aparece centrado e a pulsar.</span></div>
+   <fieldset class="pfields"><legend>Onde aparece</legend>
+    <div class="field"><span class="flabel">No computador</span><div class="row wrapf" style="gap:8px">${(['esquerda', 'direita'] as const).map((c) => `<label class="opt" style="flex:1"><input type="radio" name="promoCol" value="${c}" ${colunaDe(p?.position) === c ? 'checked' : ''}><span><b>Coluna ${c}</b><span>${c === 'esquerda' ? 'Sozinho, ao lado do feed' : 'Por cima de «Sugestões para ti»'}</span></span></label>`).join('')}</div></div>
+    <div class="field"><label for="promoSlot">No telemóvel</label><select id="promoSlot"><option value="" ${p?.mobile_slot ? '' : 'selected'}>Automática (muda a cada visita, entre a 1.ª e a 3.ª)</option>${POSICOES_TELEMOVEL.map((n) => `<option value="${n}" ${p?.mobile_slot === n ? 'selected' : ''}>Depois da ${n}.ª publicação</option>`).join('')}</select></div>
+    <div class="field"><span class="flabel">Exibição</span><div class="row wrapf" style="gap:8px">
+     <label class="opt" style="flex:1"><input type="radio" name="promoShow" value="roda" ${p?.pinned ? '' : 'checked'}><span><b>Roda com as outras</b><span>Uma promoção por visita, pela ordem</span></span></label>
+     <label class="opt" style="flex:1"><input type="radio" name="promoShow" value="fixa" ${p?.pinned ? 'checked' : ''}><span><b>Fixa</b><span>Aparece sempre esta (ex.: campanha)</span></span></label>
+    </div></div>
+   </fieldset>
+   <div class="field"><label for="promoSort">Ordem na rotação (menor aparece primeiro)</label><input id="promoSort" type="number" value="${p?.sort_order ?? 0}"></div>
    <label class="check"><input type="checkbox" id="promoActive" ${p?.active !== false ? 'checked' : ''}><span>Ativa (visível no site)</span></label>
    <span class="err" id="promoErr" hidden></span><button class="btn pri block" data-act="promoSave" id="promoBtn">Guardar</button>`);
 }
