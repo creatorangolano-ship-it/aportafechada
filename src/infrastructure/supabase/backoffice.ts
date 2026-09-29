@@ -24,20 +24,21 @@ const FILAS: Record<Fila, { tabela: string; estados: readonly string[] }> = {
   rep: { tabela: 'reports', estados: ['open'] },
   pay: { tabela: 'payouts', estados: ESTADOS_POR_TRATAR },
   ct: { tabela: 'contact_messages', estados: ['open'] },
+  ban: { tabela: 'ban_requests', estados: ['open'] },
 };
 
 export const repositoriosSupabase: RepositoriosDoBackoffice = {
   filas: {
-    async contar(incluirLevantamentos) {
+    async contar(admin) {
       const n = { count: 'exact' as const, head: true };
       const conta = (f: Fila) => sb.from(FILAS[f].tabela).select('id', n).in('status', [...FILAS[f].estados]);
-      const [kyc, rep, ct, pay] = await Promise.all([
-        conta('kyc'), conta('rep'), conta('ct'),
-        incluirLevantamentos ? conta('pay') : Promise.resolve({ count: 0, error: null }),
+      const nada = Promise.resolve({ count: 0, error: null });
+      const [kyc, rep, ct, pay, ban] = await Promise.all([
+        conta('kyc'), conta('rep'), conta('ct'), admin ? conta('pay') : nada, admin ? conta('ban') : nada,
       ]);
       // Um erro dá `null`, nunca 0: uma fila que não se consegue ler não está «em dia».
       const c = (r: { count: number | null; error: unknown }) => (r.error ? null : r.count ?? 0);
-      return { kyc: c(kyc), rep: c(rep), ct: c(ct), pay: c(pay) } satisfies ContagensDasFilas;
+      return { kyc: c(kyc), rep: c(rep), ct: c(ct), pay: c(pay), ban: c(ban) } satisfies ContagensDasFilas;
     },
     async maisAntigo(fila) {
       const { tabela, estados } = FILAS[fila];
@@ -124,9 +125,12 @@ export const repositoriosSupabase: RepositoriosDoBackoffice = {
     async utilizadores(pesquisa) { return (ok(await sb.rpc('admin_users', { p_search: pesquisa || null })) as Linha[]) || []; },
     async mudarPapel(utilizadorId, papel) { ok(await sb.rpc('admin_set_role', { p_user: utilizadorId, p_role: papel })); },
     async mudarEstadoDoCriador(criadorId, estado) { ok(await sb.rpc('admin_set_creator_status', { p_creator: criadorId, p_status: estado })); },
-    async banir(utilizadorId, motivo, dias) { ok(await sb.rpc('admin_ban_user', { p_user: utilizadorId, p_reason: motivo, p_days: dias })); },
+    async banir(utilizadorId, codigo, explicacao, dias) { ok(await sb.rpc('admin_ban_user', { p_user: utilizadorId, p_code: codigo, p_details: explicacao, p_days: dias })); },
     async levantarBanimento(utilizadorId) { ok(await sb.rpc('admin_unban_user', { p_user: utilizadorId })); },
-    async advertir(utilizadorId, motivo) { ok(await sb.rpc('admin_warn_user', { p_user: utilizadorId, p_reason: motivo })); },
+    async advertir(utilizadorId, codigo, explicacao) { return !!ok(await sb.rpc('admin_warn_user', { p_user: utilizadorId, p_code: codigo, p_details: explicacao })); },
+    async pedirBanimento(utilizadorId, codigo, explicacao) { ok(await sb.rpc('mod_request_ban', { p_user: utilizadorId, p_code: codigo, p_details: explicacao })); },
+    async pedidosDeBanimento(filtro) { return (ok(await sb.rpc('admin_ban_requests', { p_status: filtro })) as Linha[]) || []; },
+    async decidirPedidoDeBanimento(pedidoId, aprovar, dias, nota) { ok(await sb.rpc('admin_decide_ban_request', { p_request: pedidoId, p_approve: aprovar, p_days: dias, p_note: nota })); },
     async conversas() { return (ok(await sb.rpc('admin_threads')) as Linha[]) || []; },
     async mensagens(conversaId) {
       const mensagens = (ok(await sb.rpc('admin_thread_messages', { p_thread: conversaId })) as Linha[]) || [];

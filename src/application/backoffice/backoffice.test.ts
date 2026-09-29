@@ -13,7 +13,7 @@ function falsos() {
   const chamadas: string[] = [];
   const reg = (s: string) => { chamadas.push(s); return Promise.resolve(); };
   const repos: RepositoriosDoBackoffice = {
-    filas: { contar: async (p) => ({ kyc: 1, rep: 2, ct: 3, pay: p ? 4 : 0 }), maisAntigo: async () => null, estatisticas: async () => ({}) },
+    filas: { contar: async (p) => ({ kyc: 1, rep: 2, ct: 3, pay: p ? 4 : 0, ban: p ? 5 : 0 }), maisAntigo: async () => null, estatisticas: async () => ({}) },
     verificacoes: { listar: async () => [], detalhe: async () => ({ pedido: {}, criador: null, banco: null, urls: {} }), decidir: (id, a, m) => reg(`kyc ${id} ${a} ${m}`) },
     denuncias: {
       listar: async () => [],
@@ -24,7 +24,10 @@ function falsos() {
     suporte: { listar: async () => [], resolver: (id) => reg(`ct ${id}`) },
     comunidade: {
       utilizadores: async () => [], mudarPapel: (id, p) => reg(`role ${id} ${p}`), mudarEstadoDoCriador: (id, e) => reg(`cr ${id} ${e}`),
-      banir: (id, m, d) => reg(`ban ${id} ${m} ${d}`), levantarBanimento: (id) => reg(`unban ${id}`), advertir: (id, m) => reg(`warn ${id} ${m}`),
+      banir: (id, c, m, d) => reg(`ban ${id} ${c} ${m} ${d}`), levantarBanimento: (id) => reg(`unban ${id}`),
+      advertir: async (id, c, m) => { chamadas.push(`warn ${id} ${c} ${m}`); return false; },
+      pedirBanimento: (id, c, m) => reg(`pedido ${id} ${c} ${m}`), pedidosDeBanimento: async () => [],
+      decidirPedidoDeBanimento: (id, a, d, n) => reg(`decide ${id} ${a} ${d} ${n}`),
       conversas: async () => [], mensagens: async () => ({ mensagens: [], urls: {} }),
     },
     promocoes: { listar: async () => [], obter: async () => null, guardar: (id) => reg(`promo ${id}`), apagar: (id) => reg(`promo- ${id}`), enviarFicheiro: async () => 'url' },
@@ -39,7 +42,7 @@ const recusa = (p: Promise<unknown>) => assert.rejects(p, ErroDeRegra);
 test('moderador modera, mas não toca em dinheiro, papéis nem definições', async () => {
   const { repos, chamadas } = falsos();
   const b = new Backoffice(repos, moderador);
-  assert.deepEqual(await b.contagens(), { kyc: 1, rep: 2, ct: 3, pay: 0 }, 'sem contagem de levantamentos');
+  assert.deepEqual(await b.contagens(), { kyc: 1, rep: 2, ct: 3, pay: 0, ban: 0 }, 'sem levantamentos nem pedidos de banimento');
   await b.arquivarDenuncia('d1');
   await recusa(b.levantamentos('open', 10));
   await recusa(b.mudarEstadoDoLevantamento('p1', 'pending', 'paid'));
@@ -83,18 +86,32 @@ test('KYC, papéis e definições passam pelas regras do domínio', async () => 
   assert.deepEqual(chamadas, ['kyc k1 false Documento cortado', 'role u2 moderator', 'set fee_pct=25']);
 });
 
-test('banir e advertir: qualquer conta, menos a própria e o perfil principal', async () => {
+test('banir e advertir: só o admin, qualquer conta menos a própria e o perfil principal', async () => {
   const { repos, chamadas } = falsos();
   const b = new Backoffice(repos, admin);
-  await b.banirConta({ id: 'mod1' }, 'Spam repetido', 7);
-  await b.banirConta({ id: 'fa1' }, 'Fraude nos pagamentos', null);
-  await b.advertir({ id: 'cr1' }, 'Conteúdo fora das regras');
-  await recusa(b.banirConta({ id: 'a1' }, 'motivo válido', 7));
-  await recusa(b.banirConta({ id: 'dono', is_owner: true }, 'motivo válido', null));
-  await recusa(b.advertir({ id: 'dono', is_owner: true }, 'motivo válido'));
-  await recusa(b.banirConta({ id: 'x' }, 'abc', 7));
-  await recusa(b.banirConta({ id: 'x' }, 'motivo válido', 3));
-  await recusa(new Backoffice(repos, moderador).banirConta({ id: 'x' }, 'motivo válido', 7));
-  await b.levantarBanimento('fa1');
-  assert.deepEqual(chamadas, ['ban mod1 Spam repetido 7', 'ban fa1 Fraude nos pagamentos null', 'warn cr1 Conteúdo fora das regras', 'unban fa1']);
+  await b.banirConta({ id: 'mod1' }, 'multiplas_contas', 'Três contas com o mesmo telefone', 7);
+  await b.advertir({ id: 'cr1' }, 'desrespeito', 'Insultos nos comentários');
+  await recusa(b.banirConta({ id: 'a1' }, 'suspeito', 'motivo válido', 7));
+  await recusa(b.banirConta({ id: 'dono', is_owner: true }, 'suspeito', 'motivo válido', null));
+  await recusa(b.advertir({ id: 'dono', is_owner: true }, 'suspeito', 'motivo válido'));
+  await recusa(b.banirConta({ id: 'x' }, 'suspeito', 'abc', 7));
+  await recusa(b.banirConta({ id: 'x' }, 'inventado', 'motivo válido', 7));
+  await recusa(b.banirConta({ id: 'x' }, 'suspeito', 'motivo válido', 3));
+  await b.levantarBanimento('mod1');
+  assert.deepEqual(chamadas, ['ban mod1 multiplas_contas Três contas com o mesmo telefone 7', 'warn cr1 desrespeito Insultos nos comentários', 'unban mod1']);
+});
+
+test('moderador não bane nem adverte: pede, e o admin decide', async () => {
+  const { repos, chamadas } = falsos();
+  const m = new Backoffice(repos, moderador);
+  await recusa(m.banirConta({ id: 'x' }, 'perfil_falso', 'Fotos de outra pessoa', 7));
+  await recusa(m.advertir({ id: 'x' }, 'perfil_falso', 'Fotos de outra pessoa'));
+  await m.pedirBanimento({ id: 'x' }, 'perfil_falso', 'Fotos de outra pessoa');
+  await recusa(m.pedirBanimento({ id: 'dono', is_owner: true }, 'perfil_falso', 'Fotos de outra pessoa'));
+  await recusa(m.decidirPedidoDeBanimento(1, true, 7, null));
+  const a = new Backoffice(repos, admin);
+  await a.decidirPedidoDeBanimento(1, true, 30, null);
+  await recusa(a.decidirPedidoDeBanimento(2, false, null, 'não'));
+  await a.decidirPedidoDeBanimento(2, false, null, 'Fotos verificadas, são da própria');
+  assert.deepEqual(chamadas, ['pedido x perfil_falso Fotos de outra pessoa', 'decide 1 true 30 null', 'decide 2 false null Fotos verificadas, são da própria']);
 });

@@ -13,12 +13,12 @@
 import { pode, recusaMudarPapel, type Permissao, type Role } from '../../domain/identity/role.ts';
 import { ErroDeRegra, exigir } from '../../domain/shared/errors.ts';
 import { recusaDecisao } from '../../domain/backoffice/kyc.ts';
-import { recusaAdvertencia, recusaBanimento, type Alvo } from '../../domain/identity/moderacao.ts';
+import { recusaAdvertencia, recusaBanimento, recusaPedidoBanimento, DURACOES_BANIMENTO, type Alvo } from '../../domain/identity/moderacao.ts';
 import { eEstadoLevantamento, podeTransitar, recusaMotivo, type EstadoLevantamento } from '../../domain/backoffice/payout.ts';
 import { validarDefinicoes } from '../../domain/platform/settings.ts';
 import { recusaPromocao } from '../../domain/platform/promo.ts';
 import type {
-  Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroSuporte, Linha, RepositoriosDoBackoffice,
+  Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroPedidosBanimento, FiltroSuporte, Linha, RepositoriosDoBackoffice,
 } from './ports.ts';
 
 export type Actor = { id: string; role: Role };
@@ -42,7 +42,7 @@ export class Backoffice {
   }
 
   /* ---------- Filas e números ---------- */
-  async contagens() { this.#exige('moderar'); return this.#r.filas.contar(this.pode('gerir_levantamentos')); }
+  async contagens() { this.#exige('moderar'); return this.#r.filas.contar(this.pode('banir_contas')); }
   async maisAntigo(fila: Fila) { this.#exige('moderar'); return this.#r.filas.maisAntigo(fila); }
   async estatisticas() { this.#exige('ver_financas'); return this.#r.filas.estatisticas(); }
 
@@ -102,18 +102,34 @@ export class Backoffice {
     await this.#r.comunidade.mudarEstadoDoCriador(criadorId, estado);
   }
   /** Banir uma conta (qualquer papel), por uns dias ou de vez. Não vale para a própria nem para o perfil principal. */
-  async banirConta(alvo: Alvo, motivo: string, dias: number | null): Promise<void> {
-    exigir(recusaBanimento(this.#actor, alvo, motivo, dias));
-    await this.#r.comunidade.banir(alvo.id, motivo.trim(), dias);
+  async banirConta(alvo: Alvo, codigo: string, explicacao: string, dias: number | null): Promise<void> {
+    exigir(recusaBanimento(this.#actor, alvo, codigo, explicacao, dias));
+    await this.#r.comunidade.banir(alvo.id, codigo, explicacao.trim(), dias);
   }
   async levantarBanimento(utilizadorId: string): Promise<void> {
     this.#exige('banir_contas');
     await this.#r.comunidade.levantarBanimento(utilizadorId);
   }
-  /** Advertência: fica registada e a pessoa recebe uma notificação. */
-  async advertir(alvo: Alvo, motivo: string): Promise<void> {
-    exigir(recusaAdvertencia(this.#actor, alvo, motivo));
-    await this.#r.comunidade.advertir(alvo.id, motivo.trim());
+  /**
+   * Advertência: fica registada e a pessoa recebe uma notificação. À 3.ª, a conta é
+   * banida (permanente). Devolve true quando esta advertência baniu a conta.
+   */
+  async advertir(alvo: Alvo, codigo: string, explicacao: string): Promise<boolean> {
+    exigir(recusaAdvertencia(this.#actor, alvo, codigo, explicacao));
+    return this.#r.comunidade.advertir(alvo.id, codigo, explicacao.trim());
+  }
+  /** Moderadores não banem: pedem, e os admins recebem um alerta para decidir. */
+  async pedirBanimento(alvo: Alvo, codigo: string, explicacao: string): Promise<void> {
+    exigir(recusaPedidoBanimento(this.#actor, alvo, codigo, explicacao));
+    await this.#r.comunidade.pedirBanimento(alvo.id, codigo, explicacao.trim());
+  }
+  async pedidosDeBanimento(filtro: FiltroPedidosBanimento) { this.#exige('moderar'); return this.#r.comunidade.pedidosDeBanimento(filtro); }
+  /** O veredito do admin sobre um pedido: banir (com a duração escolhida) ou rejeitar. */
+  async decidirPedidoDeBanimento(pedidoId: number, aprovar: boolean, dias: number | null, nota: string | null): Promise<void> {
+    this.#exige('banir_contas');
+    if (aprovar && !DURACOES_BANIMENTO.some((d) => d.dias === dias)) throw new ErroDeRegra('Duração inválida.');
+    if (!aprovar && (nota ?? '').trim().length < 5) throw new ErroDeRegra('Explica porque rejeitas (pelo menos 5 caracteres).');
+    await this.#r.comunidade.decidirPedidoDeBanimento(pedidoId, aprovar, aprovar ? dias : null, nota?.trim() || null);
   }
   async conversas() { this.#exige('ver_mensagens_privadas'); return this.#r.comunidade.conversas(); }
   async mensagensDaConversa(id: string) { this.#exige('ver_mensagens_privadas'); return this.#r.comunidade.mensagens(id); }

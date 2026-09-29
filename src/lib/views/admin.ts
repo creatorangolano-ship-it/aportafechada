@@ -9,7 +9,7 @@ import { register } from '../registry';
 import { S, loadCfg } from '../state';
 import { backoffice } from '../../infrastructure/composicao/backoffice';
 import type { Backoffice } from '../../application/backoffice/backoffice.ts';
-import type { Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroSuporte, Linha } from '../../application/backoffice/ports.ts';
+import type { Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroPedidosBanimento, FiltroSuporte, Linha } from '../../application/backoffice/ports.ts';
 import type { ContagensDasFilas } from '../../domain/backoffice/queue.ts';
 import { descreverEspera, estaAtrasado, horasDeEspera } from '../../domain/backoffice/queue.ts';
 import { idade, MOTIVOS_DE_REJEICAO, PONTOS_A_CONFIRMAR } from '../../domain/backoffice/kyc.ts';
@@ -17,7 +17,7 @@ import { accoesPossiveis } from '../../domain/backoffice/report.ts';
 import { porTratar } from '../../domain/backoffice/payout.ts';
 import { SETTINGS_SPEC } from '../../domain/platform/settings.ts';
 import { ROLES } from '../../domain/identity/role.ts';
-import { DURACOES_BANIMENTO } from '../../domain/identity/moderacao.ts';
+import { ADVERTENCIAS_PARA_BANIMENTO, DURACOES_BANIMENTO, MOTIVOS, advertenciaBane, rotuloDoMotivo } from '../../domain/identity/moderacao.ts';
 import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import type { FormControl } from '../types';
 
@@ -42,6 +42,7 @@ const GRUPOS: Array<{ g: string | null; abas: Aba[] }> = [
     { k: 'denuncias', l: 'Denúncias', i: 'flag', fila: 'rep' },
     { k: 'levantamentos', l: 'Levantamentos', i: 'wallet', fila: 'pay', perm: 'gerir_levantamentos' },
     { k: 'contactos', l: 'Suporte', i: 'chat', fila: 'ct' },
+    { k: 'banimentos', l: 'Pedidos de banimento', i: 'lock', fila: 'ban', perm: 'banir_contas' },
   ] },
   { g: 'Comunidade', abas: [
     { k: 'utilizadores', l: 'Utilizadores', i: 'users' },
@@ -61,6 +62,7 @@ const FILAS: Array<{ k: string; fila: Fila; l: string; i: string; perm?: Aba['pe
   { k: 'denuncias', fila: 'rep', l: 'Denúncias abertas', i: 'flag' },
   { k: 'levantamentos', fila: 'pay', l: 'Levantamentos por pagar', i: 'wallet', perm: 'gerir_levantamentos' },
   { k: 'contactos', fila: 'ct', l: 'Pedidos de suporte', i: 'chat' },
+  { k: 'banimentos', fila: 'ban', l: 'Pedidos de banimento', i: 'lock', perm: 'banir_contas' },
 ];
 
 /** Filtros de cada fila. O primeiro é o de omissão: o que ainda está por tratar. */
@@ -69,6 +71,7 @@ const FILTROS: Record<string, Array<[string, string]>> = {
   denuncias: [['open', 'Abertas'], ['all', 'Todas']],
   levantamentos: [['open', 'Por tratar'], ['paid', 'Pagos'], ['rejected', 'Recusados'], ['all', 'Todos']],
   contactos: [['open', 'Por responder'], ['resolved', 'Resolvidos'], ['all', 'Todos']],
+  banimentos: [['open', 'Por decidir'], ['approved', 'Aprovados'], ['rejected', 'Rejeitados'], ['all', 'Todos']],
 };
 const filtro = <T extends string>(k: string): T => {
   const f = S.adFilter[k];
@@ -182,6 +185,30 @@ async function paginaLevantamentos(b: Backoffice, nP: PContagens): Promise<Pagin
   };
 }
 
+async function paginaPedidosBanimento(b: Backoffice, nP: PContagens): Promise<Pagina> {
+  const f = filtro<FiltroPedidosBanimento>('banimentos');
+  const RL: Record<string, string> = { fan: 'Fã', creator: 'Criador', admin: 'Administração', moderator: 'Moderação' };
+  const estadoP = (r: Linha) => r.status === 'open' ? '<span class="tag warn">Por decidir</span>' + waitingBadge(r.created_at)
+    : `${r.status === 'approved' ? '<span class="tag ok">Banida</span>' : '<span class="tag plain">Rejeitado</span>'}<div class="small muted">por @${esc(r.decided_by_handle || '—')} · ${fmtDate(r.decided_at)}${r.decision_note ? ' · ' + esc(r.decision_note) : ''}</div>`;
+  const corpo = ler(async () => {
+    const lista = await b.pedidosDeBanimento(f);
+    if (!lista.length) return `<div class="box empty">${f === 'open' ? 'Nenhum pedido por decidir.' : 'Sem pedidos.'}</div>`;
+    return `<div class="tw"><table><thead><tr><th>Conta</th><th>Motivo</th><th>Pedido por</th><th>Advertências</th><th>Estado</th><th></th></tr></thead><tbody>${lista.map((r) => `<tr>
+      <td><a href="#perfil-${esc(r.handle)}">@${esc(r.handle)}</a><br><span class="small muted">${esc(r.name)} · ${RL[r.role] || esc(r.role)}</span></td>
+      <td><b>${esc(rotuloDoMotivo(r.reason_code))}</b><div class="small muted" style="white-space:pre-line">${esc(r.details)}</div></td>
+      <td>@${esc(r.requested_by_handle || '—')}<br><span class="small muted">${fmtDate(r.created_at, true)}</span></td>
+      <td>${dots(r.warnings_count)} de ${ADVERTENCIAS_PARA_BANIMENTO}</td>
+      <td>${estadoP(r)}</td>
+      <td>${r.status === 'open' ? `<div class="row wrapf" style="gap:6px;justify-content:flex-end"><button class="btn out sm" data-act="banReqReject" data-id="${esc(r.id)}" data-h="${esc(r.handle)}">Rejeitar</button><button class="btn pri sm" data-act="banReqApprove" data-id="${esc(r.id)}" data-h="${esc(r.handle)}">Banir</button></div>` : ''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+  });
+  return {
+    h: 'Pedidos de banimento',
+    lead: 'Os moderadores não banem: quando identificam um caso, pedem aqui. Tu dás o veredito — banir (com a duração que escolheres) ou rejeitar — e quem pediu é avisado.',
+    body: `${chips('banimentos', (await nP).ban)}${await corpo}`,
+  };
+}
+
 async function paginaUtilizadores(b: Backoffice): Promise<Pagina> {
   const adm = b.pode('gerir_papeis');
   const RL: Record<string, string> = { fan: 'Fã', creator: 'Criador', admin: 'Administração', moderator: 'Moderação' };
@@ -203,15 +230,15 @@ async function paginaUtilizadores(b: Backoffice): Promise<Pagina> {
     const b1 = podeSuspender && u.is_creator ? (u.creator_status === 'suspended'
       ? `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="approved">Reativar criador</button>`
       : `<button class="btn out sm" data-act="uCreatorStatus" data-id="${esc(u.id)}" data-s="suspended">Suspender criador</button>`) : '';
-    const b2 = podeBanir ? `<button class="btn out sm" data-act="uWarn" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Advertir</button>` : '';
-    const b3 = !podeBanir ? '' : u.banned_at
+    const b2 = podeBanir ? `<button class="btn out sm" data-act="uWarn" data-id="${esc(u.id)}" data-h="${esc(u.handle)}" data-n="${esc(u.warnings_count || 0)}">Advertir</button>` : '';
+    const b3 = !podeBanir ? (u.banned_at ? '' : `<button class="btn out sm" data-act="uBanReq" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Pedir banimento</button>`) : u.banned_at
       ? `<button class="btn out sm" data-act="uUnban" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Levantar banimento</button>`
       : `<button class="btn pri sm" data-act="uBan" data-id="${esc(u.id)}" data-h="${esc(u.handle)}">Banir</button>`;
     return b1 + b2 + b3 ? `<div class="row wrapf" style="gap:6px;justify-content:flex-end">${b1}${b2}${b3}</div>` : '';
   };
   return {
     h: 'Utilizadores',
-    lead: adm ? 'Muda papéis, adverte ou bane qualquer conta — fã, criador ou equipa. A tua conta e o perfil principal da plataforma não podem ser alterados daqui.' : 'Só consulta: papéis, banimentos, saldos e ganhos são do admin completo.',
+    lead: adm ? `Muda papéis, adverte ou bane qualquer conta — fã, criador ou equipa. À ${ADVERTENCIAS_PARA_BANIMENTO}.ª advertência a conta é banida automaticamente. A tua conta e o perfil principal não podem ser alterados daqui.` : 'Não podes banir: se identificares um caso, usa «Pedir banimento» e o admin decide.',
     body: `<div class="row wrapf" style="gap:12px;margin-bottom:16px"><div class="field" style="flex:1;max-width:420px;margin:0"><input id="uq" type="search" placeholder="Procurar por nome, @utilizador ou email" aria-label="Procurar utilizadores" value="${esc(S.uq || '')}"></div><span class="small muted">${dots(users.length)} resultado(s)</span></div>
      ${erro ? `<p class="empty">${esc(erro)}</p>` : users.length ? `<div class="tw"><table><thead><tr><th>Pessoa</th><th>Email</th><th>Desde</th><th>Papel</th><th>Criador</th><th>Estado</th><th></th></tr></thead><tbody>${users.map((u) => `<tr><td>@${esc(u.handle)}${u.is_owner ? ' <span class="tag acc">Perfil principal</span>' : ''}<br><span class="small muted">${esc(u.name)}</span></td><td class="small" style="user-select:all">${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td>${adm && !intocavel(u) ? `<select data-act="uRoleSel" data-id="${esc(u.id)}" aria-label="Papel de @${esc(u.handle)}">${ROLES.map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${RL[r]}</option>`).join('')}</select>` : RL[u.role] || esc(u.role)}</td><td>${u.is_creator ? `${tagSt(u.creator_status)} · ${kz(u.creator_price || 0)}/mês` : '—'}</td><td>${estado(u)}</td><td style="text-align:right">${accoes(u)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Sem resultados.</div>'}`,
   };
@@ -288,6 +315,7 @@ async function pagina(b: Backoffice, t: string, nP: PContagens): Promise<Pagina>
     }
     case 'levantamentos': return paginaLevantamentos(b, nP);
     case 'contactos': return paginaContactos(b, nP);
+    case 'banimentos': return paginaPedidosBanimento(b, nP);
     case 'utilizadores': return paginaUtilizadores(b);
     case 'mensagens': return paginaMensagens(b);
     case 'promocoes': return paginaPromocoes(b);
@@ -306,7 +334,7 @@ export async function vAdmin() {
   const grupos = gruposPara(b);
   const abas = grupos.flatMap((g) => g.abas);
   const t = abas.some((a) => a.k === S.adTab) ? S.adTab : 'visao';
-  const nP = b.contagens().catch((): ContagensDasFilas => ({ kyc: null, rep: null, pay: null, ct: null }));
+  const nP = b.contagens().catch((): ContagensDasFilas => ({ kyc: null, rep: null, pay: null, ct: null, ban: null }));
   const [n, pg] = await Promise.all([nP, pagina(b, t, nP)]);
   const u = S.me!;
   const adm = b.pode('ver_financas');
@@ -336,6 +364,15 @@ export async function vAdmin() {
    </section>
   </div>`;
 }
+
+/** Motivo (lista fixa) + explicação obrigatória: o mesmo bloco em advertir, banir e pedir banimento. */
+function camposDoMotivo(): string {
+  return `<div class="field"><label for="motCod">Motivo</label><select id="motCod"><option value="">Escolher…</option>${MOTIVOS.map((m) => `<option value="${m.codigo}">${m.rotulo}</option>`).join('')}</select></div>
+   <div class="field"><label for="motTxt">Explica o que aconteceu</label><textarea id="motTxt" rows="3" maxlength="300" placeholder="Ex.: criou três contas com o mesmo número de telefone para votar no Top 10."></textarea><span class="small muted">Obrigatório. Fica registado; só a equipa e a própria pessoa o vêem.</span></div>`;
+}
+const motivoEscolhido = () => ({ codigo: $('#motCod')?.value || '', explicacao: $('#motTxt')?.value || '' });
+const opcoesDeDuracao = (padrao: number | null) => DURACOES_BANIMENTO.map((x) => `<option value="${x.dias ?? ''}" ${x.dias === padrao ? 'selected' : ''}>${x.rotulo}</option>`).join('');
+const duracaoEscolhida = (): number | null => { const v = $('#banDias')?.value; return v ? Number(v) : null; };
 
 export const adminActions = {
   adTab(d: Record<string, string>) {
@@ -417,20 +454,19 @@ export const adminActions = {
     if (await tentar(() => bo().resolverPedidoDeSuporte(d.id), 'Marcada como resolvida')) rerender();
   },
 
-  /* ---------- Banir e advertir contas ---------- */
+  /* ---------- Banir, advertir e pedir banimento ---------- */
   uBan(d: Record<string, string>) {
     if (!bo().pode('banir_contas')) return toast('Sem permissão para esta ação.');
     modal(`<h3>Banir @${esc(d.h)}</h3>
      <p class="small muted">A conta deixa de conseguir entrar. Se for criador, a página e as subscrições param.</p>
-     <div class="field"><label for="banDias">Duração</label><select id="banDias">${DURACOES_BANIMENTO.map((x) => `<option value="${x.dias ?? ''}" ${x.dias === 7 ? 'selected' : ''}>${x.rotulo}</option>`).join('')}</select></div>
-     <div class="field"><label for="banMotivo">Motivo</label><textarea id="banMotivo" rows="3" maxlength="300" placeholder="Ex.: fraude nos pagamentos, conteúdo proibido, assédio…"></textarea><span class="small muted">Fica registado; só a equipa e a própria pessoa o vêem.</span></div>
-     <span class="err" id="banErr" hidden></span>
+     ${camposDoMotivo()}
+     <div class="field"><label for="banDias">Duração</label><select id="banDias">${opcoesDeDuracao(7)}</select></div>
+     <span class="err" id="motErr" hidden></span>
      <button class="btn pri block" data-act="uBanOk" data-id="${esc(d.id)}">Banir conta</button>`);
   },
   async uBanOk(d: Record<string, string>) {
-    const v = $('#banDias')?.value;
-    const dias = v ? Number(v) : null;
-    try { await bo().banirConta({ id: d.id }, $('#banMotivo')?.value || '', dias); } catch (e) { return showErr('#banErr', errText(e)); }
+    const { codigo, explicacao } = motivoEscolhido();
+    try { await bo().banirConta({ id: d.id }, codigo, explicacao, duracaoEscolhida()); } catch (e) { return showErr('#motErr', errText(e)); }
     closeModal(); toast('Conta banida'); rerender();
   },
   async uUnban(d: Record<string, string>) {
@@ -439,15 +475,53 @@ export const adminActions = {
   },
   uWarn(d: Record<string, string>) {
     if (!bo().pode('banir_contas')) return toast('Sem permissão para esta ação.');
-    modal(`<h3>Advertir @${esc(d.h)}</h3>
-     <p class="small muted">A pessoa recebe uma notificação com o motivo, e a advertência fica no histórico da conta.</p>
-     <div class="field"><label for="advMotivo">Motivo</label><textarea id="advMotivo" rows="3" maxlength="300" placeholder="Ex.: linguagem ofensiva nas mensagens."></textarea></div>
-     <span class="err" id="advErr" hidden></span>
-     <button class="btn pri block" data-act="uWarnOk" data-id="${esc(d.id)}">Enviar advertência</button>`);
+    const tem = Number(d.n) || 0;
+    const aviso = advertenciaBane(tem)
+      ? `<div class="banner">${ic('info')}<span><b>Esta é a ${ADVERTENCIAS_PARA_BANIMENTO}.ª advertência: a conta vai ser banida</b> de forma permanente (só tu a podes reactivar). O motivo abaixo fica como motivo do banimento.</span></div>`
+      : `<p class="small muted">Esta conta tem ${tem} advertência${tem === 1 ? '' : 's'}. À ${ADVERTENCIAS_PARA_BANIMENTO}.ª é banida automaticamente. A pessoa recebe uma notificação com o motivo.</p>`;
+    modal(`<h3>Advertir @${esc(d.h)}</h3>${aviso}
+     ${camposDoMotivo()}
+     <span class="err" id="motErr" hidden></span>
+     <button class="btn pri block" data-act="uWarnOk" data-id="${esc(d.id)}">${advertenciaBane(tem) ? 'Advertir e banir' : 'Enviar advertência'}</button>`);
   },
   async uWarnOk(d: Record<string, string>) {
-    try { await bo().advertir({ id: d.id }, $('#advMotivo')?.value || ''); } catch (e) { return showErr('#advErr', errText(e)); }
-    closeModal(); toast('Advertência enviada'); rerender();
+    const { codigo, explicacao } = motivoEscolhido();
+    let baniu = false;
+    try { baniu = await bo().advertir({ id: d.id }, codigo, explicacao); } catch (e) { return showErr('#motErr', errText(e)); }
+    closeModal(); toast(baniu ? `${ADVERTENCIAS_PARA_BANIMENTO}.ª advertência: conta banida` : 'Advertência enviada'); rerender();
+  },
+  uBanReq(d: Record<string, string>) {
+    modal(`<h3>Pedir banimento de @${esc(d.h)}</h3>
+     <p class="small muted">Não banes directamente: o pedido vai para o admin, que analisa e decide. Serás avisado do veredito.</p>
+     ${camposDoMotivo()}
+     <span class="err" id="motErr" hidden></span>
+     <button class="btn pri block" data-act="uBanReqOk" data-id="${esc(d.id)}">Enviar pedido ao admin</button>`);
+  },
+  async uBanReqOk(d: Record<string, string>) {
+    const { codigo, explicacao } = motivoEscolhido();
+    try { await bo().pedirBanimento({ id: d.id }, codigo, explicacao); } catch (e) { return showErr('#motErr', errText(e)); }
+    closeModal(); toast('Pedido enviado ao admin'); rerender();
+  },
+  banReqApprove(d: Record<string, string>) {
+    modal(`<h3>Banir @${esc(d.h)}</h3>
+     <p class="small muted">Aprovas o pedido: a conta é banida com o motivo indicado pelo moderador.</p>
+     <div class="field"><label for="banDias">Duração</label><select id="banDias">${opcoesDeDuracao(7)}</select></div>
+     <span class="err" id="motErr" hidden></span>
+     <button class="btn pri block" data-act="banReqApproveOk" data-id="${esc(d.id)}">Banir conta</button>`);
+  },
+  async banReqApproveOk(d: Record<string, string>) {
+    try { await bo().decidirPedidoDeBanimento(Number(d.id), true, duracaoEscolhida(), null); } catch (e) { return showErr('#motErr', errText(e)); }
+    closeModal(); toast('Conta banida'); rerender();
+  },
+  banReqReject(d: Record<string, string>) {
+    modal(`<h3>Rejeitar o pedido sobre @${esc(d.h)}</h3>
+     <div class="field"><label for="decNota">Porquê? (o moderador vai ler)</label><textarea id="decNota" rows="3" maxlength="300" placeholder="Ex.: as fotos foram verificadas e são da própria pessoa."></textarea></div>
+     <span class="err" id="motErr" hidden></span>
+     <button class="btn pri block" data-act="banReqRejectOk" data-id="${esc(d.id)}">Rejeitar pedido</button>`);
+  },
+  async banReqRejectOk(d: Record<string, string>) {
+    try { await bo().decidirPedidoDeBanimento(Number(d.id), false, null, $('#decNota')?.value || ''); } catch (e) { return showErr('#motErr', errText(e)); }
+    closeModal(); toast('Pedido rejeitado'); rerender();
   },
 
   async adThread(d: Record<string, string>) {

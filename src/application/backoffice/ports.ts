@@ -19,9 +19,11 @@ export type FiltroKyc = 'pending' | 'done' | 'all';
 export type FiltroDenuncias = 'open' | 'all';
 export type FiltroLevantamentos = 'open' | 'paid' | 'rejected' | 'all';
 export type FiltroSuporte = 'open' | 'resolved' | 'all';
+export type FiltroPedidosBanimento = 'open' | 'approved' | 'rejected' | 'all';
 
 export interface RepositorioDeFilas {
-  contar(incluirLevantamentos: boolean): Promise<ContagensDasFilas>;
+  /** `admin`: inclui as filas só do admin completo (levantamentos, pedidos de banimento). */
+  contar(admin: boolean): Promise<ContagensDasFilas>;
   /** Data do item por tratar mais antigo da fila, ou `null` se estiver vazia. */
   maisAntigo(fila: Fila): Promise<string | null>;
   /** Números dos últimos 30 dias (vendas, receita, saldos, contas). */
@@ -56,9 +58,13 @@ export interface RepositorioDaComunidade {
   utilizadores(pesquisa: string | null): Promise<Linha[]>;
   mudarPapel(utilizadorId: string, papel: Role): Promise<void>;
   mudarEstadoDoCriador(criadorId: string, estado: string): Promise<void>;
-  banir(utilizadorId: string, motivo: string, dias: number | null): Promise<void>;
+  banir(utilizadorId: string, codigo: string, explicacao: string, dias: number | null): Promise<void>;
   levantarBanimento(utilizadorId: string): Promise<void>;
-  advertir(utilizadorId: string, motivo: string): Promise<void>;
+  /** Devolve true quando a advertência (a 3.ª) baniu a conta. */
+  advertir(utilizadorId: string, codigo: string, explicacao: string): Promise<boolean>;
+  pedirBanimento(utilizadorId: string, codigo: string, explicacao: string): Promise<void>;
+  pedidosDeBanimento(filtro: FiltroPedidosBanimento): Promise<Linha[]>;
+  decidirPedidoDeBanimento(pedidoId: number, aprovar: boolean, dias: number | null, nota: string | null): Promise<void>;
   conversas(): Promise<Linha[]>;
   /** Mensagens de uma conversa (a abertura fica registada na auditoria) e URLs dos anexos. */
   mensagens(conversaId: string): Promise<{ mensagens: Linha[]; urls: Record<string, string> }>;

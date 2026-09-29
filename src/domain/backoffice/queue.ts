@@ -26,4 +26,5 @@ export function descreverEspera(criadoEm: string | Date, agora: Date = new Date(
  * permissão): uma fila que não se consegue ler nunca pode aparecer «em dia».
  */
 export type Contagem = number | null;
-export type ContagensDasFilas = { kyc: Contagem; rep: Contagem; pay: Contagem; ct: Contagem };
+/** kyc: verificações · rep: denúncias · pay: levantamentos · ct: suporte · ban: pedidos de banimento */
+export type ContagensDasFilas = { kyc: Contagem; rep: Contagem; pay: Contagem; ct: Contagem; ban: Contagem };

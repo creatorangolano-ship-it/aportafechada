@@ -151,3 +151,15 @@ test('banimento activo: permanente, temporário a decorrer e já terminado', () 
   assert.ok(!banimentoAtivo({ banned_at: '2026-09-01T00:00:00Z', banned_until: '2026-09-08T00:00:00Z' }, agora));
   assert.ok(!banimentoAtivo({ banned_at: null }, agora));
 });
+
+import { recusaMotivo as recusaMotivoConta, advertenciaBane, recusaPedidoBanimento, rotuloDoMotivo } from './identity/moderacao.ts';
+
+test('moderação: motivos fixos com explicação obrigatória e 3.ª advertência', () => {
+  assert.equal(recusaMotivoConta('perfil_falso', 'Fotos de outra pessoa'), null);
+  assert.match(recusaMotivoConta('', 'Fotos de outra pessoa')!, /Escolhe/);
+  assert.match(recusaMotivoConta('outro', '  ab  ')!, /Explica/);
+  assert.equal(rotuloDoMotivo('multiplas_contas'), 'Múltiplas contas');
+  assert.ok(!advertenciaBane(0) && !advertenciaBane(1) && advertenciaBane(2), 'a 3.ª advertência bane');
+  assert.equal(recusaPedidoBanimento({ id: 'm', role: 'moderator' }, { id: 'x' }, 'suspeito', 'Comportamento estranho'), null, 'moderador pode pedir');
+  assert.ok(recusaPedidoBanimento({ id: 'f', role: 'fan' }, { id: 'x' }, 'suspeito', 'Comportamento estranho'), 'fã não pode pedir');
+});
