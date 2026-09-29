@@ -170,8 +170,8 @@ main{padding-block:32px 64px;min-height:70vh}
 .choice .opt input{position:absolute;opacity:0}
 .choice .opt{position:relative}
 .interests{display:flex;flex-wrap:wrap;gap:8px}
-.interests label{cursor:pointer}
-.interests input{position:absolute;opacity:0}
+.interests label{cursor:pointer;position:relative}
+.interests input{position:absolute;opacity:0;inset:0;width:100%!important;height:100%;margin:0;padding:0;border:0;cursor:pointer}
 .interests span{display:inline-block;padding:9px 16px;border-radius:999px;border:1px solid var(--line-2);font-weight:600;font-size:14px}
 .interests input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .interests input:focus-visible+span{outline:2px solid var(--acc);outline-offset:2px}
@@ -724,3 +724,58 @@ body[data-route="feed"] .top{background:var(--bg)}
 /* Anúncio em HTML personalizado dentro do banner. */
 .promoembed{width:100%;height:100%;overflow:auto}
 .promoembed img,.promoembed video{max-width:100%;height:auto}
+
+/* ---------- Tabelas no telemóvel ----------
+   No computador nada muda. Até 760 px cada linha é um cartão: a 1.ª coluna é o
+   título, os dados aparecem como «Etiqueta …… valor» (data-label, preenchido por
+   lib/tabelas.ts) e a coluna de botões fica em baixo, a toda a largura. Nunca há
+   deslocação horizontal. */
+@media (max-width:760px){
+  .tw{overflow:visible;border:0;border-radius:0}
+  .tw table.tabela-adaptativa{min-width:0!important;border-collapse:separate}
+  .tw table.tabela-adaptativa thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .tw table.tabela-adaptativa tbody{display:flex;flex-direction:column;gap:10px}
+  .tw table.tabela-adaptativa tr{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .tw table.tabela-adaptativa td{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border:0;border-top:1px solid var(--line);text-align:right!important;min-width:0;overflow-wrap:anywhere}
+  .tw table.tabela-adaptativa td::before{content:attr(data-label);flex:none;max-width:42%;text-align:left;color:var(--muted);font-size:13px;font-weight:500}
+  .tw table.tabela-adaptativa td[data-label=""]::before{display:none}
+  .tw table.tabela-adaptativa td.tc-titulo{border-top:0;padding-top:0;justify-content:flex-start;text-align:left!important;font-size:15px}
+  .tw table.tabela-adaptativa td.tc-titulo::before{display:none}
+  .tw table.tabela-adaptativa td.tc-vazia{display:none}
+  .tw table.tabela-adaptativa td.tc-acoes{justify-content:stretch;padding-top:10px}
+  .tw table.tabela-adaptativa td.tc-acoes>*{flex:1;width:100%}
+  .tw table.tabela-adaptativa td.tc-acoes .row{justify-content:stretch!important;flex-wrap:wrap}
+  .tw table.tabela-adaptativa td.tc-acoes .btn{flex:1 1 auto}
+  .tw table.tabela-adaptativa td.tc-acoes>.btn,.tw table.tabela-adaptativa td.tc-acoes>select{width:100%}
+  .tw table.tabela-adaptativa td select{max-width:60%}
+  /* Separadores e menus laterais: passam a várias linhas em vez de deslizar para o lado. */
+  .tabs{flex-wrap:wrap;overflow-x:visible}
+  .side{flex-wrap:wrap;overflow-x:visible}
+}
+
+/* ---------- Barra de navegação flutuante (só telemóvel) ----------
+   Até 900 px a barra de baixo deixa de estar colada ao fundo: flutua com
+   margem, cantos redondos, sombra e fundo translúcido. O separador activo
+   ganha um fundo suave. O conteúdo, o rodapé e os avisos sobem para não ficarem
+   por baixo dela. */
+@media (max-width:900px){
+  .tabbar{left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:1px solid var(--line);border-radius:22px;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);
+    box-shadow:0 8px 28px rgba(0,0,0,.16),0 1px 3px rgba(0,0,0,.08)}
+  :root[data-theme="dark"] .tabbar{box-shadow:0 8px 28px rgba(0,0,0,.55)}
+  .tabbar a{border-radius:16px;padding:6px 0}
+  .tabbar a.on{background:var(--acc-soft)}
+  body.authed .pub-foot{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+  body.authed main:has(+ .pub-foot[hidden]){padding-bottom:100px}
+  body.authed .toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+}
+/* Barra do telemóvel: só ícones (o nome fica em aria-label/title, para leitores de ecrã). */
+@media (max-width:900px){
+  .tabbar a{padding:10px 0;gap:0}
+  .tabbar a>span:not(.count){display:none}
+  .tabbar .ic{width:24px;height:24px}
+  .tabbar .count{top:3px;left:calc(50% + 7px)}
+  body.authed .pub-foot{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  body.authed main:has(+ .pub-foot[hidden]){padding-bottom:88px}
+  body.authed .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+}

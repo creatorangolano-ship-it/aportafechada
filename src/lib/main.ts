@@ -4,6 +4,7 @@ import { S, loadMe, loadCfg, cfgReady, loadCounts, refreshMe, isStaff, type Noti
 import { INFO, PUBLIC } from './rotas';
 import { modulos, carregarTodos, preCarregar } from './modulos';
 import { action, register, handleSubmit, handleChange, handleInput } from './registry';
+import { observarTabelas } from './tabelas';
 import type { FormControl } from './types';
 
 /* ---------- Tema ---------- */
@@ -50,7 +51,7 @@ export function header(r: string): void {
   if (!consola) document.body.classList.remove('adnav-open');
   if (consola) { $('.top')!.hidden = true; $('#hdr')!.innerHTML = ''; $('#floatTheme')!.innerHTML = `<div class="float-theme adbell">${bell}</div>`; $('#tabbar')!.innerHTML = ''; return; }
   const base = r.split('-')[0];
-  const links = navFor().map(([k, l, i]) => `<a href="#${k}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
+  const links = navFor().map(([k, l, i]) => `<a href="#${k}" aria-label="${l}" title="${l}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
   const wal = !isStaff(S.me) ? `<a class="wpill" href="#carteira" title="Saldo da carteira">${ic('wallet')}<span class="num">${kz(S.me!.wallet_balance)}</span></a>` : '';
   const u = S.me!;
   $('.top')!.hidden = false; $('#floatTheme')!.innerHTML = '';
@@ -302,6 +303,8 @@ window.addEventListener('hashchange', () => { S.ptab = 'pub'; void render(false)
 
 /* ---------- Arranque ---------- */
 export async function boot(): Promise<void> {
+  // Tabelas: no telemóvel cada linha vira um cartão (sem deslocação horizontal).
+  observarTabelas(document.body);
   const yr = $('#yr'); if (yr) yr.textContent = String(new Date().getFullYear());
   const u = new URL(location.href), ref = u.searchParams.get('ref');
   if (ref) {
