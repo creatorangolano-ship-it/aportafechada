@@ -2,11 +2,11 @@
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox } from '../lib';
 import { colunaDe, posicaoNoFeed, promocaoDaVisita, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import { register } from '../registry';
-import { S, refreshMe } from '../state';
+import { S } from '../state';
 import { openPay } from '../pay';
 import { CATS } from '../config';
 
-import type { FormControl, Profile } from '../types';
+import type { Profile } from '../types';
 /**
  * `S.me` com o nulo resolvido.
  *
@@ -261,7 +261,6 @@ export async function exploreGrid() {
 }
 export async function vExplorar() {
   const ints = me_().interests || [];
-  const promos = await loadPromos();
   const main = `<div class="pagehead"><div><h1>Explorar</h1><p>Criadores angolanos com conteúdos que não encontras noutro lado.</p></div><a class="btn out" href="#top">${ic('trophy')}Top 10</a></div>
    <label class="search">${ic('search')}<input id="q" type="search" placeholder="Procurar criadores e pessoas por nome ou @" value="${esc(S.q)}" aria-label="Procurar criadores e pessoas"></label>
    <div class="chips" role="group" aria-label="Categorias">${['Tudo', ...CATS].map((c) => `<button class="chip ${S.cat === c ? 'on' : ''}" data-act="cat" data-v="${c}">${c}</button>`).join('')}</div>

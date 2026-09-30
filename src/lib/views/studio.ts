@@ -365,7 +365,7 @@ export async function studioChange(t: FormControl) {
     try {
       // O bucket 'avatars' é público: um ficheiro com HTML/SVG dentro seria servido com o
       // content-type do cliente. Confirma os bytes antes de subir.
-      const { type } = await assertImage(f, isAvatar ? 'a foto de perfil' : 'a capa');
+      await assertImage(f, isAvatar ? 'a foto de perfil' : 'a capa');
       const cropped = await cropImage(f, isAvatar ? 1 : 3, { shape: isAvatar ? 'round' : 'rect', output: isAvatar ? 600 : 1800 });
       if (!cropped) return true;
       const small = await shrinkImage(cropped, isAvatar ? 600 : 1800);

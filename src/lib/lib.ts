@@ -1,7 +1,6 @@
 // Utilitários da interface: DOM, ícones, formatação, modais, imagens.
 // O acesso ao Supabase (cliente, funções, armazenamento) vive em src/infrastructure/supabase
 // e é reexportado no fim deste ficheiro para as áreas que ainda não foram migradas.
-import { sb } from '../infrastructure/supabase/client';
 import type { Profile } from './types';
 
 /* ---------- DOM ---------- */
@@ -342,7 +341,6 @@ export const fieldOr = (sel: string, fallback = ''): string => ($(sel) as HTMLIn
 
 /* ---------- Ficheiros ---------- */
 
-const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export type ImageKind = { type: 'image/jpeg' | 'image/png' | 'image/webp'; ext: 'jpg' | 'png' | 'webp' };
 
 /** Confirma que o ficheiro é mesmo uma imagem pelos bytes, não pelo atributo File.type.

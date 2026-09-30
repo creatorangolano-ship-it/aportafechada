@@ -1,26 +1,12 @@
 // Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação, Top 10
-import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go, doorTransition } from '../lib';
+import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go } from '../lib';
 import { register } from '../registry';
 import { INFO } from '../rotas';
 import { S, loadMe, netPct, isStaff } from '../state';
 import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
 
-import type { FormControl, Profile } from '../types';
-/**
- * `S.me` com o nulo resolvido.
- *
- * Estas vistas só são chamadas com sessão iniciada — o router (`lib/main.ts`)
- * redirecciona para #inicio quando não há `S.me`, e para #registar quando o
- * perfil ainda não está onboarding. O `.js` original confiava nisso e usava
- * `me_().name` em todo o lado; o compilador não pode saber, e um `!` repetido em
- * cada acesso era ilegível.
- *
- * O nome tem um underscore porque já existem locals chamados `me` neste ficheiro
- * (`msgHTML`, `mediaHTML`) — um `me()` ao nível do módulo seria sombreado por
- * eles, e `me().id` passava a ser `true.id`.
- */
-const me_ = (): Profile => S.me!;
+import type { FormControl } from '../types';
 
 
 /* ---------- Identidade legal da empresa ----------

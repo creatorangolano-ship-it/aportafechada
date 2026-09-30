@@ -35,7 +35,7 @@ export function header(r: string): void {
     document.body.classList.remove('console', 'adnav-open');
     const bare = r === 'inicio' || (r === 'registar' && !S.me);
     $('.top')!.hidden = bare;
-    $('#hdr')!.innerHTML = bare ? '' : `${brand}${S.me ? '<button class="btn out sm" data-act="logout">Sair</button>' : `<a class="btn out sm" href="#inicio">Entrar</a>${r === 'registar' ? '' : '<a class="btn pri sm" href="#registar">Criar conta</a>'}`}${theme}`;
+    $('#hdr')!.innerHTML = bare ? '' : `${brand}${S.me ? '<button class="btn out sm" data-act="logout">Sair</button>' : `<a class="btn out sm" href="#inicio">Entrar</a>${r === 'registar' ? '' : '<a class="btn pri sm" href="#registar"><span>Criar<span class="so-largo"> conta</span></span></a>'}`}${theme}`;
     $('#floatTheme')!.innerHTML = bare ? `<div class="float-theme">${theme}</div>` : '';
     $('#tabbar')!.innerHTML = ''; return;
   }

@@ -39,6 +39,19 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top .wrap{display:flex;align-items:center;gap:8px;height:64px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);margin-right:auto;font-weight:800;font-size:18px;letter-spacing:-.02em;font-variation-settings:"wdth" 90;white-space:nowrap}
 .brand svg{flex:none}
+/* Cabeçalho sem sessão no telemóvel: nome, Entrar, Criar conta e tema não cabiam em
+   375 px e o botão do tema saía do ecrã. Aperta-se o espaço e «Criar conta» fica «Criar». */
+@media (max-width:420px){
+  body:not(.authed) .top .wrap{gap:6px}
+  body:not(.authed) .top .brand{font-size:16.5px;gap:8px}
+  body:not(.authed) .top .tbtn{width:36px;height:36px}
+  body:not(.authed) .top .so-largo{display:none}
+}
+@media (max-width:370px){
+  body:not(.authed) .top .wrap{padding-left:12px;padding-right:12px}
+  body:not(.authed) .top .brand{font-size:15px}
+}
+@media (max-width:340px){body:not(.authed) .top .brand span{display:none}}
 .nav{display:flex;align-items:stretch;height:64px;margin-right:8px}
 .nav a{display:flex;align-items:center;gap:6px;padding:0 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
 .nav a:hover{color:var(--ink)}
