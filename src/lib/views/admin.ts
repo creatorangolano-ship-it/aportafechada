@@ -77,7 +77,7 @@ const filtro = <T extends string>(k: string): T => {
   const f = S.adFilter[k];
   return (FILTROS[k].some(([v]) => v === f) ? f : FILTROS[k][0][0]) as T;
 };
-const chips = (k: string, pendentes: number | null = 0) => `<div class="adchips" role="tablist" aria-label="Filtrar">${FILTROS[k].map(([v, l], i) => {
+const chips = (k: string, pendentes: number | null = 0) => `<div class="cschips" role="tablist" aria-label="Filtrar">${FILTROS[k].map(([v, l], i) => {
   const on = filtro(k) === v;
   return `<button role="tab" aria-selected="${on}" class="${on ? 'on' : ''}" data-act="adFilter" data-k="${k}" data-v="${v}">${l}${i === 0 && pendentes ? ` <span class="count">${pendentes}</span>` : ''}</button>`;
 }).join('')}</div>`;
@@ -147,14 +147,14 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
       <span class="qs">${c === null ? 'Não foi possível contar' : !c ? `${ic('check', 'style="width:14px;height:14px"')} Em dia` : a ? `Mais antigo ${descreverEspera(a)}` : ''}</span>
     </button>`;
   }).join('');
-  const atencao = `<h2 class="adsec">Precisa de atenção</h2><div class="qgrid" style="--n:${filas.length}">${cartoes}</div>`;
+  const atencao = `<h2 class="cssec">Precisa de atenção</h2><div class="qgrid" style="--n:${filas.length}">${cartoes}</div>`;
 
   let numeros = '';
   if (numerosP) {
     const { s, erro } = await numerosP;
     numeros = erro || !s
       ? `<div class="banner">${ic('info')}<span>Não foi possível carregar os números: ${esc(errText(erro))}</span></div>`
-      : `<h2 class="adsec">Últimos 30 dias</h2>
+      : `<h2 class="cssec">Últimos 30 dias</h2>
          <div class="kpis"><div class="kpi"><div class="l">Volume de vendas</div><div class="v">${kz(s.gross_30d)}</div></div><div class="kpi"><div class="l">Receita da plataforma</div><div class="v">${kz(s.platform_30d)}</div></div><div class="kpi"><div class="l">Saldos por levantar</div><div class="v">${kz(s.creators_balance)}</div><div class="s">Dinheiro dos criadores ainda na plataforma</div></div><div class="kpi"><div class="l">Utilizadores · criadores</div><div class="v">${dots(s.users)} · ${dots(s.creators)}</div></div></div>`;
   }
 
@@ -340,27 +340,27 @@ export async function vAdmin() {
   const adm = b.pode('ver_financas');
   const dark = document.documentElement.dataset.theme === 'dark';
 
-  const nav = grupos.map((g) => `${g.g ? `<div class="adgrp">${g.g}</div>` : ''}${g.abas.map((a) => {
+  const nav = grupos.map((g) => `${g.g ? `<div class="csgrp">${g.g}</div>` : ''}${g.abas.map((a) => {
     const c = a.fila ? n[a.fila] : 0;
     return `<button class="${a.k === t ? 'on' : ''}" data-act="adTab" data-v="${a.k}"${a.k === t ? ' aria-current="page"' : ''}>${ic(a.i)}<span>${a.l}</span>${c ? `<span class="count" aria-label="${c} por tratar">${c > 99 ? '99+' : c}</span>` : ''}</button>`;
   }).join('')}`).join('');
 
   return `<div class="console-shell">
-   <aside class="adside" id="adSide" aria-label="Administração">
-    <div class="adbrand"><a class="brand" href="#admin">${LOGO(20, 25)}<span>A Porta Fechada</span></a><span class="tag ${adm ? 'acc' : 'info'}">${adm ? 'Admin' : 'Moderação'}</span></div>
-    <nav class="adnav">${nav}</nav>
-    <div class="adfoot">
+   <aside class="csside" id="csSide" aria-label="Administração">
+    <div class="csbrand"><a class="brand" href="#admin">${LOGO(20, 25)}<span>A Porta Fechada</span></a><span class="tag ${adm ? 'acc' : 'info'}">${adm ? 'Admin' : 'Moderação'}</span></div>
+    <nav class="csnav">${nav}</nav>
+    <div class="csfoot">
      <a href="#explorar">${ic('compass')}<span>Ver a plataforma</span></a>
      <a href="#conta">${ic('user')}<span>A minha conta</span></a>
-     <div class="adme">${avatarOf(u, 'sm')}<span class="who"><b>${esc(u.name || u.handle)}</b><span class="small muted">@${esc(u.handle)}</span></span>
+     <div class="csme">${avatarOf(u, 'sm')}<span class="who"><b>${esc(u.name || u.handle)}</b><span class="small muted">@${esc(u.handle)}</span></span>
       <button class="tbtn" data-act="theme" aria-label="${dark ? 'Mudar para modo claro' : 'Mudar para modo escuro'}" title="${dark ? 'Modo claro' : 'Modo escuro'}">${ic(dark ? 'sun' : 'moon')}</button>
       <button class="tbtn" data-act="logout" aria-label="Sair" title="Sair">${ic('out')}</button></div>
     </div>
    </aside>
-   <div class="adscrim" data-act="adNav" aria-hidden="true"></div>
-   <section class="admain">
-    <header class="adtop"><button class="tbtn adburger" data-act="adNav" aria-label="Abrir menu" aria-controls="adSide">${ic('menu')}</button><h1>${pg.h}</h1>${pg.acts ? `<div class="adacts">${pg.acts}</div>` : ''}</header>
-    <div class="adbody" id="adBody">${pg.lead ? `<p class="adlead">${pg.lead}</p>` : ''}${pg.body}</div>
+   <div class="csscrim" data-act="adNav" aria-hidden="true"></div>
+   <section class="csmain">
+    <header class="cstop"><button class="tbtn csburger" data-act="adNav" aria-label="Abrir menu" aria-controls="csSide">${ic('menu')}</button><h1>${pg.h}</h1>${pg.acts ? `<div class="csacts">${pg.acts}</div>` : ''}</header>
+    <div class="csbody" id="csBody">${pg.lead ? `<p class="cslead">${pg.lead}</p>` : ''}${pg.body}</div>
    </section>
   </div>`;
 }
@@ -377,17 +377,17 @@ const duracaoEscolhida = (): number | null => { const v = $('#banDias')?.value; 
 export const adminActions = {
   adTab(d: Record<string, string>) {
     S.adTab = d.v;
-    document.body.classList.remove('adnav-open');
+    document.body.classList.remove('csnav-open');
     // Mantém a barra lateral no ecrã e só esbate o conteúdo enquanto a secção carrega.
-    $('#adBody')?.classList.add('loading'); window.scrollTo(0, 0); rerender(true);
+    $('#csBody')?.classList.add('loading'); window.scrollTo(0, 0); rerender(true);
   },
   adFilter(d: Record<string, string>) {
     if (!FILTROS[d.k]?.some(([v]) => v === d.v)) return;
     S.adFilter = { ...S.adFilter, [d.k]: d.v };
-    $('#adBody')?.classList.add('loading'); rerender(true);
+    $('#csBody')?.classList.add('loading'); rerender(true);
   },
   /** Abre/fecha a barra lateral em ecrãs pequenos (em ecrãs largos está sempre visível). */
-  adNav() { document.body.classList.toggle('adnav-open'); },
+  adNav() { document.body.classList.toggle('csnav-open'); },
 
   async kycOpen(d: Record<string, string>) {
     let det;

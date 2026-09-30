@@ -32,7 +32,7 @@ export function header(r: string): void {
   const authed = !!(S.me && S.me.onboarded);
   document.body.classList.toggle('authed', authed);
   if (!authed) {
-    document.body.classList.remove('console', 'adnav-open');
+    document.body.classList.remove('console', 'csnav-open');
     const bare = r === 'inicio' || (r === 'registar' && !S.me);
     $('.top')!.hidden = bare;
     $('#hdr')!.innerHTML = bare ? '' : `${brand}${S.me ? '<button class="btn out sm" data-act="logout">Sair</button>' : `<a class="btn out sm" href="#inicio">Entrar</a>${r === 'registar' ? '' : '<a class="btn pri sm" href="#registar"><span>Criar<span class="so-largo"> conta</span></span></a>'}`}${theme}`;
@@ -48,8 +48,8 @@ export function header(r: string): void {
   // que o CSS encosta ao canto da barra de topo da consola.
   const consola = r === 'admin' && isStaff(S.me);
   document.body.classList.toggle('console', consola);
-  if (!consola) document.body.classList.remove('adnav-open');
-  if (consola) { $('.top')!.hidden = true; $('#hdr')!.innerHTML = ''; $('#floatTheme')!.innerHTML = `<div class="float-theme adbell">${bell}</div>`; $('#tabbar')!.innerHTML = ''; return; }
+  if (!consola) document.body.classList.remove('csnav-open');
+  if (consola) { $('.top')!.hidden = true; $('#hdr')!.innerHTML = ''; $('#floatTheme')!.innerHTML = `<div class="float-theme csbell">${bell}</div>`; $('#tabbar')!.innerHTML = ''; return; }
   const base = r.split('-')[0];
   const links = navFor().map(([k, l, i]) => `<a href="#${k}" aria-label="${l}" title="${l}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
   const wal = !isStaff(S.me) ? `<a class="wpill" href="#carteira" title="Saldo da carteira">${ic('wallet')}<span class="num">${kz(S.me!.wallet_balance)}</span></a>` : '';
@@ -241,7 +241,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const s = $('[data-scrim]'); if (s && !s.hasAttribute('data-lock')) closeModal();
     if (S.menu || S.notifOpen) { S.menu = false; S.notifOpen = false; header(route()); }
-    document.body.classList.remove('adnav-open'); // barra lateral da consola em ecrãs pequenos
+    document.body.classList.remove('csnav-open'); // barra lateral da consola em ecrãs pequenos
   }
   const tgt = e.target as HTMLElement | null;
   if (tgt?.classList?.contains('cd') && e.key === 'Backspace' && !(tgt as HTMLInputElement).value) {
