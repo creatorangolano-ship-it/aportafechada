@@ -134,7 +134,7 @@ function sorteioDaVisita(): number {
 /** O banner. `forma`: 'lateral' (1:2, coluna esquerda) ou 'feed' (3:1, entre publicações, só telemóvel). */
 function promoBanner(p: any, forma: 'lateral' | 'feed'): string {
   const cls = forma === 'lateral' ? 'pbanner pbanner-side' : 'pbanner pbanner-feed';
-  if (p.content_type === 'html') return `<div class="${cls} html">${promoHtmlBlock(p)}<span class="pbanner-tag">Patrocinado</span></div>`;
+  if (p.content_type === 'html') return `<div class="${cls} html">${promoHtmlBlock(p, forma)}<span class="pbanner-tag">Patrocinado</span></div>`;
   // No telemóvel usa a imagem mobile, se a administração a tiver carregado.
   const url = forma === 'feed' && p.mobile_image_url ? p.mobile_image_url : p.image_url;
   const video = p.media_type?.startsWith('video') || /\.(mp4|webm)$/i.test(url || '');
@@ -156,9 +156,10 @@ function promoHref(p: any) {
  *  (sobreposições, exfiltração). Estes URLs vêm de publicUrl(), mas a protecção é barata. */
 // Aspas simples: o resultado vai dentro de style="…", e aspas duplas fechavam o atributo.
 const cssUrl = (u: any) => `url('${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}')`;
-function promoHtmlBlock(p: any) {
-  if (!p.mobile_html) return `<div class="promoembed">${p.html}</div>`;
-  return `<div class="promoembed only-desktop">${p.html}</div><div class="promoembed only-mobile">${p.mobile_html}</div>`;
+/** Na coluna lateral vai o código «computador» (vertical); entre as publicações, o de
+ *  «telemóvel» (horizontal), se existir. A moldura ajusta-se ao tamanho do anúncio (CSS). */
+function promoHtmlBlock(p: any, forma: 'lateral' | 'feed') {
+  return `<div class="promoembed">${forma === 'feed' && p.mobile_html ? p.mobile_html : p.html}</div>`;
 }
 
 /* ---------- Início ---------- */

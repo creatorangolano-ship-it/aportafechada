@@ -747,6 +747,16 @@ body[data-route="feed"] .top{background:var(--bg)}
 /* Anúncio em HTML personalizado dentro do banner. */
 .promoembed{width:100%;height:100%;overflow:auto}
 .promoembed img,.promoembed video{max-width:100%;height:auto}
+/* Adaptativo: a moldura fica do tamanho do anúncio (160×600, 300×250, 728×90…), sem espaço
+   vazio nem barras de deslocação. Se o anúncio for mais largo que a coluna, encolhe à proporção. */
+.pbanner-side.html,.pbanner-feed.html{aspect-ratio:auto;width:fit-content;max-width:100%;background:none}
+.pbanner-col>.pbanner-side.html{margin-left:auto}   /* coluna esquerda: encostado ao feed */
+.rail2>.pbanner-side.html{width:fit-content}
+.pbanner-feed.html{margin-left:auto;margin-right:auto}
+.pbanner.html .promoembed{width:auto;height:auto;overflow:hidden;line-height:0}
+.pbanner.html .promoembed img,.pbanner.html .promoembed video{display:block;max-width:100%;height:auto}
+.pbanner.html .promoembed iframe{display:block;max-width:100%;border:0}
+.pbanner-feed.html .pbanner-tag{top:3px;left:3px;font-size:9.5px;padding:0 5px;line-height:1.5}
 
 /* ---------- Tabelas no telemóvel ----------
    No computador nada muda. Até 760 px cada linha é um cartão: a 1.ª coluna é o
