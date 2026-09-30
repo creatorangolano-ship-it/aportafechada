@@ -76,7 +76,7 @@ function htmlProvaSocial(): Promise<string> {
     const fotos = (d.fotos || []).map((u) => `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">`).join('');
     const texto = d.membros >= MIN_PARA_MOSTRAR_NUMERO
       ? `<b>${Number(d.membros).toLocaleString('pt-PT')}</b> pessoas já estão na A Porta Fechada`
-      : 'Junta-te aos primeiros membros da A Porta Fechada';
+      : 'Junta-te aos primeiros membros e descobre o que está na Porta Fechada';
     return `${fotos ? `<span class="fotos">${fotos}</span>` : ''}<span>${texto}</span>`;
   }).catch(() => '');
   return provaSocial;
