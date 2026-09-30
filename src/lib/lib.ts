@@ -453,7 +453,10 @@ export function cropImage(file: File, aspect = 1, { shape = 'rect', output = 900
       offX = cx + dw1 / 2 - stageW / 2; offY = cy + dh1 / 2 - stageH / 2;
       clamp(); draw();
     });
-    const finish = (result: File | null) => { closeModal(); resolve(result); };
+    // Primeiro entrega o resultado, só depois fecha: `closeModal` dispara o gancho de
+    // fecho abaixo (`resolve(null)`), e uma Promise fica com o primeiro valor que recebe.
+    // Na ordem inversa a imagem escolhida era sempre trocada por «cancelado» e nada era enviado.
+    const finish = (result: File | null) => { resolve(result); closeModal(); };
     onModalClose(() => resolve(null));
     $<HTMLButtonElement>('#cropCancel')!.addEventListener('click', () => finish(null));
     $<HTMLButtonElement>('#cropOk')!.addEventListener('click', () => {
