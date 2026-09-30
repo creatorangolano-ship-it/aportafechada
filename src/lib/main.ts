@@ -244,7 +244,7 @@ document.addEventListener('keydown', (e) => {
     document.body.classList.remove('adnav-open'); // barra lateral da consola em ecrãs pequenos
   }
   const tgt = e.target as HTMLElement | null;
-  if (tgt?.classList.contains('cd') && e.key === 'Backspace' && !(tgt as HTMLInputElement).value) {
+  if (tgt?.classList?.contains('cd') && e.key === 'Backspace' && !(tgt as HTMLInputElement).value) {
     const p = tgt.previousElementSibling as HTMLInputElement | null;
     if (p) { p.focus(); p.value = ''; }
   }

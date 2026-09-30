@@ -1,5 +1,5 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
-import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox } from '../lib';
+import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox, galeria, type ItemDoVisor } from '../lib';
 import { colunaDe, posicaoNoFeed, promocaoDaVisita, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import { register } from '../registry';
 import { S } from '../state';
@@ -50,15 +50,19 @@ function mediaHTML(p: any) {
   // No feed, todas as publicações têm o mesmo enquadramento (--post-ratio no CSS), preenchido.
   // Clicar abre o visualizador com o ficheiro inteiro no formato real (9:16 a 16:9).
   // Os vídeos não tocam dentro do feed: mostram a primeira imagem e um botão de play.
-  const one = (m: any) => m.type?.startsWith('video')
-    ? `<button class="mtile" data-act="openMedia" data-kind="video" data-url="${esc(m.url)}" aria-label="Ver vídeo"><video src="${esc(m.url)}#t=0.1" muted playsinline preload="metadata" disablePictureInPicture oncontextmenu="return false" tabindex="-1"></video><span class="play">${ic('play')}</span></button>`
-    : `<img src="${esc(m.url)}" alt="" loading="lazy" decoding="async" draggable="false" oncontextmenu="return false" data-act="openMedia" data-kind="image" data-url="${esc(m.url)}">`;
+  // `data-post` + `data-i` dizem ao visualizador de que publicação e de que ficheiro se trata,
+  // para ele abrir a galeria inteira (guardada em `data-gal`) e não só o ficheiro clicado.
+  const one = (m: any, i: number) => m.type?.startsWith('video')
+    ? `<button class="mtile" data-act="openMedia" data-post="${p.id}" data-i="${i}" data-kind="video" data-url="${esc(m.url)}" aria-label="Ver vídeo"><video src="${esc(m.url)}#t=0.1" muted playsinline preload="metadata" disablePictureInPicture oncontextmenu="return false" tabindex="-1"></video><span class="play">${ic('play')}</span></button>`
+    : `<img src="${esc(m.url)}" alt="" loading="lazy" decoding="async" draggable="false" oncontextmenu="return false" data-act="openMedia" data-post="${p.id}" data-i="${i}" data-kind="image" data-url="${esc(m.url)}">`;
   if (p.canSee) {
     const list = (p.urls || []).filter((m: any) => m.url);
     if (!list.length) return '';
-    if (list.length === 1) return `<div class="media">${one(list[0])}${wm}</div>`;
-    const shown = list.slice(0, 4);
-    return `<div class="media multi n${shown.length}">${shown.map((m: any) => `<div>${one(m)}${wm}</div>`).join('')}</div>`;
+    const gal = esc(JSON.stringify(list.map((m: any) => ({ url: m.url, tipo: m.type?.startsWith('video') ? 'video' : 'image' }))));
+    if (list.length === 1) return `<div class="media" data-gal="${gal}">${one(list[0], 0)}${wm}</div>`;
+    // A grelha mostra até 4; os restantes ficam atrás de «+N» no último e vêem-se no visualizador.
+    const shown = list.slice(0, 4), resto = list.length - shown.length;
+    return `<div class="media multi n${shown.length}" data-gal="${gal}">${shown.map((m: any, i: number) => `<div>${one(m, i)}${wm}${resto && i === shown.length - 1 ? `<span class="mais">+${resto}</span>` : ''}</div>`).join('')}</div>`;
   }
   const c = p.creator;
   const fr = !c.price;
@@ -476,7 +480,13 @@ function tipModal(creatorId: string, liveId?: string | null) {
 export const fanActions = {
   cat(d: Record<string, string>) { S.cat = d.v; rerender(); },
   comprasPage(d: Record<string, string>) { S.comprasPage = Math.max(0, +d.v || 0); rerender(false); },
-  openMedia(d: Record<string, string>) { lightbox(d.url, d.kind === 'video' ? 'video' : 'image'); },
+  openMedia(d: Record<string, string>) {
+    // Abre todos os ficheiros da publicação, a começar no que foi clicado.
+    let itens: ItemDoVisor[] = [];
+    try { itens = JSON.parse($<HTMLElement>(`#post-${d.post} [data-gal]`)?.dataset.gal || '[]'); } catch { /* fica só o ficheiro clicado */ }
+    if (itens.length) galeria(itens, +d.i || 0);
+    else lightbox(d.url, d.kind === 'video' ? 'video' : 'image');
+  },
   openImg(d: Record<string, string>) { lightbox(d.url); },
   expandBody(d: Record<string, string>) {
     const p = $(`#post-${d.id} .postbody`); if (!p) return;   // o post pode não ter texto

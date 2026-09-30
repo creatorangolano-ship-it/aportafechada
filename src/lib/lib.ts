@@ -267,43 +267,87 @@ const VISOR_MIN = 9 / 16, VISOR_MAX = 16 / 9;
  * intervalo, o ficheiro aparece inteiro com barras (object-fit: contain) — nunca cortado.
  */
 export function lightbox(url: string | null | undefined, tipo: 'image' | 'video' = 'image'): void {
-  if (!url) return;
+  if (url) galeria([{ url, tipo }]);
+}
+
+export type ItemDoVisor = { url: string; tipo: 'image' | 'video' };
+
+/**
+ * O mesmo visualizador, com vários ficheiros: passa-se de um para o outro sem fechar
+ * (botões, setas do teclado ou deslizar no telemóvel). Com um só ficheiro não há navegação.
+ */
+export function galeria(itens: ItemDoVisor[], inicio = 0): void {
+  const lista = itens.filter((x) => x.url);
+  if (!lista.length) return;
+  let i = Math.min(Math.max(inicio, 0), lista.length - 1);
+  const varios = lista.length > 1;
   const el = document.createElement('div');
   el.className = 'lbox';
-  const media = tipo === 'video'
-    ? `<video src="${esc(url)}" controls autoplay playsinline controlsList="nodownload noremoteplayback" disablePictureInPicture oncontextmenu="return false"></video>`
-    : `<img src="${esc(url)}" alt="" draggable="false" oncontextmenu="return false">`;
   el.innerHTML =
-    `<div class="lbox-frame">${media}<span class="wm c">@aportafechada.net</span></div>` +
+    `<div class="lbox-frame"><span class="wm c">@aportafechada.net</span></div>` +
+    (varios
+      ? `<button class="lbox-nav lbox-prev" aria-label="Anterior" title="Anterior">${ic('back')}</button>` +
+        `<button class="lbox-nav lbox-next" aria-label="Seguinte" title="Seguinte">${ic('back')}</button>` +
+        `<span class="lbox-n" aria-live="polite"></span>`
+      : '') +
     `<button class="lbox-full" aria-label="Ecrã inteiro" title="Ecrã inteiro">${ic('expand')}</button>` +
     `<button class="lbox-x" aria-label="Fechar" title="Fechar">${ic('x')}</button>`;
   document.body.appendChild(el);
   const frame = el.querySelector<HTMLElement>('.lbox-frame')!;
-  const m = frame.firstElementChild as HTMLImageElement | HTMLVideoElement;
 
   // Enquadramento: formato real limitado a [9:16, 16:9], o maior que caiba em 92% do ecrã.
-  let r = tipo === 'video' ? 16 / 9 : 1;
+  let r = 1;
   const ajustar = () => {
     const w = Math.min(innerWidth * 0.92, innerHeight * 0.92 * r);
     frame.style.width = Math.round(w) + 'px';
     frame.style.height = Math.round(w / r) + 'px';
   };
-  const medir = () => {
-    const nw = 'videoWidth' in m ? m.videoWidth : m.naturalWidth;
-    const nh = 'videoHeight' in m ? m.videoHeight : m.naturalHeight;
-    if (nw && nh) r = Math.min(VISOR_MAX, Math.max(VISOR_MIN, nw / nh));
+  const mostrar = () => {
+    const it = lista[i], video = it.tipo === 'video';
+    frame.querySelector('img,video')?.remove();
+    const m = document.createElement(video ? 'video' : 'img') as HTMLImageElement | HTMLVideoElement;
+    if (m instanceof HTMLVideoElement) {
+      m.controls = true; m.autoplay = true; m.playsInline = true; m.disablePictureInPicture = true;
+      m.setAttribute('controlsList', 'nodownload noremoteplayback');
+    } else { m.alt = ''; m.draggable = false; }
+    m.oncontextmenu = () => false;
+    r = video ? 16 / 9 : 1;
+    const medir = () => {
+      if (m !== frame.firstElementChild) return;   // já se passou para outro ficheiro
+      const nw = m instanceof HTMLVideoElement ? m.videoWidth : m.naturalWidth;
+      const nh = m instanceof HTMLVideoElement ? m.videoHeight : m.naturalHeight;
+      if (nw && nh) r = Math.min(VISOR_MAX, Math.max(VISOR_MIN, nw / nh));
+      ajustar();
+    };
+    m.addEventListener(video ? 'loadedmetadata' : 'load', medir);
+    m.src = it.url;
+    frame.prepend(m);
     ajustar();
+    const n = el.querySelector('.lbox-n'); if (n) n.textContent = `${i + 1} / ${lista.length}`;
   };
-  ajustar();
-  m.addEventListener(tipo === 'video' ? 'loadedmetadata' : 'load', medir);
-  if ('complete' in m && m.complete) medir();
+  const ir = (passo: number) => { if (!varios) return; i = (i + passo + lista.length) % lista.length; mostrar(); };
+  mostrar();
   addEventListener('resize', ajustar);
 
   const close = () => { el.remove(); document.removeEventListener('keydown', onKey); removeEventListener('resize', ajustar); };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowRight') ir(1);
+    else if (e.key === 'ArrowLeft') ir(-1);
+  };
   document.addEventListener('keydown', onKey);
   el.addEventListener('click', (e) => { if (e.target === el) close(); });
   el.querySelector('.lbox-x')!.addEventListener('click', close);
+  el.querySelector('.lbox-prev')?.addEventListener('click', () => ir(-1));
+  el.querySelector('.lbox-next')?.addEventListener('click', () => ir(1));
+  // Deslizar no telemóvel. Nos vídeos não: o gesto horizontal é o de avançar o vídeo.
+  let tx = 0, ty = 0;
+  el.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (lista[i].tipo === 'video') return;
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) ir(dx < 0 ? 1 : -1);
+  }, { passive: true });
   el.querySelector('.lbox-full')!.addEventListener('click', () => {
     const req = frame.requestFullscreen || (frame as any).webkitRequestFullscreen;
     req?.call(frame);
