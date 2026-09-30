@@ -196,6 +196,8 @@ export async function vFeed() {
     loadPromos(),
   ]);
   const ids = [...new Set([...(fol || []), ...(subs || [])].map((x) => x.creator_id))];
+  // Quem publica também vê as suas publicações no início, misturadas por data com as dos outros.
+  if (S.creator && !ids.includes(uid)) ids.push(uid);
   let posts = [];
   if (ids.length) {
     const { data } = await sb.from('posts').select(POST_SEL).in('creator_id', ids).eq('status', 'published').order('published_at', { ascending: false }).limit(30);
