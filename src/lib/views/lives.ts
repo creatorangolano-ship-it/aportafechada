@@ -43,7 +43,7 @@ export async function vLives(): Promise<string> {
   const list = ((all || []) as any[]).filter((l) => l.creator?.status === 'approved' || l.creator_id === S.me!.id);
   const A = await myAccess(list.map((l) => l.id));
   const on = list.filter((l) => l.status === 'live'), next = list.filter((l) => l.status === 'scheduled');
-  return `<div class="pagehead"><div><h1>Lives</h1><p>Emissões ao vivo dos criadores. Algumas são gratuitas, outras pedem bilhete.</p></div>${S.creator?.status === 'approved' ? `<button class="btn pri" data-act="stGo" data-v="lives">${ic('plus')}Agendar live</button>` : ''}</div>
+  return `<div class="pagehead"><div><h1>Lives</h1><p>Emissões ao vivo dos criadores. Algumas são gratuitas, outras pedem bilhete.</p></div>${S.creator?.status === 'approved' ? `<button class="btn pri" data-act="stGo" data-v="lives">${ic('live')}Iniciar live</button>` : ''}</div>
    <h3 style="margin-bottom:14px">Ao vivo agora</h3>${on.length ? `<div class="lgrid">${on.map((l) => liveCard(l, A)).join('')}</div>` : '<p class="muted">Ninguém está ao vivo neste momento.</p>'}
    <h3 style="margin:36px 0 14px">Próximas lives</h3>${next.length ? `<div class="lgrid">${next.map((l) => liveCard(l, A)).join('')}</div>` : '<p class="muted">Sem lives agendadas.</p>'}`;
 }

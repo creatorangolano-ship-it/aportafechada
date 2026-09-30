@@ -115,13 +115,15 @@ async function tabLives(c: any) {
   const now = new Date(Date.now() + 3600e3), def = now.toISOString().slice(0, 10);
   return `<div class="pagehead"><div><h1>Lives</h1><p>Transmites a partir do navegador, com câmara e microfone. Quem te segue, subscreve ou tem bilhete recebe uma notificação quando começas.</p></div></div>
    <div class="two"><div class="stack">${(data || []).length ? (data || []).map((l) => `<div class="box pad row between wrapf"><div><b style="color:var(--ink)">${esc(l.title)}</b><div class="small muted">${l.status === 'live' ? 'Ao vivo agora' : l.status === 'ended' ? 'Terminada' : fmtDate(l.starts_at, true)} · ${l.price ? 'bilhete ' + kz(l.price) + ' · ' + n(l.id) + ' vendidos' : 'entrada livre'}</div></div>
-     <div class="row" style="gap:8px">${l.status === 'live' ? `<a class="btn pri sm" href="#live-${l.id}">Abrir</a><button class="btn out sm" data-act="liveEnd" data-id="${l.id}">Terminar</button>` : l.status === 'ended' ? '<span class="tag plain">Terminada</span>' : `<a class="btn pri sm" href="#live-${l.id}">Começar</a><button class="btn out sm" data-act="liveDel" data-id="${l.id}">Cancelar</button>`}</div></div>`).join('') : '<div class="box empty">Ainda não agendaste nenhuma live.</div>'}</div>
-   <form class="box pad stack" id="liveNewForm" novalidate><h3>Agendar live</h3>
+     <div class="row" style="gap:8px">${l.status === 'live' ? `<a class="btn pri sm" href="#live-${l.id}">Abrir</a><button class="btn out sm" data-act="liveEnd" data-id="${l.id}">Terminar</button>` : l.status === 'ended' ? '<span class="tag plain">Terminada</span>' : `<a class="btn pri sm" href="#live-${l.id}">Começar</a><button class="btn out sm" data-act="liveDel" data-id="${l.id}">Cancelar</button>`}</div></div>`).join('') : '<div class="box empty">Ainda não fizeste nenhuma live.</div>'}</div>
+   <form class="box pad stack" id="liveNewForm" novalidate><h3>Nova live</h3>
+    <div class="stack" style="gap:8px"><label class="opt"><input type="radio" name="lvWhen" value="now" checked><span><b>Começar agora</b><span>Entras em directo assim que confirmares.</span></span></label>
+    <label class="opt"><input type="radio" name="lvWhen" value="later"><span><b>Agendar</b><span>Escolhes o dia e a hora; os fãs podem pedir lembrete.</span></span></label></div>
     <div class="field"><label for="lvTitle">Título</label><input id="lvTitle" maxlength="80" placeholder="Ex.: Conversa com os subscritores"></div>
-    <div class="grid2"><div class="field"><label for="lvDate">Dia</label><input id="lvDate" type="date" min="${new Date().toISOString().slice(0, 10)}" value="${def}"></div><div class="field"><label for="lvTime">Hora</label><input id="lvTime" type="time" value="20:00"></div></div>
+    <div class="grid2" id="lvWhenRow" hidden><div class="field"><label for="lvDate">Dia</label><input id="lvDate" type="date" min="${new Date().toISOString().slice(0, 10)}" value="${def}"></div><div class="field"><label for="lvTime">Hora</label><input id="lvTime" type="time" value="20:00"></div></div>
     <div class="field"><label for="lvPrice">Bilhete (Kz)</label><input id="lvPrice" type="number" min="0" step="100" value="0"><span class="hint">0 para entrada livre. Mínimo 200 Kz quando é pago.</span></div>
     <span class="err" id="lvErr" hidden></span>
-    <button class="btn pri" ${c.status === 'approved' ? '' : 'disabled'}>Agendar</button>${c.status === 'approved' ? '' : '<span class="small muted">Disponível depois de a conta ser verificada.</span>'}</form></div>`;
+    <button class="btn pri" id="lvBtn" ${c.status === 'approved' ? '' : 'disabled'}>Começar agora</button>${c.status === 'approved' ? '' : '<span class="small muted">Disponível depois de a conta ser verificada.</span>'}</form></div>`;
 }
 
 async function tabSubs(c: any) {
@@ -297,14 +299,21 @@ export async function studioSubmit(f: HTMLFormElement) {
   if (f.id === 'postForm') { await savePost('published', $('#pBtn')); return true; }
   if (f.id === 'liveNewForm') {
     const t = $('#lvTitle').value.trim(), dt = $('#lvDate').value, tm = $('#lvTime').value, p = +$('#lvPrice').value;
+    const agora = (f.querySelector<HTMLInputElement>('input[name="lvWhen"]:checked')?.value ?? 'now') === 'now';
     if (t.length < 4) return showErr('#lvErr', 'Dá um título à live, com pelo menos 4 caracteres.'), true;
-    if (!dt || !tm) return showErr('#lvErr', 'Escolhe o dia e a hora.'), true;
+    if (!agora && (!dt || !tm)) return showErr('#lvErr', 'Escolhe o dia e a hora.'), true;
     if (!Number.isFinite(p) || !Number.isInteger(p) || p < 0 || (p > 0 && p < 200)) return showErr('#lvErr', 'O bilhete é grátis (0) ou custa pelo menos 200 Kz.'), true;
-    const starts = new Date(`${dt}T${tm}`);
+    const starts = agora ? new Date() : new Date(`${dt}T${tm}`);
     if (isNaN(starts.getTime())) return showErr('#lvErr', 'Data ou hora inválidas.'), true;
-    const { error } = await sb.from('lives').insert({ creator_id: me_().id, title: t, starts_at: starts.toISOString(), price: p });
-    if (error) return showErr('#lvErr', errText(error)), true;
-    toast('Live agendada'); rerender(); return true;
+    const btn = $('#lvBtn'); busy(btn, true, agora ? 'A preparar…' : 'A agendar…');
+    const { data: nova, error } = await sb.from('lives').insert({ creator_id: me_().id, title: t, starts_at: starts.toISOString(), price: p }).select('id').single();
+    if (error || !nova) { busy(btn, false); return showErr('#lvErr', errText(error)), true; }
+    if (!agora) { toast('Live agendada'); rerender(); return true; }
+    // Começar agora: a live nasce agendada e passa logo a «live». É a mudança de estado
+    // que avisa seguidores e subscritores (trigger `lives_status`), por isso não se
+    // insere já como «live». Se este passo falhar, a sala mostra o botão «Começar agora».
+    const { error: e2 } = await sb.from('lives').update({ status: 'live' }).eq('id', nova.id).eq('creator_id', me_().id);
+    toast(e2 ? errText(e2) : 'Estás ao vivo'); go('live-' + nova.id); return true;
   }
   if (f.id === 'priceForm') {
     const free = $('input[name=pmode]:checked')?.value === 'free', v = free ? 0 : +$('#priceInp').value;
@@ -354,6 +363,11 @@ export async function studioSubmit(f: HTMLFormElement) {
 export async function studioChange(t: FormControl) {
   if (t.name === 'pmode' && $('#sPriceRow')) { $('#sPriceRow').hidden = t.value === 'free'; return true; }
   if (t.name === 'acc') { $('#priceRow').hidden = t.value !== 'paid'; return true; }
+  if (t.name === 'lvWhen' && $('#lvWhenRow')) {
+    const agora = t.value === 'now';
+    $('#lvWhenRow').hidden = agora; $('#lvBtn').textContent = agora ? 'Começar agora' : 'Agendar';
+    return true;
+  }
   if (t.id === 'pFile') {
     const files = [...((t as HTMLInputElement).files ?? [])].slice(0, 10);
     if (files.some((f) => f.size > 500e6)) { toast('Cada ficheiro pode ter até 500 MB.'); return true; }
