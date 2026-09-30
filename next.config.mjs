@@ -2,17 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // A app é uma SPA: tudo o que é interface corre no browser. O servidor serve
-  // o HTML inicial e as API routes de /api. Não há SSR, porque não há nada
-  // para renderizar no servidor — o estado vive no Supabase e no browser, e as
-  // páginas mudam por hash, não por URL.
-  //
-  // Isto é deliberado. Componentes de servidor não trariam nada aqui: o feed,
-  // as mensagens, o paywall e as lives dependem de sessão e de realtime no
-  // cliente. Forçar SSR só adicionaria uma ida ao servidor por página.
-  //
-  // Se alguma vez quiseres SSR de verdade (páginas públicas para SEO, por
-  // exemplo), tira o 'use client' da página e passa a função a ser async.
+  // A app é uma SPA: a interface corre no browser. Cada endereço real (/sobre,
+  // /perfil/<nome>, /feed…) serve a mesma SPA a partir de `app/[[...rota]]`, que
+  // só gera no servidor os metadados (título, descrição, canónico, imagem de
+  // partilha) para o Google e para as pré-visualizações do WhatsApp e Facebook.
+  // As páginas fixas saem prontas do build; os perfis ficam em cache 10 minutos.
 
   // O alojamento é a Vercel, que detecta o Next sozinha e não precisa de
   // `output: 'standalone'` nem de ficheiro de configuração próprio.

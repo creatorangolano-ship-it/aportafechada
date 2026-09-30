@@ -142,7 +142,7 @@ async function submit(): Promise<void> {
       case 'pago': return done();
       case 'redirecionar':
         try {
-          sessionStorage.setItem('apf-pp', JSON.stringify({ id: r.orderId, okText: p.okText, back: location.hash }));
+          sessionStorage.setItem('apf-pp', JSON.stringify({ id: r.orderId, okText: p.okText, back: location.pathname }));
         } catch { /* modo privado */ }
         location.href = r.url;
         return;
@@ -211,7 +211,7 @@ export async function handlePaypalReturn(): Promise<void> {
       savedBack = JSON.parse(sessionStorage.getItem('apf-pp') || '{}');
       sessionStorage.removeItem('apf-pp');
     } catch { /* modo privado */ }
-    history.replaceState(null, '', location.pathname + (savedBack.back || location.hash || ''));
+    history.replaceState(null, '', savedBack.back || location.pathname);
     toast('Pagamento com PayPal cancelado');
     return;
   }
@@ -220,7 +220,7 @@ export async function handlePaypalReturn(): Promise<void> {
     saved = JSON.parse(sessionStorage.getItem('apf-pp') || '{}');
     sessionStorage.removeItem('apf-pp');
   } catch { /* modo privado */ }
-  history.replaceState(null, '', location.pathname + (saved.back || location.hash || ''));
+  history.replaceState(null, '', saved.back || location.pathname);
   modal(`<h3>A confirmar com o PayPal</h3><div class="spin"></div>`, { noClose: true });
   try {
     const estado = await pagamentos().capturarPaypal(id!);

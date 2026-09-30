@@ -137,7 +137,7 @@ export function startMessagesRealtime(): void {
       // que é recarregada quando se abre a página. A RLS é o que garante que x.new é mesmo
       // desta pessoa — daí o filtro explícito da conversa no canal.
       if (channelThread && m.thread_id !== channelThread) return;
-      if (cur && m.thread_id === cur.t.id && location.hash === '#mensagens') {
+      if (cur && m.thread_id === cur.t.id && location.pathname === '/mensagens') {
         const fresh = await loadThread(cur.t.id); if (!fresh) return; cur = fresh;
         const sc = $('#chatScroll'); if (sc) { sc.innerHTML = msgsHTML(cur!.msgs); sc.scrollTop = sc.scrollHeight; }
       } else {

@@ -2,6 +2,7 @@
 // O acesso ao Supabase (cliente, funções, armazenamento) vive em src/infrastructure/supabase
 // e é reexportado no fim deste ficheiro para as áreas que ainda não foram migradas.
 import type { Profile } from './types';
+import { caminhoDe } from './caminhos';
 
 /* ---------- DOM ---------- */
 
@@ -537,10 +538,12 @@ export async function copyText(t: string): Promise<void> {
 export const rerender = (keep = true): void => {
   document.dispatchEvent(new CustomEvent('apf:render', { detail: { keep } }));
 };
-/** Navegar para uma rota (#rota). */
+/** Navegar para uma rota: o endereço passa a ser o caminho real (`/perfil/x`), sem recarregar. */
 export const go = (r: string): void => {
-  if (location.hash === '#' + r) rerender(false);
-  else location.hash = r;
+  const c = caminhoDe(r);
+  if (location.pathname === c) { rerender(false); return; }
+  history.pushState(null, '', c);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 };
 
 /* ---------- Acesso a dados (legado) ----------

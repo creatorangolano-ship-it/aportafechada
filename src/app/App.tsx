@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from 'react';
  */
 const app = typeof window === 'undefined' ? null : import('@/lib/main');
 
-export default function Page() {
+export default function App() {
   const ref = useRef<HTMLDivElement>(null);
   const [erro, setErro] = useState<Error | null>(null);
 

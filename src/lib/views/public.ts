@@ -35,14 +35,68 @@ function authShell(card: any, second: any) {
 }
 const pwField = (id: any, ph: any, ac: any) => `<div class="pw"><input class="linp" id="${id}" type="password" autocomplete="${ac}" placeholder="${ph}" aria-label="${ph}"><button type="button" class="eye" data-act="eye" data-for="${id}" aria-label="Mostrar palavra-passe">${ic('eye')}</button></div>`;
 
+/* ---------- Perfil público (sem sessão) ----------
+   O que vê quem abre /perfil/<nome> sem conta: o Google, quem recebe o link no
+   WhatsApp, um visitante novo. Só a montra do criador (vinda de `perfil_publico`,
+   que devolve apenas campos públicos de criadores aprovados); os conteúdos ficam
+   atrás da conta. Perfis de fãs não têm versão pública. */
+export async function vPerfilPublico(handle: string): Promise<string> {
+  const { data } = await sb.rpc('perfil_publico', { p_handle: handle });
+  const c = (data as any[] | null)?.[0];
+  if (!c) return `<div class="empty"><h1 style="font-size:24px">Perfil só para membros</h1><p style="margin-top:8px">Entra ou cria conta para veres este perfil.</p>
+    <div class="row" style="gap:10px;justify-content:center;margin-top:16px"><a class="btn pri" href="#registar">Criar conta</a><a class="btn out" href="#inicio">Entrar</a></div></div>`;
+  const nome = c.name || c.handle;
+  const capa = c.cover_url ? `background-image:url('${String(c.cover_url).replace(/["'\\()<>]/g, encodeURIComponent)}')` : '';
+  const preco = c.price ? `Subscrição de ${kz(c.price)} por mês` : 'Perfil gratuito · segue para ver';
+  return `<div class="cover" style="${capa}"></div>
+   <section class="phead">${c.avatar_url ? `<div class="big"><img src="${esc(c.avatar_url)}" alt="${esc(nome)}"></div>` : `<div class="big">${esc(nome[0].toUpperCase())}</div>`}
+    <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(nome)}<span style="color:var(--acc);display:inline-flex" title="Identidade verificada">${ic('badge', 'style="width:22px;height:22px"')}</span></h1>
+     <div class="muted">@${esc(c.handle)}</div>
+     ${c.bio ? `<p style="margin-top:10px;max-width:62ch;white-space:pre-line">${esc(c.bio)}</p>` : ''}
+     <div class="meta">${c.city ? `<span>${ic('pin')}${esc(c.city)}, Angola</span>` : ''}${c.category ? `<span>${esc(c.category)}</span>` : ''}</div>
+     <div class="stats3"><div><b>${dots(c.post_count)}</b><span class="small muted">publicações</span></div><div><b>${dots(c.follower_count)}</b><span class="small muted">seguidores</span></div></div>
+    </div>
+    <div class="acts"><span class="tag plain" style="justify-content:center;padding:10px">${preco}</span>
+     <a class="btn pri" href="#registar">Criar conta para ver</a><a class="btn out" href="#inicio">Já tenho conta · Entrar</a></div></section>
+   <div class="box pad" style="margin-top:18px;text-align:center"><h2 style="font-size:19px">Os conteúdos de ${esc(nome)} estão atrás da porta</h2>
+    <p class="muted" style="margin-top:6px">Cria conta grátis para seguir, subscrever e ver as publicações, as mensagens e as lives. Só para maiores de 18.</p></div>`;
+}
+
+/* ---------- Prova social na página de entrada ----------
+   Número real de membros (função `contagem_publica`) e três fotos de criadores.
+   Nunca um número inventado: enquanto a comunidade for pequena, uma frase de
+   boas-vindas em vez do número. Preenche-se depois de a página aparecer, para
+   não atrasar o formulário de entrada. */
+const MIN_PARA_MOSTRAR_NUMERO = 100;
+let provaSocial: Promise<string> | null = null;
+function htmlProvaSocial(): Promise<string> {
+  provaSocial ??= Promise.resolve(sb.rpc('contagem_publica')).then(({ data }) => {
+    const d = (data as Array<{ membros: number; fotos: string[] | null }> | null)?.[0];
+    if (!d) return '';
+    const fotos = (d.fotos || []).map((u) => `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">`).join('');
+    const texto = d.membros >= MIN_PARA_MOSTRAR_NUMERO
+      ? `<b>${Number(d.membros).toLocaleString('pt-PT')}</b> pessoas já estão na A Porta Fechada`
+      : 'Junta-te aos primeiros membros da A Porta Fechada';
+    return `${fotos ? `<span class="fotos">${fotos}</span>` : ''}<span>${texto}</span>`;
+  }).catch(() => '');
+  return provaSocial;
+}
+function preencherProvaSocial(): void {
+  void htmlProvaSocial().then((h) => {
+    const el = $('#provaSocial'); if (el && h) { el.innerHTML = h; el.hidden = false; }
+  });
+}
+
 export function vInicio() {
-  return authShell(`<form id="loginForm" class="stack" style="gap:12px" novalidate>
+  preencherProvaSocial();
+  return authShell(`<h1 class="sr-only">Entrar na A Porta Fechada</h1><form id="loginForm" class="stack" style="gap:12px" novalidate>
      <input class="linp" id="lEmail" autocomplete="username" placeholder="Email ou nome de utilizador" aria-label="Email ou nome de utilizador">
      ${pwField('lPass', 'Palavra-passe', 'current-password')}
      <button type="button" class="btn link small" style="align-self:flex-start" data-act="forgot">Esqueceu a palavra-passe?</button>
      <span class="err" id="lErr" hidden></span>
      <button class="btn pri block lg" style="margin-top:6px">Entrar</button>
     </form>
+    <div class="provasocial" id="provaSocial" hidden></div>
     <div class="or" style="margin:4px 0">ou</div>
     <button class="gbtn" data-act="google">${GOOGLE}Entrar com Google</button>`,
   `<a class="lcard lnew" href="#registar">Não tem uma conta? <b>Criar conta</b></a>`);
@@ -50,7 +104,7 @@ export function vInicio() {
 
 export function vSignup() {
   const d: Partial<RegData> = S.reg?.data ?? {};
-  return authShell(`<form id="signupForm" class="stack" style="gap:12px" novalidate>
+  return authShell(`<h1 class="sr-only">Criar conta na A Porta Fechada</h1><form id="signupForm" class="stack" style="gap:12px" novalidate>
      <input class="linp" id="rName" autocomplete="name" placeholder="Nome" aria-label="Nome" value="${esc(d.name || '')}">
      <input class="linp" id="rEmail" type="email" autocomplete="email" placeholder="Email válido" aria-label="Email" value="${esc(d.email || '')}">
      <select class="linp" id="rCountry" aria-label="País">${COUNTRIES.map((c) => `<option ${(d.country || 'Angola') === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
@@ -305,13 +359,13 @@ function mfaPrompt() {
 export const publicActions = {
   eye(d: Record<string, string>) { const p = $('#' + d.for); p.type = p.type === 'password' ? 'text' : 'password'; },
   async google() {
-    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/' } });
     if (error) toast(errText(error));
   },
   async forgot() {
     const e = $('#lEmail').value.trim();
     if (!isEmail(e)) return showErr('#lErr', 'Escreve o teu email no primeiro campo e carrega outra vez em “Esqueceu a palavra-passe?”.');
-    await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + location.pathname + '#nova-senha' });
+    await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + '/#nova-senha' });
     toast('Se existir uma conta com esse email, enviámos um link para escolher uma nova palavra-passe.');
   },
   async resend() {
@@ -372,11 +426,11 @@ export async function publicSubmit(f: HTMLFormElement) {
     if (!(pass.length >= 8 && /[a-z]/i.test(pass) && /\d/.test(pass))) return showErr('#rErr', 'A palavra-passe precisa de 8 caracteres ou mais, com pelo menos uma letra e um número.'), true;
     const btn = f.querySelector('button.pri'); busy(btn, true, 'A criar conta…');
     let ref = null; try { ref = localStorage.getItem('apf-ref'); } catch { /* */ }
-    const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name, country, ref }, emailRedirectTo: location.origin + location.pathname } });
+    const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name, country, ref }, emailRedirectTo: location.origin + '/' } });
     if (error) { busy(btn, false); showErr('#rErr', errText(error)); return true; }
     if (data.session) { await afterLogin(); return true; }
     if (data.user && !data.user.identities?.length) { busy(btn, false); showErr('#rErr', 'Já existe uma conta com este email. Entra ou recupera a palavra-passe.'); return true; }
-    location.hash = 'confirmar';
+    go('confirmar');
     return true;
   }
   if (f.id === 'codeForm') {
@@ -397,7 +451,7 @@ export async function publicSubmit(f: HTMLFormElement) {
     if (error) return showErr('#npErr', errText(error)), true;
     S.recovery = false; toast('Palavra-passe alterada'); await loadMe();
     // Vai para a página certa para o papel: um criador ou admin não deve aterrar no feed de Torch.
-    location.hash = S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed';
+    go(S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed');
     return true;
   }
   if (f.id === 'obForm') {

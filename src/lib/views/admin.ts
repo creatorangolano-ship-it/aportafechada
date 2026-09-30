@@ -4,7 +4,7 @@
 // Esta vista não fala com a base de dados nem decide regras. Pede tudo à fachada `Backoffice`
 // (src/application/backoffice), que confirma permissões e regras do domínio antes de chamar os
 // repositórios. Aqui só se desenha HTML e se reage a cliques.
-import { $, esc, kz, dots, ic, LOGO, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, safeHref, busy, rerender } from '../lib';
+import { $, esc, kz, dots, ic, LOGO, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, safeHref, busy, rerender, go } from '../lib';
 import { register } from '../registry';
 import { S, loadCfg } from '../state';
 import { backoffice } from '../../infrastructure/composicao/backoffice';
@@ -429,7 +429,7 @@ export const adminActions = {
     if (await tentar(() => b.suspenderPerfilDenunciado(d.id), 'Perfil suspenso e denúncia arquivada')) rerender();
   },
   async adProfile(d: Record<string, string>) {
-    try { const h = await bo().handleDoPerfil(d.id); if (h) location.hash = 'perfil-' + h; } catch (e) { toast(errText(e)); }
+    try { const h = await bo().handleDoPerfil(d.id); if (h) go('perfil-' + h); } catch (e) { toast(errText(e)); }
   },
 
   async payoutSet(d: Record<string, string>) {

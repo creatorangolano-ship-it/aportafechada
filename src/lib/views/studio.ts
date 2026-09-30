@@ -185,7 +185,7 @@ async function tabGanhos() {
 
 export async function affiliateBlock() {
   const { data: a } = await sb.rpc('affiliate_stats');
-  const link = `${location.origin}${location.pathname}?ref=${encodeURIComponent(me_().handle)}`;
+  const link = `${location.origin}/?ref=${encodeURIComponent(me_().handle)}`;
   const K: Record<string, string> = { subscription: 'Subscrição', post: 'Publicação', message: 'Mensagem', ticket: 'Bilhete', tip: 'Gorjeta' };
   return `<div class="pagehead"><div><h1>Afiliados</h1><p>Partilha o teu link. Ganhas ${S.cfg.affiliate_pct}% sobre subscrições, gorjetas e compras de quem se registar através dele, e sobre as vendas dos criadores que convidares.</p></div></div>
    <div class="box pad stack" style="margin-bottom:22px"><label class="flabel" for="affLink">O teu link</label><div class="row wrapf"><input class="inp" id="affLink" readonly value="${esc(link)}" style="flex:1;min-width:200px"><button class="btn pri" data-act="copy" data-v="${esc(link)}">${ic('copy')}Copiar</button></div></div>
@@ -273,7 +273,7 @@ export const studioActions = {
     if (error) return showErr('#apErr', errText(error));
     closeModal(); await refreshMe(); toast('Recurso enviado. Respondemos em até 48 horas.'); rerender();
   },
-  copyProfile() { copyText(`${location.origin}${location.pathname}?ref=${encodeURIComponent(me_().handle)}#perfil-${encodeURIComponent(me_().handle)}`); },
+  copyProfile() { copyText(`${location.origin}/perfil/${encodeURIComponent(me_().handle)}?ref=${encodeURIComponent(me_().handle)}`); },
   copy(d: Record<string, string>) { copyText(d.v); },
   saveDraft() { savePost('draft', $('[data-act=saveDraft]')); },
   async delPost(d: Record<string, string>) {

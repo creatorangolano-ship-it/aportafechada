@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
 import { SUPABASE_URL } from '@/infrastructure/config';
+import { SITE, NOME, DESCRICAO } from '@/lib/seo-textos';
 import './globals.css';
 
 /**
@@ -12,16 +13,19 @@ import './globals.css';
 const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], display: 'swap', variable: '--font-archivo' });
 
 /**
- * A app inteira é uma SPA que vive no browser: o estado está no Supabase e no
- * localStorage, e as páginas mudam por hash (#feed, #mensagens), não por URL.
- * Por isso não há `metadata` por rota — há um só, aqui.
+ * Metadados por omissão. Cada endereço (/sobre, /perfil/<nome>…) acrescenta os seus
+ * em `[[...rota]]/page.tsx`: título, descrição, canónico e imagem de partilha.
  */
 export const metadata: Metadata = {
-  title: 'A Porta Fechada',
-  description: 'Conteúdos exclusivos dos teus criadores favoritos, com pagamentos em kwanzas.',
+  metadataBase: new URL(SITE),
+  title: { default: NOME, template: '%s · ' + NOME },
+  description: DESCRICAO,
+  applicationName: NOME,
   manifest: '/manifest.webmanifest',
   icons: { icon: '/img/icon.svg' },
-  appleWebApp: { capable: true, title: 'A Porta Fechada' },
+  appleWebApp: { capable: true, title: NOME },
+  openGraph: { type: 'website', siteName: NOME, locale: 'pt_PT', title: NOME, description: DESCRICAO, images: [{ url: '/og.jpg', width: 1200, height: 630, alt: NOME }] },
+  twitter: { card: 'summary_large_image', title: NOME, description: DESCRICAO, images: ['/og.jpg'] },
 };
 
 export const viewport: Viewport = {
@@ -42,13 +46,13 @@ export const viewport: Viewport = {
  *
  * Aproveita para pré-carregar a imagem principal da página de entrada, mas só
  * quando é essa a página que vai aparecer: sem sessão guardada do Supabase
- * (`sb-*-auth-token`) e sem rota ou em #inicio/#registar. Quem já tem sessão
+ * (`sb-*-auth-token`) e no endereço / ou /registar. Quem já tem sessão
  * nunca vê essa imagem e não a descarrega.
  *
  * Se activares o CSP em `next.config.mjs`, este é o único script inline da
  * página e precisa do sha256 correspondente — recalcula-o sempre que o mudares.
  */
-const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.hash;if((!h||h==='#inicio'||h==='#registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';l.setAttribute('fetchpriority','high');document.head.appendChild(l)}}catch(e){}`;
+const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname;if((h==='/'||h==='/registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';l.setAttribute('fetchpriority','high');document.head.appendChild(l)}}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -65,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             modais e toasts vivem em #modalRoot e #toastRoot. */}
         <header className="top"><div className="wrap" id="hdr" /></header>
         {children}
-        <footer className="pub-foot" id="foot"><div className="wrap"><nav aria-label="Rodapé"><a href="#sobre">Sobre a plataforma</a><a href="#funciona">Como funciona</a><a href="#top" id="footTop10">Top 10</a><a href="#termos">Termos e condições</a><a href="#privacidade">Política de privacidade</a><a href="#regras">Regras</a><a href="#faq">Perguntas frequentes</a><a href="#dmca">Direitos de autor</a><a href="#contacto">Contacto</a><a href="#afiliados">Afiliados</a><a href="#blog">Blog</a><a href="#inicio" data-act="installApp">Instalar app</a></nav><div className="co">© <span id="yr">2026</span> A Porta Fechada · <b>Luanda, Angola</b></div></div></footer>
+        <footer className="pub-foot" id="foot"><div className="wrap"><nav aria-label="Rodapé"><a href="/sobre">Sobre a plataforma</a><a href="/funciona">Como funciona</a><a href="/top" id="footTop10">Top 10</a><a href="/termos">Termos e condições</a><a href="/privacidade">Política de privacidade</a><a href="/regras">Regras</a><a href="/faq">Perguntas frequentes</a><a href="/dmca">Direitos de autor</a><a href="/contacto">Contacto</a><a href="/afiliados">Afiliados</a><a href="/blog">Blog</a><a href="/" data-act="installApp">Instalar app</a></nav><div className="co">© <span id="yr">2026</span> A Porta Fechada · <b>Luanda, Angola</b></div></div></footer>
         <div id="floatTheme" />
         <nav className="tabbar" id="tabbar" />
         <div id="modalRoot" />

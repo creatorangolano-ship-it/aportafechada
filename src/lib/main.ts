@@ -2,6 +2,8 @@
 import { sb, $, $$, esc, kz, ic, LOGO, avatarOf, toast, closeModal, errText, ago, rerender, go, clearUrlCache } from './lib';
 import { S, loadMe, loadCfg, cfgReady, loadCounts, refreshMe, isStaff, type Notif } from './state';
 import { INFO, PUBLIC } from './rotas';
+import { caminhoDe, rotaDe, eRotaAntiga } from './caminhos';
+import { tituloDe } from './seo-textos';
 import { modulos, carregarTodos, preCarregar } from './modulos';
 import { action, register, handleSubmit, handleChange, handleInput } from './registry';
 import { observarTabelas } from './tabelas';
@@ -69,14 +71,38 @@ export function header(r: string): void {
 }
 
 /* ---------- Rotas ---------- */
-// Um link partilhado truncado ("#p-%", ou o WhatsApp a cortar a query) faz decodeURIComponent
-// lançar URIError. Sem este try, render() morria antes do seu próprio try e a app ficava
-// presa no "A carregar…" sem forma de recuperar sem recarregar a página.
-const route = (): string => {
-  let h = (location.hash || '').slice(1);
-  try { h = decodeURIComponent(h); } catch { h = ''; }
-  return h || 'inicio';
-};
+// A rota vem do caminho (/feed, /perfil/x). `rotaDe` já trata um caminho mal codificado
+// (um link truncado pelo WhatsApp) sem lançar: sem isso render() morria antes do seu try.
+const route = (): string => rotaDe(location.pathname) || 'inicio';
+
+/** Um endereço antigo com `#rota` (links partilhados antes da mudança, ou código que ainda
+ *  faz `location.hash = …`) passa ao caminho equivalente. Os fragmentos de autenticação do
+ *  Supabase (`#access_token=…`) não são tocados. */
+function converterHashAntigo(): boolean {
+  let h = location.hash.slice(1);
+  try { h = decodeURIComponent(h); } catch { return false; }
+  if (!h || !eRotaAntiga(h)) return false;
+  history.replaceState(null, '', caminhoDe(h) + location.search);
+  return true;
+}
+
+/** Os modelos escrevem os links como `#rota`; no documento passam a caminhos reais, que o
+ *  Google segue e que abrem bem num separador novo. Um observador trata tudo o que é
+ *  desenhado depois (páginas, cabeçalho, janelas). */
+function realizarLinks(raiz: Element): void {
+  const tratar = (a: Element) => {
+    const h = a.getAttribute('href')!.slice(1);
+    if (eRotaAntiga(h)) a.setAttribute('href', caminhoDe(h));
+  };
+  if (raiz.matches('a[href^="#"]')) tratar(raiz);
+  raiz.querySelectorAll('a[href^="#"]').forEach(tratar);
+}
+function observarLinks(): void {
+  realizarLinks(document.body);
+  new MutationObserver((ms) => {
+    for (const m of ms) for (const n of m.addedNodes) if (n instanceof Element) realizarLinks(n);
+  }).observe(document.body, { childList: true, subtree: true });
+}
 const home = (): string => (S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed');
 let renderSeq = 0;
 
@@ -98,7 +124,9 @@ const ROUTES: Record<string, Rota> = {
   info: { v: (r) => modulos.public().then((m) => m.vInfo(r)), cfg: true },
   feed: { v: () => modulos.fan().then((m) => m.vFeed()) },
   explorar: { v: () => modulos.fan().then((m) => m.vExplorar()) },
-  perfil: { v: (h) => modulos.fan().then((m) => m.vPerfil(h)) },
+  // Sem sessão, o perfil de um criador tem uma versão pública (é o que o Google e quem
+  // recebe o link vêem); com sessão, o perfil completo.
+  perfil: { v: (h) => (S.me ? modulos.fan().then((m) => m.vPerfil(h)) : modulos.public().then((m) => m.vPerfilPublico(h))) },
   p: { v: (id) => modulos.fan().then((m) => m.vPost(id)) },
   subscricoes: { v: () => modulos.fan().then((m) => m.vSubs()) },
   compras: { v: () => modulos.fan().then((m) => m.vCompras()) },
@@ -124,13 +152,16 @@ export async function render(keep = false): Promise<void> {
   S.cleanup.forEach((f) => { try { f(); } catch { /* ignorar */ } }); S.cleanup = [];
   S.menu = false; S.notifOpen = false;
 
-  if (S.recovery && r !== 'nova-senha') { history.replaceState(null, '', '#nova-senha'); r = 'nova-senha'; }
-  if (!S.me && !PUBLIC.includes(r)) { history.replaceState(null, '', '#inicio'); r = 'inicio'; toast('Entra ou cria conta para continuar.'); }
-  if ((S.me && !S.me.onboarded && !PUBLIC.includes(r)) || (S.me && !S.me.onboarded && ['inicio', 'confirmar'].includes(r))) { history.replaceState(null, '', '#registar'); r = 'registar'; }
-  if (S.me && S.me.onboarded && ['inicio', 'confirmar'].includes(r)) { history.replaceState(null, '', '#' + home()); r = home(); }
-  if (S.me && S.me.onboarded && r === 'registar' && (!S.reg?.upgrade || (S.creator && S.creator.status !== 'rejected'))) { history.replaceState(null, '', '#' + home()); r = home(); }
-  if (r === 'estudio' && !S.creator) { history.replaceState(null, '', '#conta'); r = 'conta'; }
-  if (r === 'admin' && !isStaff(S.me)) { history.replaceState(null, '', '#' + home()); r = home(); }
+  const para = (x: string) => { history.replaceState(null, '', caminhoDe(x)); r = x; };
+  const publica = (x: string) => PUBLIC.includes(x) || x.startsWith('perfil-');
+  if (S.recovery && r !== 'nova-senha') para('nova-senha');
+  if (!S.me && !publica(r)) { para('inicio'); toast('Entra ou cria conta para continuar.'); }
+  if ((S.me && !S.me.onboarded && !PUBLIC.includes(r)) || (S.me && !S.me.onboarded && ['inicio', 'confirmar'].includes(r))) para('registar');
+  if (S.me && S.me.onboarded && ['inicio', 'confirmar'].includes(r)) para(home());
+  if (S.me && S.me.onboarded && r === 'registar' && (!S.reg?.upgrade || (S.creator && S.creator.status !== 'rejected'))) para(home());
+  if (r === 'estudio' && !S.creator) para('conta');
+  if (r === 'admin' && !isStaff(S.me)) para(home());
+  document.title = tituloDe(r);
 
   header(r);
   const app = $('#app')!;
@@ -216,9 +247,26 @@ register({ actions: {
 } });
 
 /* ---------- Eventos ---------- */
+/** Um clique num link interno muda de página sem recarregar (como antes com o `#`).
+ *  Ctrl/⌘-clique, botão do meio e `target` continuam a abrir um separador novo. */
+function navegarPorLink(e: MouseEvent, t: HTMLElement): void {
+  const a = t.closest<HTMLAnchorElement>('a[href]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if ((a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+  const href = a.getAttribute('href')!;
+  let destino: string | null = null;
+  if (href.startsWith('#')) { const h = href.slice(1); if (eRotaAntiga(h)) destino = caminhoDe(h); }
+  else if (a.origin === location.origin && !/^\/(api|img|_next)(\/|$)/.test(a.pathname) && rotaDe(a.pathname)) destino = a.pathname + a.search;
+  if (destino === null) return;
+  e.preventDefault();
+  if (destino !== location.pathname + location.search) history.pushState(null, '', destino);
+  S.ptab = 'pub'; void render(false);
+}
+
 document.addEventListener('click', (e) => {
   const t = e.target as HTMLElement | null;
   if (!t) return;
+  navegarPorLink(e, t);
   const scrim = t.closest('[data-scrim]');
   if (scrim && t === scrim && !scrim.hasAttribute('data-lock')) { closeModal(); return; }
   if (S.menu && !t.closest('.me')) { S.menu = false; header(route()); }
@@ -299,12 +347,17 @@ document.addEventListener('submit', async (e) => {
 document.addEventListener('apf:render', (e) => { void render(!!(e as CustomEvent).detail?.keep); });
 document.addEventListener('apf:header', () => header(route()));
 document.addEventListener('apf:paid', () => header(route()));
-window.addEventListener('hashchange', () => { S.ptab = 'pub'; void render(false); });
+// Voltar/avançar do browser, e `go()` (que empurra o caminho e dispara este evento).
+window.addEventListener('popstate', () => { S.ptab = 'pub'; void render(false); });
+// Código ou links antigos que ainda mudam o `#`.
+window.addEventListener('hashchange', () => { if (converterHashAntigo()) { S.ptab = 'pub'; void render(false); } });
 
 /* ---------- Arranque ---------- */
 export async function boot(): Promise<void> {
   // Tabelas: no telemóvel cada linha vira um cartão (sem deslocação horizontal).
   observarTabelas(document.body);
+  converterHashAntigo();
+  observarLinks();
   const yr = $('#yr'); if (yr) yr.textContent = String(new Date().getFullYear());
   const u = new URL(location.href), ref = u.searchParams.get('ref');
   if (ref) {
@@ -324,11 +377,11 @@ export async function boot(): Promise<void> {
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'PASSWORD_RECOVERY') { S.recovery = true; await loadMe(); location.hash = 'nova-senha'; return; }
+    if (event === 'PASSWORD_RECOVERY') { S.recovery = true; await loadMe(); go('nova-senha'); return; }
     if (event === 'SIGNED_OUT') {
       stopRealtime(); clearUrlCache();
       S.me = null; S.creator = null; S.reg = null; S.thread = null; S.recovery = false;
-      location.hash = 'inicio'; await render(); return;
+      history.replaceState(null, '', '/'); await render(); return;
     }
     if (event === 'SIGNED_IN') {
       // Se outra conta entrou noutro separador deste navegador (a sessão é partilhada), esta página
