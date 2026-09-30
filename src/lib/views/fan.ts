@@ -222,7 +222,9 @@ const FA_SEL = 'id,handle,name,avatar_url,country,interests,follower_count,creat
  * de criadores).
  */
 async function fasVisiveis(limite: number, termo = ''): Promise<any[]> {
-  let q = sb.from('profiles').select(FA_SEL).eq('role', 'fan').eq('onboarded', true).is('banned_at', null)
+  // Um banimento temporário que já terminou deixa `banned_at` preenchido: conta como não banido.
+  let q = sb.from('profiles').select(FA_SEL).eq('role', 'fan').eq('onboarded', true)
+    .or(`banned_at.is.null,banned_until.lt.${new Date().toISOString()}`)
     .neq('id', me_().id).order('follower_count', { ascending: false }).order('created_at', { ascending: false }).limit(limite);
   if (termo) q = q.or(`name.ilike.%${termo}%,handle.ilike.%${termo}%`);
   const { data } = await q;
@@ -503,7 +505,10 @@ export const fanActions = {
     if (!S.me) return toast('Entra na tua conta para seguir.');
     if (!d.id) return;
     const on = d.on === '1';
-    const q = on ? sb.from('follows').delete().eq('follower_id', me_().id).eq('creator_id', d.id) : sb.from('follows').insert({ follower_id: me_().id, creator_id: d.id });
+    // `ignoreDuplicates`: dois toques seguidos (ou um botão desactualizado noutro separador)
+    // tentavam seguir duas vezes e o segundo pedido falhava com HTTP 409.
+    const q = on ? sb.from('follows').delete().eq('follower_id', me_().id).eq('creator_id', d.id)
+      : sb.from('follows').upsert({ follower_id: me_().id, creator_id: d.id }, { onConflict: 'follower_id,creator_id', ignoreDuplicates: true });
     const { error } = await q; if (error) return toast(errText(error));
     toast(on ? 'Deixaste de seguir' : 'A seguir'); rerender();
   },
@@ -517,7 +522,7 @@ export const fanActions = {
     el.classList.toggle('on', !on);
     if (n) n.textContent = dots(Number(before.replace(/\./g, '')) + (on ? -1 : 1));
     el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor');
-    const { error } = on ? await sb.from('post_likes').delete().eq('post_id', d.id).eq('user_id', me_().id) : await sb.from('post_likes').insert({ post_id: d.id, user_id: me_().id });
+    const { error } = on ? await sb.from('post_likes').delete().eq('post_id', d.id).eq('user_id', me_().id) : await sb.from('post_likes').upsert({ post_id: d.id, user_id: me_().id }, { onConflict: 'post_id,user_id', ignoreDuplicates: true });
     el.disabled = false;
     // Reverte o otimismo se a base de dados discordar, para o número não ficar mentindo.
     if (error) { el.classList.toggle('on', on); if (n) n.textContent = before; el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor'); toast(errText(error)); }
@@ -528,7 +533,7 @@ export const fanActions = {
     const on = el.classList.contains('on');
     el.disabled = true;
     el.classList.toggle('on', !on); el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor');
-    const { error } = on ? await sb.from('saves').delete().eq('post_id', d.id).eq('user_id', me_().id) : await sb.from('saves').insert({ post_id: d.id, user_id: me_().id });
+    const { error } = on ? await sb.from('saves').delete().eq('post_id', d.id).eq('user_id', me_().id) : await sb.from('saves').upsert({ post_id: d.id, user_id: me_().id }, { onConflict: 'post_id,user_id', ignoreDuplicates: true });
     el.disabled = false;
     if (error) { el.classList.toggle('on', on); el.querySelector('svg')?.setAttribute('fill', on ? 'none' : 'currentColor'); }
     toast(error ? errText(error) : on ? 'Removido dos guardados' : 'Guardado');

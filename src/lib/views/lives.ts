@@ -187,7 +187,7 @@ export const liveActions: Actions = {
     const on = d.on === '1';
     const { error } = on
       ? await sb.from('live_reminders').delete().eq('live_id', d.id).eq('user_id', S.me!.id)
-      : await sb.from('live_reminders').insert({ live_id: d.id, user_id: S.me!.id });
+      : await sb.from('live_reminders').upsert({ live_id: d.id, user_id: S.me!.id }, { onConflict: 'live_id,user_id', ignoreDuplicates: true });
     toast(error ? errText(error) : on ? 'Lembrete removido' : 'Avisamos-te quando começar'); rerender();
   },
   async liveStart(d) {
