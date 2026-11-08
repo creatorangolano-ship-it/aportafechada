@@ -110,10 +110,12 @@ function draw(): void {
 
   const needsAmount = p.amount == null;
   const methods = pagamentos().metodos(p.kind).map((m) => [m, ...METODO_UI[m]] as const);
-  modal(`<div><h3>${esc(p.title || '')}</h3>${p.sub ? `<p class="small muted" style="margin-top:4px">${esc(p.sub)}</p>` : ''}</div>
-   ${needsAmount ? '' : `<div class="sumline"><span>Total</span><b style="color:var(--ink);font-size:18px" class="num">${kz(p.amount)}${p.recurring ? '<span class="small muted" style="font-weight:500">/mês</span>' : ''}</b></div>`}
+  const curto = (p.amount || 0) > bal;
+  const desc = (v: Method): string => v === 'wallet' ? `Disponível: ${kz(bal)}${curto ? ' · saldo insuficiente' : ''}` : v === 'mcx' ? 'Aprovas na app do telemóvel' : v === 'reference' ? 'Pagas no ATM ou no internet banking' : `Cobrado em dólares (≈ ${usdOf(p.amount)})`;
+  modal(`<div class="payhd"><span class="eyebrow">${ic('shield')}Pagamento seguro</span><h3>${esc(p.title || '')}</h3>${p.sub ? `<p class="small muted">${esc(p.sub)}</p>` : ''}</div>
+   ${needsAmount ? '' : `<div class="paytotal"><span>Total a pagar</span><b class="num">${kz(p.amount)}${p.recurring ? '<small>/mês</small>' : ''}</b></div>`}
    <form id="payForm" class="stack" novalidate>
-    <div class="stack" style="gap:8px" role="radiogroup" aria-label="Método de pagamento">${methods.map(([v, l, i]) => `<label class="opt"><input type="radio" name="pm" value="${v}" ${p.method === v ? 'checked' : ''}><span style="flex:1"><b>${l}</b><span>${v === 'wallet' ? 'Disponível: ' + kz(bal) : v === 'mcx' ? 'Aprovas na app do telemóvel' : v === 'reference' ? 'Pagas no ATM ou no internet banking' : `Cobrado em dólares (≈ ${usdOf(p.amount)})`}</span></span>${ic(i === 'phone' && v === 'wallet' ? 'wallet' : i, 'style="color:var(--muted)"')}</label>`).join('')}</div>
+    <div class="stack" style="gap:8px" role="radiogroup" aria-label="Como queres pagar?"><span class="paylbl">Como queres pagar?</span>${methods.map(([v, l, i]) => `<label class="opt payopt${v === 'wallet' && curto ? ' fraco' : ''}"><input type="radio" name="pm" value="${v}" ${p.method === v ? 'checked' : ''}><span class="pico">${ic(i)}</span><span style="flex:1"><b>${l}</b><span>${desc(v)}</span></span><span class="pradio" aria-hidden="true"></span></label>`).join('')}</div>
     ${p.method === 'mcx' ? `<div class="field"><label for="payPhone">Número Multicaixa Express</label><input id="payPhone" inputmode="numeric" autocomplete="tel" placeholder="9XX XXX XXX" value="${esc(p.phone || '')}"></div>` : ''}
     ${p.method === 'wallet' && bal < (p.amount || 0) ? `<div class="aside">${ic('info')}<span>Saldo insuficiente. <a href="#carteira" data-act="closeModal">Carrega a carteira</a> ou escolhe outro método.</span></div>` : ''}
     <span class="err" id="payErr" hidden></span>

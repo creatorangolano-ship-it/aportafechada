@@ -14,6 +14,11 @@ const nextConfig = {
   // Cabeçalhos de segurança. Vivem só aqui: a Vercel aplica o `headers()` do
   // Next, e defini-los também num `vercel.json` seria duplicação — ninguém
   // saberia qual dos dois se aplica.
+  // O Top 10 saiu do site: links antigos (Google, partilhas) vão para o Explorar.
+  async redirects() {
+    return [{ source: '/top', destination: '/explorar', permanent: true }];
+  },
+
   async headers() {
     const common = {
       'X-Frame-Options': 'DENY',

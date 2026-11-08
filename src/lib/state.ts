@@ -91,6 +91,7 @@ export type AppState = {
   cfg: Cfg;
   unreadNotifs: number;
   unreadMsgs: number;
+  liveAgora: boolean;  // há alguém em live neste momento (o separador Lives pulsa)
   notifs: Notif[];
   notifOpen: boolean;
   menu: boolean;
@@ -155,6 +156,7 @@ export const S: AppState = {
   cfg: { fee_pct: 20, affiliate_pct: 10, min_payout: 5000, min_tip: 200, min_topup: 1000, min_price: 500, reference_days: 3, usd_rate: 920 },
   unreadNotifs: 0,
   unreadMsgs: 0,
+  liveAgora: false,
   notifs: [],
   notifOpen: false,
   menu: false,
@@ -301,7 +303,7 @@ export async function refreshMe(): Promise<void> {
 export async function loadCounts(): Promise<void> {
   if (!S.me) return;
   const uid = S.me.id;
-  const [{ count }, { data: th }] = await Promise.all([
+  const [{ count }, { data: th }, { count: emLive }] = await Promise.all([
     sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null),
     // Traz só as conversas com atividade recente. Sem limite isto descarrega a vida toda do
     // utilizador para contar não-lidas; a partir de MSG_COUNT_CAP a contagem pode ficar
@@ -309,7 +311,9 @@ export async function loadCounts(): Promise<void> {
     sb.from('threads').select('id,fan_id,creator_id,last_message_at,fan_read_at,creator_read_at')
       .or(`fan_id.eq.${uid},creator_id.eq.${uid}`)
       .order('last_message_at', { ascending: false }).limit(MSG_COUNT_CAP),
+    sb.from('lives').select('id', { count: 'exact', head: true }).eq('status', 'live'),
   ]);
+  S.liveAgora = (emLive || 0) > 0;
   S.unreadNotifs = count || 0;
   S.unreadMsgs = (th || []).filter((t: any) =>
     new Date(t.last_message_at) > new Date(t.fan_id === uid ? t.fan_read_at : t.creator_read_at),

@@ -12,7 +12,7 @@ import sharp from 'sharp';
  */
 export const dynamic = 'force-static';
 
-const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#fff"/><path d="M20 14.5 38.6 11A3 3 0 0 1 42 14v36a3 3 0 0 1-3.4 3L20 49.5A3 3 0 0 1 17.5 46.5V17.5A3 3 0 0 1 20 14.5Z" fill="#D0103C"/><path d="M47 13v38" stroke="#D0103C" stroke-width="3" stroke-linecap="round"/><circle cx="34" cy="32" r="2.6" fill="#fff"/></svg>`;
+const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><rect width="160" height="160" rx="36" fill="#fff"/><g transform="translate(20 7)"><g fill="#D0103C"><polygon points="8,125 112,134 88,122 25,122"/><polygon points="25,28 82,12 82,122 25,122"/><polygon points="85,12 90,15 90,122 85,122"/></g><g fill="#fff"><circle cx="67" cy="72" r="4.5"/><polygon points="65,75 69,75 70.5,87 63.5,87"/></g></g></svg>`;
 
 export async function GET() {
   const foto = await readFile(join(process.cwd(), 'public/img/hero.jpg'));

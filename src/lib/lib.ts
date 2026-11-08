@@ -94,6 +94,8 @@ export function hhmm(d: string | Date | null | undefined): string {
 
 const I: Record<string, string> = {
   compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>',
+  img: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 16-5-5-9 8.5"/>',
+  video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10.5 5-3v9l-5-3Z"/>',
   chat: '<path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12Z"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/>',
@@ -149,7 +151,13 @@ export const GOOGLE =
   '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
 
 export const LOGO = (w = 26, h = 32): string =>
-  `<svg width="${w}" height="${h}" viewBox="0 0 26 32" aria-hidden="true"><path d="M2 3.2 18.6.1A2.5 2.5 0 0 1 21.5 2.6v26.8a2.5 2.5 0 0 1-2.9 2.5L2 28.8A2.5 2.5 0 0 1 0 26.3V5.7a2.5 2.5 0 0 1 2-2.5Z" style="fill:var(--acc)"/><path d="M24.5 3v26" style="stroke:var(--ink)" stroke-width="2.2" stroke-linecap="round"/><circle cx="14.8" cy="16" r="1.9" fill="#fff"/></svg>`;
+  // Ícone oficial (identidade 2026-11): porta em perspectiva, batente, fechadura e sombra no chão.
+  `<svg width="${w}" height="${h}" viewBox="4 8 112 130" aria-hidden="true"><g style="fill:var(--acc)"><polygon points="8,125 112,134 88,122 25,122"/><polygon points="25,28 82,12 82,122 25,122"/><polygon points="85,12 90,15 90,122 85,122"/></g><g fill="#fff"><circle cx="67" cy="72" r="4.5"/><polygon points="65,75 69,75 70.5,87 63.5,87"/></g></svg>`;
+
+/** A porta do logótipo na cor do texto (`currentColor`), com a fechadura recortada (transparente).
+ *  Usada nos conteúdos bloqueados, onde o logótipo vermelho não se lia sobre a imagem desfocada. */
+export const PORTA = (s = 40): string =>
+  `<svg width="${s}" height="${Math.round(s * 130 / 112)}" viewBox="4 8 112 130" aria-hidden="true"><mask id="pfh"><rect x="0" y="0" width="120" height="140" fill="#fff"/><circle cx="67" cy="72" r="4.5" fill="#000"/><polygon points="65,75 69,75 70.5,87 63.5,87" fill="#000"/></mask><g fill="currentColor" mask="url(#pfh)"><polygon points="8,125 112,134 88,122 25,122"/><polygon points="25,28 82,12 82,122 25,122"/><polygon points="85,12 90,15 90,122 85,122"/></g></svg>`;
 
 export function avatarOf(p: Partial<Profile> | null | undefined, cls = ''): string {
   if (p?.avatar_url) return `<span class="avatar ${cls}"><img loading="lazy" decoding="async" src="${esc(p.avatar_url)}" alt=""></span>`;

@@ -1,9 +1,11 @@
 
 :root{
   color-scheme:light;
-  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F6F4F5; --surface-3:#EFECEE;
-  --ink:#161014; --text:#2A2226; --muted:#6E6368; --line:#E7E2E4; --line-2:#D6CED2;
-  --acc:#D0103C; --acc-hover:#AE0C32; --acc-ink:#FFFFFF; --acc-soft:#FBE9ED; --acc-text:#B20E35;
+  /* Identidade 2026-11: fundo branco, preto #111111, vermelho #D0103C, rosa e dourado. */
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F4F4F5; --surface-3:#EBEBED;
+  --ink:#111111; --text:#2A2426; --muted:#6B6264; --line:#E4E4E7; --line-2:#D4D4D8;
+  --acc:#D0103C; --acc-hover:#AE0C32; --acc-ink:#FFFFFF; --acc-soft:#F6D9DF; --acc-text:#B20E35;
+  --gold:#C8A15A;
   --ok:#17804A; --ok-bg:#E3F3E9; --warn:#96560A; --warn-bg:#FBEFD9; --info:#1F58B8; --info-bg:#E5EDFA;
   --scrim:rgba(18,10,14,.55);
   --font:var(--font-archivo),"Archivo",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -15,12 +17,13 @@
   --acc:#EE2F5B; --acc-hover:#FF4A72; --acc-ink:#FFFFFF; --acc-soft:#351520; --acc-text:#FF7C99;
   --ok:#4DC381; --ok-bg:#122A1C; --warn:#EDB25B; --warn-bg:#30230E; --info:#83AEFF; --info-bg:#15233C;
   --scrim:rgba(0,0,0,.65);
+  --gold:#D6B271;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{background:var(--bg)}
 body{color:var(--text);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-variation-settings:"wdth" 100}
-h1,h2,h3,h4{color:var(--ink);margin:0;line-height:1.1;text-wrap:balance;font-weight:800;letter-spacing:-.02em}
+h1,h2,h3,h4{color:var(--ink);margin:0;line-height:1.1;text-wrap:balance;font-weight:800;letter-spacing:-.03em}
 h1{font-size:clamp(28px,3.6vw,38px);font-variation-settings:"wdth" 88}
 h2{font-size:clamp(22px,2.4vw,26px);font-variation-settings:"wdth" 92}
 h3{font-size:17px;font-weight:700;letter-spacing:-.01em}
@@ -617,8 +620,8 @@ body.console .cstop{padding-right:52px}
    com sombra leve; cabeçalho com avatar de 40 px; média de ponta a ponta; barra
    de acções com botões iguais. Abaixo de 1100 px sai a coluna esquerda, abaixo
    de 900 px fica só o feed. */
-:root{--feed-bg:#F0F2F5}
-:root[data-theme="dark"]{--feed-bg:#0B0A0B}
+:root{--feed-bg:var(--bg)}   /* o mesmo creme da marca do cabeçalho e das outras páginas */
+:root[data-theme="dark"]{--feed-bg:var(--bg)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .avatar.md{width:40px;height:40px;font-size:15px}
 
@@ -654,6 +657,25 @@ body[data-route="feed"] .top{background:var(--bg)}
 .post .pf button .num{font-weight:500;font-size:14px}
 .post .pf button.ico{flex:none;width:40px;padding:6px}
 .post .pf .ic{width:20px;height:20px}
+/* Cartão como na concorrência: «⋯» no canto, selo verificado, cadeado discreto,
+   barra de acções com «guardar» à direita e a linha dos gostos por baixo. */
+.post .pok{display:inline-flex;vertical-align:-2px;margin-left:4px;color:var(--acc)}
+.post .pok .ic{width:15px;height:15px}
+.post .pmeta{display:flex;align-items:center;gap:6px}
+.post .plk{display:inline-flex;color:var(--muted)}
+.post .plk .ic{width:13px;height:13px}
+.pmenu{flex:none;width:36px;height:36px;border:0;border-radius:50%;background:none;display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--muted)}
+.pmenu i{width:4px;height:4px;border-radius:50%;background:currentColor}
+.pmenu:hover{background:var(--surface-2);color:var(--ink)}
+.post .media:not(.multi):not(.locked){background:#000}
+.post .media:not(.multi):not(.locked) img,.post .media:not(.multi):not(.locked) video{object-fit:contain}
+.post .pf{border-top:0;margin:6px 8px 0;gap:2px}
+.post .pf button{flex:none;font-size:14px;font-weight:600;padding:6px 10px}
+.post .pf .psave{margin-left:auto;width:40px;padding:6px}
+.post .pstats{padding:0 16px 14px;font-size:14px;color:var(--ink)}
+.post .pstats .num{font-weight:700}
+.xfeed{display:flex;flex-direction:column;gap:16px}
+body[data-route="explorar"] .top{background:var(--bg)}
 
 @media (max-width:1100px){
   .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(0,680px) minmax(260px,340px);justify-content:center;gap:24px}
@@ -663,7 +685,10 @@ body[data-route="feed"] .top{background:var(--bg)}
   .feedwrap.has-left>.feedcol,.feedwrap.has-left>.rail2{grid-row:2}
 }
 @media (max-width:900px){
-  body[data-route="feed"] #app{padding-inline:0}
+  body[data-route="feed"] #app,body[data-route="explorar"] #app,body[data-route="guardados"] #app{padding-inline:0}
+  .feedcol>.pagehead{margin-inline:12px}
+  .feedcol>.search,.feedcol>.chips{margin-inline:12px}
+  .xfeed{gap:8px}
   .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(0,680px);gap:12px;padding-top:8px}
   .feedwrap>.rail2{grid-column:1;grid-row:auto;position:static;max-width:none;justify-self:stretch;padding-inline:12px}
   .feedwrap>.feedcol{gap:8px}
@@ -684,7 +709,7 @@ body[data-route="feed"] .top{background:var(--bg)}
    No feed, todas as publicações têm o mesmo formato (--post-ratio), com a foto ou o vídeo
    a preencher. Clicar abre o visualizador (lib.ts: lightbox), onde cada ficheiro aparece
    inteiro no formato real, entre 9:16 e 16:9. Mudar o formato do feed = mudar só esta variável. */
-:root{--post-ratio:1/1}
+:root{--post-ratio:4/3}   /* «meio quadrado», como na concorrência */
 .post .media,.post .media.locked,.post .media.multi{aspect-ratio:var(--post-ratio)!important;max-height:none}
 .post .media img,.post .media video,.post .media.multi img,.post .media.multi video{object-fit:cover;width:100%;height:100%}
 .post .media .mtile{display:block;position:relative;width:100%;height:100%;padding:0;border:0;background:#000;cursor:zoom-in}
@@ -832,3 +857,332 @@ body[data-route="feed"] .top{background:var(--bg)}
 .faprof-num b{color:var(--ink)}
 .faprof-num .ic{width:15px;height:15px;vertical-align:-2px;margin-right:3px}
 @media (max-width:560px){.faprof-top .btn{width:100%}}
+
+/* ---------- Telemóvel: alvos de toque e botão do tema ----------
+   O botão do tema nas páginas de entrada ficava fixo por cima dos campos ao
+   deslocar; passa a ficar no topo da página. Os links do rodapé e o
+   «Esqueceu a palavra-passe?» tinham ~20 px de altura, difíceis de acertar
+   com o dedo; ficam com pelo menos 40 px. */
+@media (max-width:900px){
+  .float-theme:not(.csbell){position:absolute}
+  .pub-foot nav{gap:0 4px}
+  .pub-foot nav a{display:inline-flex;align-items:center;min-height:40px;padding:0 6px}
+  .stack > .btn.link{min-height:40px}
+}
+
+/* ---------- Roda de criadores (topo do início e do Explorar) ---------- */
+.roda{margin-bottom:18px}
+.roda-tit{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.roda-lista{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
+.roda-lista::-webkit-scrollbar{display:none}
+.roda-it{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;flex:none;width:68px}
+.roda-anel{padding:2px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--gold) 55%,var(--acc-soft));transition:transform .15s}
+.roda-it:hover .roda-anel{transform:scale(1.05)}
+.roda-anel .avatar{display:grid;width:60px;height:60px;font-size:20px;border:2px solid var(--bg)}
+.roda-it.live .roda-anel{background:var(--acc)}
+.roda-live{position:absolute;top:52px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;border:2px solid var(--bg)}
+.roda-nm{font-size:12px;font-weight:600;color:var(--ink);max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Conteúdo bloqueado: a porta dourada ---------- */
+.porta{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:14px;background:rgba(17,17,17,.78);border:1px solid rgba(200,161,90,.55);color:var(--gold);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.textlock .porta{background:var(--ink);width:52px;height:52px}
+.post .media .lock{gap:6px;background:linear-gradient(180deg,rgba(17,17,17,.35),rgba(17,17,17,.7))}
+.post .media .lock .lk-k{margin-top:6px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.post .media .lock b{font-size:18px}
+.post .media .lock .small{color:rgba(255,255,255,.75)}
+.post .media.locked>.btn{border-radius:999px;box-shadow:0 10px 24px rgba(208,16,60,.35)}
+
+/* ---------- Explorar por conteúdos ---------- */
+.xwrap{display:block}
+.xgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.xt{position:relative;display:block;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--surface-3);text-decoration:none;color:#fff}
+.xt img,.xt video{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s}
+.xt:hover img,.xt:hover video{transform:scale(1.04)}
+.xt img.desf{filter:blur(18px) saturate(.75) brightness(.8);transform:scale(1.2)}
+.xt-vazio{position:absolute;inset:0;background:linear-gradient(135deg,#2a1218,#111)}
+.xt::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none}
+.xt-lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:1}
+.xt-lock .porta{width:44px;height:44px;border-radius:12px}
+.xt-lock b{font-size:13px;font-weight:800;background:rgba(17,17,17,.7);padding:3px 10px;border-radius:999px;color:var(--gold)}
+.xt-play,.xt-n{position:absolute;top:8px;right:8px;z-index:1;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;background:rgba(0,0,0,.55);border-radius:999px;padding:3px 8px}
+.xt-play .ic,.xt-n .ic{width:14px;height:14px}
+.xt-play+.xt-n{top:36px}
+.xt-au{position:absolute;left:8px;right:8px;bottom:8px;z-index:2;display:flex;align-items:center;gap:6px;min-width:0}
+.xt-au b{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.xt-au .avatar{border:1.5px solid #fff}
+@media (max-width:700px){.xgrid{grid-template-columns:repeat(3,1fr);gap:3px}.xt{border-radius:4px}.xt-au b{display:none}.xt-lock .porta{width:36px;height:36px}}
+
+/* ---------- Janela de pagamento ---------- */
+.payhd{display:flex;flex-direction:column;gap:4px;padding-right:28px}
+.payhd .eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.payhd .eyebrow .ic{width:14px;height:14px}
+.paytotal{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:14px;background:var(--ink);color:#fff}
+.paytotal span{font-size:13px;font-weight:600;opacity:.75}
+.paytotal b{font-size:26px;font-weight:800;color:var(--gold);letter-spacing:-.02em}
+.paytotal small{font-size:13px;font-weight:600;opacity:.8;margin-left:2px}
+.paylbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.payopt{align-items:center;border-radius:14px;position:relative}
+.payopt input{position:absolute;opacity:0;pointer-events:none}
+.payopt .pico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--surface-2);color:var(--ink);flex:none}
+.payopt .pico .ic{width:20px;height:20px}
+.payopt .pradio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line-2);flex:none}
+.payopt:has(input:checked) .pradio{border-color:var(--acc);box-shadow:inset 0 0 0 4px var(--surface),inset 0 0 0 10px var(--acc)}
+.payopt:has(input:checked) .pico{background:var(--acc-soft);color:var(--acc-text)}
+.payopt:has(input:focus-visible){outline:2px solid var(--acc);outline-offset:2px}
+.payopt.fraco span span{color:var(--warn)}
+#payBtn{border-radius:999px}
+
+/* ---------- Estados: anéis ---------- */
+.roda-it{background:none;border:0;padding:0;font:inherit;cursor:pointer}
+button.roda-anel{border:0;cursor:pointer;display:block}
+.roda-anel.visto{background:var(--line-2)}
+.roda-anel.vazio{background:transparent;padding:2px;border:2px dashed var(--line-2)}
+.roda-mais{position:absolute;top:44px;left:46px;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;border:2px solid var(--bg);display:grid;place-items:center;cursor:pointer;padding:0}
+.roda-mais .ic{width:12px;height:12px;stroke-width:3}
+
+/* ---------- Estados: visualizador ---------- */
+body.sv-aberto{overflow:hidden}
+.sv{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center}
+.sv-palco{position:relative;width:min(100vw,calc(100dvh * 9 / 16));height:100dvh;max-height:100dvh;background:#111;overflow:hidden}
+@media (min-width:700px){.sv-palco{height:min(92dvh,860px);border-radius:16px}}
+.sv-palco>img,.sv-palco>video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.sv-barras{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:10px;right:10px;z-index:3;display:flex;gap:4px}
+.sv-barras span{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+.sv-barras i{display:block;height:100%;background:#fff}
+.sv-top{position:absolute;top:calc(22px + env(safe-area-inset-top,0px));left:10px;right:6px;z-index:3;display:flex;align-items:center;gap:8px;color:#fff}
+.sv-top a{display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;min-width:0}
+.sv-top b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.sv-t{font-size:12px;opacity:.8;margin-right:auto}
+.sv-b{background:none;border:0;color:#fff;width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
+.sv-b .ic{width:22px;height:22px}
+.sv-palco::before{content:"";position:absolute;inset:0 0 auto 0;height:110px;background:linear-gradient(rgba(0,0,0,.55),transparent);z-index:2;pointer-events:none}
+.sv-leg{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:40px 18px calc(24px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;font-size:15px;text-align:center}
+.sv-z{position:absolute;top:80px;bottom:80px;z-index:2;background:none;border:0;cursor:pointer}
+.sv-z.ant{left:0;width:35%}.sv-z.seg{right:0;width:65%}
+
+/* ---------- Publicar estado ---------- */
+.upbox{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:130px;border:2px dashed var(--line-2);border-radius:14px;color:var(--muted);cursor:pointer;text-align:center;padding:16px;font-weight:600}
+.upbox:hover{border-color:var(--acc);color:var(--acc-text)}
+.upbox .ic{width:28px;height:28px}
+
+/* ---------- Sugestões e rodapé da coluna ---------- */
+.sughd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sughd h4{display:flex;align-items:center;gap:6px;margin:0}
+.sughd h4 .ic{width:16px;height:16px;color:var(--acc)}
+.tbtn.sm{width:32px;height:32px}
+.sugcard{height:118px}
+.sugcard .avatar.sugav{width:64px;height:64px;font-size:22px;border:3px solid #fff;bottom:12px}
+.sugmeta{left:88px;bottom:22px}
+.sugmeta b{display:flex;align-items:center;gap:5px;font-size:15px}
+.sugmeta .sugok{display:inline-flex;color:var(--gold)}
+.sugok .ic{width:15px;height:15px}
+.railfoot{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted);margin-top:4px}
+.railfoot a{text-decoration:none}.railfoot a:hover{color:var(--ink)}
+.railfoot span{width:100%;margin-top:4px}
+
+/* ---------- Faixa de sugestões (Explorar e Início no telemóvel) ---------- */
+.sugx{margin-bottom:20px;min-width:0}
+.sugx-lista{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;scrollbar-width:thin}
+.sugx-lista .sugcard{flex:none;width:250px;scroll-snap-align:start}
+.sugnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sugmeta b{min-width:0}
+.feedcol .sugx{margin-bottom:0}
+.so-tlm{display:none}
+@media (max-width:980px){.so-tlm{display:block}.rail2 #sugBox{display:none}}
+
+/* Cartões de sugestão: fundo sempre escuro (com ou sem capa), para o texto branco se ler
+   também no modo claro. */
+.sugcard,.sugcard.fa{background:linear-gradient(135deg,#3a1520,#141012)}
+.sugcard.fa .sugbg{background:radial-gradient(circle at 85% 0%,rgba(208,16,60,.45),transparent 60%)}
+
+@media (max-width:900px){.feedcol>.search{margin-inline:12px}}
+
+/* Coluna esquerda do Início, Explorar e Guardados: menu e anúncio. */
+.lcol{grid-column:1;position:sticky;top:80px;justify-self:end;width:100%;max-width:280px;display:flex;flex-direction:column;gap:20px}
+@media (max-height:860px){.lcol{position:static}}
+.lnav{display:flex;flex-direction:column;gap:2px}
+.lnav a{display:flex;align-items:center;gap:16px;padding:10px 14px;border-radius:10px;text-decoration:none;color:var(--ink);font-size:15px}
+.lnav a:hover{background:var(--surface-2)}
+.lnav a.on{background:var(--surface-2);font-weight:600}
+.lnav a .ic{width:22px;height:22px}
+.lnav a .count{margin-left:auto}
+.lcol>.pbanner-side{max-width:260px}
+.lcol>.pbanner-side.html{margin-left:0}
+@media (max-width:1100px){.lcol{display:none}}
+
+/* Ecrã inteiro (como na concorrência): cabeçalho de ponta a ponta e, no Início,
+   Explorar e Guardados, três colunas largas — menu/anúncio, publicações, sugestões. */
+body.authed:not(.console) .top .wrap{max-width:none;padding-inline:clamp(16px,2.5vw,40px)}
+body.authed .top .nav{margin-inline:auto}
+@media (min-width:901px){body[data-route="feed"] #app,body[data-route="explorar"] #app,body[data-route="guardados"] #app{max-width:none;padding-inline:clamp(16px,2.5vw,40px)}}
+@media (min-width:1101px){
+  .feedwrap,.feedwrap.has-left{grid-template-columns:minmax(200px,250px) minmax(0,700px) minmax(280px,400px);justify-content:center;gap:clamp(20px,2vw,40px)}
+  .feedwrap>.rail2{max-width:400px;justify-self:stretch}
+  .lcol{justify-self:stretch;max-width:none}
+  .pbanner-col{justify-self:stretch;max-width:none}
+  .lcol>.pbanner-side{max-width:250px}
+}
+/* Ecrãs médios: as laterais encolhem primeiro, para as publicações não ficarem apertadas. */
+@media (min-width:1101px) and (max-width:1500px){
+  .feedwrap,.feedwrap.has-left{grid-template-columns:200px minmax(0,1fr) 300px}
+  .lcol>.pbanner-side{max-width:200px}
+}
+
+/* Há alguém em live: o separador Lives fica vermelho e pulsa (no cabeçalho e na barra de baixo). */
+.nav a.aovivo,#tabbar a.aovivo{color:var(--acc-text)}
+.nav a.aovivo .ic,#tabbar a.aovivo .ic{border-radius:50%;animation:lives-pulso 1.6s ease-out infinite}
+@keyframes lives-pulso{
+  0%{box-shadow:0 0 0 0 rgba(208,16,60,.6);transform:scale(1)}
+  50%{transform:scale(1.12)}
+  70%{box-shadow:0 0 0 9px rgba(208,16,60,0)}
+  100%{box-shadow:0 0 0 0 rgba(208,16,60,0);transform:scale(1)}
+}
+@media (prefers-reduced-motion:reduce){.nav a.aovivo .ic,#tabbar a.aovivo .ic{animation:none}}
+
+/* Fundo branco (modo claro): os cartões separam-se do fundo por uma borda fina, como na concorrência. */
+:root:not([data-theme="dark"]) .post{box-shadow:none;border:1px solid var(--line)}
+@media (max-width:900px){:root:not([data-theme="dark"]) .post{border-inline:0;border-radius:0}}
+
+/* Caixa «Em que estás a pensar?» no próprio perfil. */
+.compose{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;padding:14px 16px;margin-bottom:16px}
+.compose-in{height:42px;border-radius:999px;border:0;background:var(--surface-2);color:var(--muted);text-align:left;padding:0 18px;font:inherit;font-size:15px;cursor:pointer}
+.compose-in:hover{background:var(--surface-3)}
+.compose-acts{grid-column:1/-1;display:flex;border-top:1px solid var(--line);padding-top:8px}
+.compose-acts .btn{flex:1;justify-content:center;color:var(--muted)}
+.faprof-pub{margin-top:16px}
+/* Perfil sem capa: um degradê suave da marca em vez do cinzento liso. */
+.cover:not([style*="url("]){background:linear-gradient(120deg,var(--acc-soft),var(--surface-2) 70%)}
+:root[data-theme="dark"] .cover:not([style*="url("]){background:linear-gradient(120deg,#3a0f1c,var(--surface-2) 70%)}
+
+/* Barra de pesquisa ao lado do logótipo. */
+.hsearch{flex:0 1 280px;min-width:160px;display:flex;align-items:center;gap:8px;height:40px;margin-left:18px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.hsearch:focus-within{border-color:var(--ink);background:var(--surface)}
+.hsearch .ic{width:18px;height:18px;flex:none}
+.hsearch input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-size:14px;color:var(--ink)}
+@media (max-width:1380px) and (min-width:901px){.nav a>span:not(.count){display:none}.nav a{padding:0 12px}}
+@media (max-width:900px){.hsearch{display:none}}
+@media (min-width:901px){body.authed .top .brand{margin-right:0}}
+
+/* Janela «Criar publicação» (perfil do criador). */
+.cp-tt{text-align:center;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.cp-acc{height:30px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink);font:inherit;font-size:13px;font-weight:600}
+.cp-txt{min-height:120px;border:0;outline:none;resize:vertical;background:none;font:inherit;font-size:18px;color:var(--ink);padding:4px 0}
+.cp-prev{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.cp-it{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#000}
+.cp-it img,.cp-it video{width:100%;height:100%;object-fit:cover;display:block}
+.cp-it button{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;display:grid;place-items:center;cursor:pointer}
+.cp-it button .ic{width:14px;height:14px}
+.cp-add{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;color:var(--ink);font-weight:600}
+.cp-add:hover{background:var(--surface-2)}
+.cp-add .ic{color:#2E9E5B}
+
+/* Perfil: grelha de Fotos / Vídeos a toda a largura, quadrados sem barras pretas. */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.gtile{position:relative;display:block;aspect-ratio:1;overflow:hidden;border-radius:8px;background:var(--surface-3)}
+.gtile img,.gtile video{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.gtile:hover img,.gtile:hover video{transform:scale(1.03)}
+.gtile img.desf{filter:blur(18px) saturate(.7);transform:scale(1.2)}
+.gtile-lock,.gtile-play{position:absolute;inset:0;display:grid;place-items:center;color:#fff;pointer-events:none}
+.gtile-lock{background:rgba(16,10,14,.35)}
+.gtile-lock .ic,.gtile-play .ic{width:30px;height:30px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+@media (max-width:600px){.mgrid{grid-template-columns:repeat(3,1fr);gap:2px}.gtile{border-radius:0}}
+.profwrap.so .profmain{width:100%;max-width:none}
+
+/* Perfil (como na concorrência): separadores de largura igual com ícone e número,
+   caixa «Sobre» com ícones e o rodapé por baixo, «Seguir» ao lado do nome. */
+.tabs.ptabs{display:flex}
+.tabs.ptabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px}
+.tabs.ptabs .ic{width:17px;height:17px}
+@media (max-width:600px){.tabs.ptabs button{font-size:13px;gap:5px;padding-inline:4px}.tabs.ptabs .ic{width:15px;height:15px}}
+.sobre{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.sobre-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;font-size:14px;color:var(--ink)}
+.sobre-l li{display:flex;align-items:center;gap:10px}
+.sobre-l .ic{width:17px;height:17px;color:var(--muted);flex:none}
+.sobre .btn.link{display:inline-flex;align-items:center;gap:6px;color:var(--muted);padding:0}
+.sobre .btn.link .ic{width:14px;height:14px}
+.profside .railfoot{margin-top:16px;flex-direction:row;flex-wrap:wrap;gap:4px 12px;padding:0;border:0}
+.profside .railfoot a{display:inline;padding:0;font-size:12.5px}
+.pseguir{margin-left:10px;margin-right:auto;align-self:flex-start;margin-top:2px;height:26px;padding:0 12px;border-radius:6px;border:1px solid var(--acc);background:none;color:var(--acc-text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.pseguir:hover{background:var(--acc-soft)}
+
+/* Links do rodapé arrumados como na concorrência: linhas corridas, espaço entre elas, © a escuro. */
+.railfoot,.profside .railfoot{display:flex;flex-direction:row;flex-wrap:wrap;gap:6px 12px;font-size:13px;line-height:1.35;color:var(--text)}
+.railfoot a,.profside .railfoot a{display:inline;color:var(--muted);font-size:13px;text-decoration:none}
+.railfoot a:hover,.profside .railfoot a:hover{color:var(--ink);text-decoration:underline}
+.railfoot span{width:100%;margin-top:6px;color:var(--ink);font-size:12.5px}
+/* Uma só foto ou vídeo: inteiro, centrado sobre preto, dentro da moldura 4:3. Clicar amplia. */
+.post .media:not(.multi):not(.locked) img,.post .media:not(.multi):not(.locked) video{object-fit:contain!important;cursor:zoom-in}
+.post .media.multi img{cursor:zoom-in}
+
+/* Comentários e números das publicações. */
+.post .pf .pcm-off{opacity:.4}
+.post .pstats{display:flex;flex-wrap:wrap;align-items:center;gap:4px 0}
+.post .pstats>*:not(:first-child)::before{content:'·';margin:0 8px;color:var(--muted)}
+.pstat-cm{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer}
+.pstat-cm:hover:not(:disabled){text-decoration:underline}
+.pcm{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:12px}
+.cm{display:flex;gap:8px;align-items:flex-start}
+.cm-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cm-bolha{background:var(--surface-2);border-radius:14px;padding:8px 12px}
+.cm-bolha a{font-weight:600;font-size:13.5px;color:var(--ink);text-decoration:none}
+.cm-bolha p{font-size:14.5px;white-space:pre-line;overflow-wrap:anywhere}
+.cm-meta{font-size:12px;color:var(--muted);padding-left:12px}
+.cm-meta .btn.link{font-size:12px;padding:0;min-height:0}
+.cmform{display:flex;align-items:center;gap:8px}
+.cmform input{flex:1;height:38px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);padding:0 14px;font:inherit;font-size:14px;color:var(--ink);outline:none}
+.cmform input:focus{border-color:var(--ink);background:var(--surface)}
+.cm-fechado{text-align:center}
+
+/* ---------- Esqueletos de carregamento (a forma da página, a brilhar) ---------- */
+.sk{display:block;background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 37%,var(--surface-2) 63%);background-size:400% 100%;animation:sk-brilho 1.3s ease infinite;border-radius:8px}
+@keyframes sk-brilho{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.sk-wrap{padding-top:16px}
+.sk-row{display:flex;align-items:center;gap:10px}
+.sk-col{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.sk-l{height:12px;width:100%}
+.sk-av{width:40px;height:40px;border-radius:50%;flex:none}
+.sk-post{padding:16px;display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.sk-media{aspect-ratio:var(--post-ratio,4/3);width:100%;border-radius:4px}
+.sk-card{height:118px;border-radius:14px;margin-top:10px}
+.sk-cover{height:clamp(140px,22vw,260px);border-radius:10px}
+.sk-ph{display:flex;gap:20px;align-items:flex-end;padding:0 16px;margin-top:-50px}
+.sk-big{width:132px;height:132px;border-radius:50%;border:4px solid var(--bg);flex:none}
+.sk-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;padding:26px 40px 16px;border-bottom:1px solid var(--line)}
+.sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-top:16px}
+.sk-tile{aspect-ratio:1}
+.sk-gen{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+@media (max-width:860px){.sk-big{width:96px;height:96px}.sk-ph{margin-top:-40px}.sk-tabs{gap:16px;padding:20px 8px 12px}}
+
+/* Barra fina no topo enquanto a página processa (também nas recargas sem esqueleto). */
+body.a-carregar::before{content:'';position:fixed;top:0;left:0;height:3px;width:40%;z-index:200;background:var(--acc);border-radius:0 3px 3px 0;animation:barra-topo 1.1s ease-in-out infinite}
+@keyframes barra-topo{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+
+/* ---------- Sem ligação / erro ---------- */
+.falha{max-width:460px;margin:0 auto;padding:clamp(40px,10vh,100px) 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.falha h1{font-size:clamp(22px,4vw,28px)}
+.falha p{color:var(--muted);max-width:40ch}
+.falha .row{margin-top:8px}
+.falha-ilu{position:relative;width:120px;height:140px;color:var(--ink);margin-bottom:8px}
+.falha-porta{width:100%;height:100%;animation:falha-flutua 3s ease-in-out infinite}
+@keyframes falha-flutua{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.falha-sinal{position:absolute;right:-6px;top:6px;width:38px;height:38px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
+.falha-sinal .ic{width:20px;height:20px}
+@media (prefers-reduced-motion:reduce){.falha-porta{animation:none}}
+/* Aviso fixo enquanto não houver ligação. */
+body.sem-rede::after{content:'Sem ligação à internet';position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:150;background:#111;color:#fff;padding:8px 16px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+@media (max-width:900px){body.sem-rede::after{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
+
+/* ---------- Perfil: largura e distribuição ---------- */
+@media (min-width:901px){body[data-route="perfil"] #app{max-width:1240px;padding-inline:clamp(16px,2.5vw,40px)}}
+.cover{height:auto;aspect-ratio:4/1;min-height:140px;max-height:300px}
+.phead{grid-template-columns:auto minmax(0,1fr) minmax(220px,260px);gap:clamp(14px,2vw,28px);padding-inline:clamp(4px,1.5vw,16px)}
+.phead .acts{min-width:0}
+.phead .acts .row{flex-wrap:wrap}
+@media (max-width:860px){
+  .cover{aspect-ratio:2.6/1;max-height:none;border-radius:0}
+  .phead{grid-template-columns:1fr}
+  .phead .acts{flex-direction:row;flex-wrap:wrap}
+  .phead .acts>*{flex:1 1 140px}
+}
+

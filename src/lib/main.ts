@@ -19,10 +19,10 @@ function setTheme(t: 'light' | 'dark'): void {
 /* ---------- Cabeçalho ---------- */
 type NavItem = [string, string, string];
 function navFor(): NavItem[] {
-  const n: NavItem[] = [['feed', 'Início', 'home'], ['explorar', 'Explorar', 'compass'], ['lives', 'Lives', 'live'], ['mensagens', 'Mensagens', 'chat']];
+  const n: NavItem[] = [['feed', 'Início', 'home'], ['explorar', 'Explorar', 'compass'], ['lives', 'Lives', 'live'], ['mensagens', 'Mensagens', 'chat'], ['guardados', 'Guardados', 'bookmark']];
   if (S.creator) return [['estudio', 'Estúdio', 'grid'], ...n];
   if (isStaff(S.me)) return [['admin', 'Administração', 'shield'], ...n];
-  return [...n, ['compras', 'Meus conteúdos', 'bookmark'], ['subscricoes', 'Subscrições', 'star']];
+  return [...n, ['compras', 'Meus conteúdos', 'doc'], ['subscricoes', 'Subscrições', 'star']];
 }
 
 export function header(r: string): void {
@@ -53,16 +53,19 @@ export function header(r: string): void {
   if (!consola) document.body.classList.remove('csnav-open');
   if (consola) { $('.top')!.hidden = true; $('#hdr')!.innerHTML = ''; $('#floatTheme')!.innerHTML = `<div class="float-theme csbell">${bell}</div>`; $('#tabbar')!.innerHTML = ''; return; }
   const base = r.split('-')[0];
-  const links = navFor().map(([k, l, i]) => `<a href="#${k}" aria-label="${l}" title="${l}" class="${base === k || (k === 'explorar' && ['perfil', 'top', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
+  const links = navFor().map(([k, l, i]) => `<a href="#${k}" aria-label="${l}" title="${l}" class="${base === k || (k === 'explorar' && ['perfil', 'p'].includes(base)) || (k === 'lives' && base === 'live') ? 'on' : ''}${k === 'lives' && S.liveAgora ? ' aovivo' : ''}">${ic(i)}<span>${l}</span>${k === 'mensagens' && S.unreadMsgs ? `<span class="count">${S.unreadMsgs}</span>` : ''}</a>`).join('');
   const wal = !isStaff(S.me) ? `<a class="wpill" href="#carteira" title="Saldo da carteira">${ic('wallet')}<span class="num">${kz(S.me!.wallet_balance)}</span></a>` : '';
   const u = S.me!;
   $('.top')!.hidden = false; $('#floatTheme')!.innerHTML = '';
-  $('#hdr')!.innerHTML = `${brand}<nav class="nav" aria-label="Principal">${links}</nav>${wal}${bell}${theme}
+  // Pesquisa ao lado do logótipo (como na concorrência): no Explorar filtra enquanto se
+  // escreve; noutra página, Enter abre o Explorar com a pesquisa.
+  const pesquisa = `<form class="hsearch" id="hsForm" role="search">${ic('search')}<input class="qin" type="search" placeholder="Procure um criador" value="${esc(S.q)}" aria-label="Procure um criador" autocomplete="off"></form>`;
+  $('#hdr')!.innerHTML = `${brand}${pesquisa}<nav class="nav" aria-label="Principal">${links}</nav>${wal}${bell}${theme}
    <div class="me"><button data-act="menu" aria-expanded="${S.menu}" aria-haspopup="true">${avatarOf(u, 'xs')}<span class="nm">${esc((u.name || u.handle).split(' ')[0])}</span></button>
    ${S.menu ? `<div class="menu" role="menu"><div class="hd"><b style="color:var(--ink)">${esc(u.name || u.handle)}</b><div class="small muted">@${esc(u.handle)}</div></div>
-    ${S.creator ? `<a href="#perfil-${esc(u.handle)}" role="menuitem">${ic('user')}O meu perfil público</a><a href="#subscricoes" role="menuitem">${ic('star')}As minhas subscrições</a>` : ''}
+    <a href="#perfil-${esc(u.handle)}" role="menuitem">${ic('user')}Ver o meu perfil</a>
+    ${S.creator ? `<a href="#subscricoes" role="menuitem">${ic('star')}As minhas subscrições</a>` : ''}
     ${!isStaff(u) ? `<a href="#carteira" role="menuitem">${ic('wallet')}Carteira</a>` : ''}
-    <a href="#top" role="menuitem">${ic('trophy')}Top 10</a>
     <a href="#conta" role="menuitem">${ic('settings')}Definições da conta</a>
     ${!S.creator && !isStaff(u) ? `<button data-act="becomeCreator" role="menuitem">${ic('star')}Tornar-me criador</button>` : ''}
     <a href="#faq" role="menuitem">${ic('info')}Ajuda e regras</a>
@@ -119,7 +122,6 @@ const ROUTES: Record<string, Rota> = {
   inicio: { v: () => modulos.public().then((m) => m.vInicio()) },
   confirmar: { v: () => modulos.public().then((m) => m.vConfirmEmail()) },
   'nova-senha': { v: () => modulos.public().then((m) => m.vNovaSenha()) },
-  top: { v: () => modulos.public().then((m) => m.vTop()) },
   registar: { v: () => modulos.public().then((m) => (S.me ? m.vOnboarding() : m.vSignup())), cfg: true },
   info: { v: (r) => modulos.public().then((m) => m.vInfo(r)), cfg: true },
   feed: { v: () => modulos.fan().then((m) => m.vFeed()) },
@@ -130,6 +132,7 @@ const ROUTES: Record<string, Rota> = {
   p: { v: (id) => modulos.fan().then((m) => m.vPost(id)) },
   subscricoes: { v: () => modulos.fan().then((m) => m.vSubs()) },
   compras: { v: () => modulos.fan().then((m) => m.vCompras()) },
+  guardados: { v: () => modulos.fan().then((m) => m.vGuardados()) },
   carteira: { v: () => modulos.fan().then((m) => m.vCarteira()), cfg: true },
   mensagens: { v: () => modulos.messages().then((m) => m.vMensagens()) },
   lives: { v: () => modulos.lives().then((m) => m.vLives()) },
@@ -145,6 +148,44 @@ function resolver(r: string): { rota: Rota; arg: string } {
   if (INFO.includes(r)) return { rota: ROUTES.info, arg: r };
   return { rota: ROUTES[r] || (S.me ? ROUTES.feed : ROUTES.inicio), arg: '' };
 }
+
+/* ---------- Carregamento, sem rede e erros ---------- */
+/** Esqueleto da página enquanto carrega: a forma da página que vem, a brilhar. */
+function esqueleto(r: string): string {
+  const b = (cls: string, st = '') => `<span class="sk ${cls}"${st ? ` style="${st}"` : ''}></span>`;
+  const post = `<div class="box sk-post"><div class="sk-row">${b('sk-av')}<div class="sk-col">${b('sk-l', 'width:40%')}${b('sk-l', 'width:22%')}</div></div>${b('sk-l', 'width:85%')}${b('sk-l', 'width:60%')}${b('sk-media')}<div class="sk-row">${b('sk-l', 'width:18%')}${b('sk-l', 'width:22%')}</div></div>`;
+  const base = r.split('-')[0];
+  if (['feed', 'explorar', 'guardados'].includes(base)) {
+    return `<div class="feedwrap sk-wrap" aria-busy="true" aria-label="A carregar"><div class="lcol">${Array.from({ length: 6 }, () => b('sk-l', 'height:18px;width:70%;margin:10px 0')).join('')}</div>
+      <div class="feedcol">${post}${post}</div><aside class="rail2">${b('sk-l', 'width:50%;height:16px')}${b('sk-card')}${b('sk-card')}${b('sk-card')}</aside></div>`;
+  }
+  if (base === 'perfil') {
+    return `<div class="sk-wrap" aria-busy="true" aria-label="A carregar">${b('sk-cover')}<div class="sk-ph">${b('sk-big')}<div class="sk-col" style="flex:1">${b('sk-l', 'width:35%;height:26px')}${b('sk-l', 'width:18%')}${b('sk-l', 'width:55%')}</div></div>
+      <div class="sk-tabs">${b('sk-l')}${b('sk-l')}${b('sk-l')}</div><div class="sk-grid">${Array.from({ length: 8 }, () => b('sk-tile')).join('')}</div></div>`;
+  }
+  return `<div class="sk-wrap sk-gen" aria-busy="true" aria-label="A carregar">${b('sk-l', 'width:30%;height:28px')}${b('sk-l', 'width:55%')}<div class="box sk-post">${b('sk-l', 'width:80%')}${b('sk-l', 'width:65%')}${b('sk-l', 'width:72%')}${b('sk-l', 'width:40%')}</div></div>`;
+}
+
+/** Página própria para quando falta a ligação ou alguma coisa corre mal. */
+const PORTA_SVG = (cor: string) => `<svg class="falha-porta" viewBox="0 0 120 140" aria-hidden="true"><polygon points="8,125 112,134 88,122 25,122" fill="currentColor" opacity=".18"/><polygon points="25,28 82,12 82,122 25,122" fill="${cor}"/><polygon points="85,12 90,15 90,122 85,122" fill="${cor}" opacity=".7"/><circle cx="67" cy="72" r="4.5" fill="#fff"/></svg>`;
+function paginaFalha(tipo: 'rede' | 'erro', detalhe = ''): string {
+  const rede = tipo === 'rede';
+  return `<section class="falha" role="alert">
+    <div class="falha-ilu">${PORTA_SVG(rede ? 'var(--muted)' : 'var(--acc)')}${rede ? `<span class="falha-sinal">${ic('x')}</span>` : ''}</div>
+    <h1>${rede ? 'Estás sem ligação à internet' : 'Algo correu mal do nosso lado'}</h1>
+    <p>${rede ? 'Verifica os dados móveis ou o Wi-Fi. Quando a ligação voltar, esta página recarrega sozinha.' : 'Não conseguimos abrir esta página agora. Tenta outra vez dentro de instantes.'}</p>
+    ${detalhe ? `<p class="small muted">${esc(detalhe)}</p>` : ''}
+    <div class="row" style="gap:10px;justify-content:center"><button class="btn pri" data-act="reload">Tentar outra vez</button>${rede ? '' : '<a class="btn out" href="#feed">Ir para o início</a>'}</div>
+  </section>`;
+}
+const pareceFalhaDeRede = (e: unknown) => !navigator.onLine || /Failed to fetch|NetworkError|Load failed|network|fetch/i.test(String((e as Error)?.message || e));
+
+// A ligação caiu ou voltou: avisa, e se a página mostrada for a de «sem ligação», recarrega-a.
+window.addEventListener('offline', () => document.body.classList.add('sem-rede')); // a etiqueta fixa (CSS) avisa
+window.addEventListener('online', () => {
+  document.body.classList.remove('sem-rede');
+  if ($('.falha')) { toast('Ligação restabelecida.'); void render(false); }
+});
 
 export async function render(keep = false): Promise<void> {
   const seq = ++renderSeq;
@@ -165,23 +206,25 @@ export async function render(keep = false): Promise<void> {
 
   header(r);
   const app = $('#app')!;
-  if (!keep) app.innerHTML = `<div class="skel">${LOGO(24, 30)}<span>A carregar<i></i><i></i><i></i></span></div>`;
+  if (!keep) app.innerHTML = esqueleto(r);
+  document.body.classList.add('a-carregar'); // barra fina no topo enquanto processa
   let h: string;
   try {
+    if (!navigator.onLine) throw new Error('offline');
     const { rota, arg } = resolver(r);
     if (rota.cfg) await cfgReady();
     h = await rota.v(arg);
   } catch (e) {
-    console.error(e);
-    h = `<div class="empty"><h2>Não foi possível carregar</h2><p style="margin-top:8px">${esc(errText(e))}</p><button class="btn out" style="margin-top:14px" data-act="reload">Tentar outra vez</button></div>`;
+    if (navigator.onLine) console.error(e);
+    h = pareceFalhaDeRede(e) ? paginaFalha('rede') : paginaFalha('erro', errText(e));
   }
   if (seq !== renderSeq) return; // outra navegação entretanto
+  document.body.classList.remove('a-carregar');
   app.innerHTML = h;
   // O rodapé (Sobre, Termos, Privacidade…) aparece em todas as páginas, também com sessão.
   // Só sai das que ocupam o ecrã inteiro: a consola, as mensagens e as salas de live.
   const base = r.split('-')[0];
   $('#foot')!.hidden = r === 'admin' || base === 'mensagens' || base === 'live';
-  const t10 = $('#footTop10'); if (t10) t10.hidden = r === 'inicio';
   if (!keep) window.scrollTo(0, 0);
   const cs = $('#chatScroll'); if (cs) cs.scrollTop = cs.scrollHeight;
   const c0 = $<HTMLInputElement>('#cd0'); if (c0) c0.focus();
@@ -216,6 +259,12 @@ function stopRealtime(): void {
 }
 
 /* ---------- Ações globais (cabeçalho, tema, sessão) ---------- */
+register({ submit: (f) => {
+  if (f.id !== 'hsForm') return false;
+  S.q = (f.querySelector('input') as HTMLInputElement).value;
+  if (route() !== 'explorar') go('explorar');
+  return true;
+} });
 register({ actions: {
   closeModal,
   reload() { rerender(false); },
@@ -315,7 +364,20 @@ let tqT: ReturnType<typeof setTimeout> | undefined, uqT: ReturnType<typeof setTi
 document.addEventListener('input', (e) => {
   const t = e.target as HTMLInputElement | null;
   if (!t) return;
-  if (t.classList.contains('cd')) { t.value = t.value.replace(/\D/g, '').slice(-1); (t.nextElementSibling as HTMLInputElement | null)?.focus(); return; }
+  if (t.classList.contains('cd')) {
+    // O telemóvel pode preencher o código todo de uma vez (sugestão do teclado a
+    // partir do email/SMS): espalha os dígitos pelas caixas a partir desta.
+    const d = t.value.replace(/\D/g, '');
+    if (d.length > 1) {
+      const all = $$<HTMLInputElement>('.cd'), i0 = all.indexOf(t);
+      [...d].slice(0, all.length - i0).forEach((c, k) => (all[i0 + k].value = c));
+      all[Math.min(i0 + d.length, all.length - 1)]?.focus();
+      return;
+    }
+    t.value = d;
+    if (d) (t.nextElementSibling as HTMLInputElement | null)?.focus();
+    return;
+  }
   if (t.id === 'tq') { S.tq = t.value; clearTimeout(tqT); tqT = setTimeout(() => { void renderKeepFocus('#tq'); }, 350); return; }
   if (t.id === 'uq') { S.uq = t.value; clearTimeout(uqT); uqT = setTimeout(() => { void renderKeepFocus('#uq'); }, 450); return; }
   handleInput(t);
@@ -398,3 +460,10 @@ export async function boot(): Promise<void> {
   // onde a pessoa mais provavelmente vai a seguir.
   preCarregar(!S.me ? ['public'] : isStaff(S.me) ? ['admin', 'fan'] : S.creator ? ['studio', 'fan', 'messages'] : ['fan', 'messages']);
 }
+
+// De minuto a minuto (só com a página visível e sessão iniciada), actualiza os contadores
+// e se há alguém em live, para o separador Lives começar ou parar de pulsar.
+setInterval(() => {
+  if (document.hidden || !S.me?.onboarded) return;
+  void loadCounts().then(() => header(route()), () => {});
+}, 60_000);

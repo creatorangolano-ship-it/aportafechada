@@ -60,7 +60,7 @@ function postsTable(list: any, actions = true) {
   return `<div class="tw"><table><thead><tr><th>Publicação</th><th>Acesso</th><th class="num">Gostos</th><th>Publicado</th>${actions ? '<th></th>' : ''}</tr></thead><tbody>
    ${list.map((p: any) => `<tr><td><div class="row">${p.preview_url ? `<img loading="lazy" decoding="async" class="thumb" src="${esc(p.preview_url)}" alt="">` : `<span class="thumb">${ic('doc')}</span>`}<span>${esc(p.title)}${p.status !== 'published' ? ` <span class="tag plain">${p.status === 'hidden' ? 'Removida' : 'Rascunho'}</span>` : ''}</span></div></td>
    <td>${accessTag(p)}</td><td class="num">${dots(p.like_count)}</td><td>${ago(p.published_at || p.created_at)}</td>
-   ${actions ? `<td><div class="row" style="gap:6px;justify-content:flex-end">${p.status === 'draft' ? `<button class="btn pri sm" data-act="pubDraft" data-id="${p.id}">Publicar</button>` : ''}<a class="btn out sm" href="#p-${p.id}">Ver</a><button class="btn out sm" data-act="delPost" data-id="${p.id}">${S.confirmDel === p.id ? 'Confirmar' : 'Apagar'}</button></div></td>` : ''}</tr>`).join('')}
+   ${actions ? `<td><div class="row" style="gap:6px;justify-content:flex-end">${p.status === 'draft' ? `<button class="btn pri sm" data-act="pubDraft" data-id="${p.id}">Publicar</button>` : ''}<a class="btn out sm" href="#p-${p.id}">Ver</a><button class="btn out sm" data-act="postEdit" data-id="${p.id}">Editar</button><button class="btn out sm" data-act="delPost" data-id="${p.id}">${S.confirmDel === p.id ? 'Confirmar' : 'Apagar'}</button></div></td>` : ''}</tr>`).join('')}
    </tbody></table></div>`;
 }
 
@@ -93,14 +93,14 @@ function tabNova(c: any) {
   const files = S.draftFiles || [];
   return `<div class="pagehead"><div><h1>Nova publicação</h1><p>Escolhe quem pode ver antes de publicar.</p></div></div>
    <form class="box pad stack" id="postForm" novalidate>
-    <div class="field"><div class="row between"><label for="pTitle">Título</label><span class="small muted num" id="tCount">${d.title.length}/100</span></div><input id="pTitle" maxlength="100" value="${esc(d.title)}" placeholder="Ex.: Um dia comigo em Luanda"></div>
-    <div class="field"><div class="row between"><label for="pDesc">Texto</label><span class="small muted num" id="dCount">${d.body.length}/2.000</span></div><textarea id="pDesc" maxlength="2000" placeholder="O que vão encontrar nesta publicação">${esc(d.body)}</textarea></div>
+    <div class="field"><div class="row between"><label for="pDesc">Texto</label><span class="small muted num" id="dCount">${d.body.length}/2.000</span></div><textarea id="pDesc" maxlength="2000" placeholder="Em que estás a pensar?">${esc(d.body)}</textarea></div>
     <div class="field"><span class="flabel">Fotografias e vídeos</span><label class="drop">${ic('upload', 'style="width:24px;height:24px"')}<b style="color:var(--ink)">Escolher ficheiros</b><span class="small muted">JPG, PNG ou MP4. Até 10 ficheiros, 500 MB cada.</span><input type="file" id="pFile" multiple accept="image/*,video/mp4,video/quicktime" aria-label="Escolher ficheiros"></label>
      ${files.length ? `<div class="filelist">${files.map((f) => `<span>${esc(f.name)}</span>`).join('')}</div>` : ''}</div>
     <div class="field"><span class="flabel">Quem pode ver</span><div class="opts">
      ${[['free', 'Todos', 'Grátis, visível no perfil'], ['subscribers', c.price ? 'Subscritores' : 'Seguidores', c.price ? 'Incluído na subscrição' : 'Quem te segue'], ['paid', 'Compra à parte', 'Pagamento único']].map(([v, l, s]) => `<label class="opt"><input type="radio" name="acc" value="${v}" ${d.access === v ? 'checked' : ''}><span><b>${l}</b><span>${s}</span></span></label>`).join('')}
     </div></div>
     <div class="field" id="priceRow" ${d.access === 'paid' ? '' : 'hidden'} style="max-width:280px"><label for="pPrice">Preço (Kz)</label><input id="pPrice" type="number" min="${S.cfg.min_price}" step="100" value="${d.price}"><span class="hint">Recebes ${netPct()}% de cada venda.</span></div>
+    <label class="check"><input type="checkbox" id="pCm" checked><span>Permitir comentários</span></label>
     <div class="progress" id="pProg" hidden><i style="width:0"></i></div>
     <span class="err" id="pErr" hidden></span>
     <div class="actions"><button type="button" class="btn out" data-act="saveDraft">Guardar como rascunho</button><button class="btn pri" id="pBtn">Publicar</button></div>
@@ -213,22 +213,26 @@ export async function vEstudio() {
 function readDraft() {
   const a = $('input[name=acc]:checked');
   // ?? e não ||: um criador que escreve 0 de propósito recebia 2500 sem aviso.
-  S.draft = { title: $('#pTitle')?.value || '', body: $('#pDesc')?.value || '', access: a ? a.value : 'subscribers', price: +($('#pPrice')?.value ?? 2500) };
+  S.draft = { title: '', body: $('#pDesc')?.value || '', access: a ? a.value : 'subscribers', price: +($('#pPrice')?.value ?? 2500) };
 }
-async function savePost(status: any, btn: any) {
-  readDraft();
-  const d = S.draft!, files = S.draftFiles || [];
-  if (d.title.trim().length < 3) return showErr('#pErr', 'Dá um título à publicação, com pelo menos 3 caracteres.');
-  if (d.access === 'paid' && !(d.price >= S.cfg.min_price)) return showErr('#pErr', `O preço mínimo é ${kz(S.cfg.min_price)}.`);
-  busy(btn, true, 'A enviar…');
-  const prog = $('#pProg'); if (prog && files.length) prog.hidden = false;
+/**
+ * Cria uma publicação (usado pelo estúdio e pela janela «Criar publicação» do perfil).
+ * As publicações não têm título à vista: só o texto. A base de dados ainda exige um
+ * título (3 a 100 caracteres), por isso guarda-se um interno com a data — nunca um
+ * pedaço do texto, que num conteúdo pago revelaria o que só quem paga pode ler.
+ * Devolve o erro em texto, ou null se correu bem.
+ */
+export async function criarPublicacao(o: { body: string; access: string; price: number; files: File[]; status: 'published' | 'draft'; comentarios?: boolean; progresso?: (f: number) => void }): Promise<string | null> {
+  const body = o.body.trim(), files = o.files;
+  if (!body && !files.length) return 'Escreve alguma coisa ou junta uma foto ou vídeo.';
+  if (o.access === 'paid' && !(o.price >= S.cfg.min_price)) return `O preço mínimo é ${kz(S.cfg.min_price)}.`;
   try {
     const id = uuid(), uid = me_().id, media = [];
     let i = 0;
     for (const f of files) {
       const path = await upload('content', `${uid}/${id}/${i}-${safeName(f.name)}`, f);
       media.push({ path, type: f.type }); i++;
-      if (prog) prog.firstElementChild.style.width = (i / files.length * 100) + '%';
+      o.progresso?.(i / files.length);
     }
     let preview_url = null;
     const firstImg = files.find((f) => f.type.startsWith('image/'));
@@ -236,9 +240,12 @@ async function savePost(status: any, btn: any) {
       const blob = await blurPreview(firstImg);
       if (blob) { const p = `${uid}/${id}.jpg`; await upload('previews', p, new File([blob], 'p.jpg', { type: 'image/jpeg' }), { upsert: true }); preview_url = publicUrl('previews', p); }
     }
-    const { error } = await sb.from('posts').insert({ id, creator_id: uid, title: d.title.trim(), access: d.access, price: d.access === 'paid' ? d.price : 0, media, preview_url, status, published_at: status === 'published' ? new Date().toISOString() : null });
+    const status = o.status;
+    const { error } = await sb.from('posts').insert({ id, creator_id: uid, title: `Publicação de ${fmtDate(new Date())}`, access: o.access, price: o.access === 'paid' ? o.price : 0, media, preview_url, status, published_at: status === 'published' ? new Date().toISOString() : null,
+      // Só se manda quando é «não»: o valor por omissão na base de dados já é «sim».
+      ...(o.comentarios === false ? { comments_enabled: false } : {}) });
     if (error) throw error;
-    const { error: e2 } = await sb.from('post_bodies').insert({ post_id: id, body: d.body.trim() });
+    const { error: e2 } = await sb.from('post_bodies').insert({ post_id: id, body });
     if (e2) {
       // A publicação já existe mas ficou sem texto. Sem desfazer, sobrava um post órfão e os
       // ficheiros já carregados ficavam lá para sempre sem forma de os limpar.
@@ -247,11 +254,21 @@ async function savePost(status: any, btn: any) {
       if (preview_url) await sb.storage.from('previews').remove([`${uid}/${id}.jpg`]).catch(() => { /* já não existe */ });
       throw new Error('Não foi possível guardar o texto da publicação. Nada foi publicado — tenta outra vez.');
     }
-    S.draft = null; S.draftFiles = []; S.stTab = 'publicacoes';
     await refreshMe();
     toast(status === 'draft' ? 'Rascunho guardado' : S.creator!.status === 'approved' ? 'Publicado' : 'Guardado. Fica visível depois da verificação.');
-    rerender(false);
-  } catch (e) { busy(btn, false); showErr('#pErr', errText(e)); }
+    return null;
+  } catch (e) { return errText(e); }
+}
+
+async function savePost(status: 'published' | 'draft', btn: any) {
+  readDraft();
+  const d = S.draft!, files = S.draftFiles || [];
+  busy(btn, true, 'A enviar…');
+  const prog = $('#pProg'); if (prog && files.length) prog.hidden = false;
+  const erro = await criarPublicacao({ body: d.body, access: d.access, price: d.price, files, status, comentarios: $<HTMLInputElement>('#pCm')?.checked !== false, progresso: (f) => { if (prog) (prog.firstElementChild as HTMLElement).style.width = f * 100 + '%'; } });
+  if (erro) { busy(btn, false); return showErr('#pErr', erro); }
+  S.draft = null; S.draftFiles = []; S.stTab = 'publicacoes';
+  rerender(false);
 }
 
 export const studioActions = {

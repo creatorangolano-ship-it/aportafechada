@@ -1,4 +1,4 @@
-// Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação, Top 10
+// Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação
 import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go } from '../lib';
 import { register } from '../registry';
 import { INFO } from '../rotas';
@@ -64,18 +64,19 @@ export async function vPerfilPublico(handle: string): Promise<string> {
 
 /* ---------- Prova social na página de entrada ----------
    Número real de membros (função `contagem_publica`) e três fotos de criadores.
-   Nunca um número inventado: enquanto a comunidade for pequena, uma frase de
-   boas-vindas em vez do número. Preenche-se depois de a página aparecer, para
+   Nunca um número inventado: é a contagem real da base de dados (contas com o
+   registo completo e não banidas). Sem membros, uma frase de boas-vindas. Preenche-se depois de a página aparecer, para
    não atrasar o formulário de entrada. */
-const MIN_PARA_MOSTRAR_NUMERO = 100;
+const MIN_PARA_MOSTRAR_NUMERO = 1;
 let provaSocial: Promise<string> | null = null;
 function htmlProvaSocial(): Promise<string> {
   provaSocial ??= Promise.resolve(sb.rpc('contagem_publica')).then(({ data }) => {
     const d = (data as Array<{ membros: number; fotos: string[] | null }> | null)?.[0];
     if (!d) return '';
-    const fotos = (d.fotos || []).map((u) => `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">`).join('');
-    const texto = d.membros >= MIN_PARA_MOSTRAR_NUMERO
-      ? `<b>${Number(d.membros).toLocaleString('pt-PT')}</b> pessoas já estão na A Porta Fechada`
+    const fotos = (d.fotos || []).map((u) => `<img src="${esc(u)}" alt="" width="26" height="26" decoding="async">`).join('');
+    const n = Number(d.membros);
+    const texto = n >= MIN_PARA_MOSTRAR_NUMERO
+      ? `${n.toLocaleString('pt-PT')} ${n === 1 ? 'pessoa já está' : 'pessoas já estão'} na A Porta Fechada`
       : 'Junta-te aos primeiros membros e descobre o que está na Porta Fechada';
     return `${fotos ? `<span class="fotos">${fotos}</span>` : ''}<span>${texto}</span>`;
   }).catch(() => '');
@@ -90,7 +91,7 @@ function preencherProvaSocial(): void {
 export function vInicio() {
   preencherProvaSocial();
   return authShell(`<h1 class="sr-only">Entrar na A Porta Fechada</h1><form id="loginForm" class="stack" style="gap:12px" novalidate>
-     <input class="linp" id="lEmail" autocomplete="username" placeholder="Email ou nome de utilizador" aria-label="Email ou nome de utilizador">
+     <input class="linp" id="lEmail" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"placeholder="Email ou nome de utilizador" aria-label="Email ou nome de utilizador">
      ${pwField('lPass', 'Palavra-passe', 'current-password')}
      <button type="button" class="btn link small" style="align-self:flex-start" data-act="forgot">Esqueceu a palavra-passe?</button>
      <span class="err" id="lErr" hidden></span>
@@ -122,7 +123,7 @@ export function vConfirmEmail() {
   const email = S.reg?.data?.email || '';
   return `<div class="auth single"><form id="codeForm" class="formcard" novalidate>
     <div class="hd"><h1>Confirma o teu email</h1><p>Enviámos um código de 6 dígitos para <b style="color:var(--ink)">${esc(email)}</b>.</p></div>
-    <div class="code" role="group" aria-label="Código de confirmação">${[0, 1, 2, 3, 4, 5].map((i) => `<input inputmode="numeric" maxlength="1" class="cd" id="cd${i}" aria-label="Dígito ${i + 1}">`).join('')}</div>
+    <div class="code" role="group" aria-label="Código de confirmação">${[0, 1, 2, 3, 4, 5].map((i) => `<input inputmode="numeric" pattern="[0-9]*" ${i === 0 ? 'autocomplete="one-time-code"' : 'autocomplete="off"'} class="cd" id="cd${i}" aria-label="Dígito ${i + 1}">`).join('')}</div>
     <p class="small muted">Não chegou? Vê a pasta de spam ou <button type="button" class="btn link small" data-act="resend">envia outro código</button>.</p>
     <span class="err" id="cErr" hidden></span>
     <div class="actions"><a class="btn out" href="#registar">Voltar</a><button class="btn pri">Confirmar</button></div>
@@ -164,7 +165,7 @@ export function vOnboarding() {
   let b = '';
   if (id === 'perfil') b = `<div class="hd"><h1>Completa o teu perfil</h1><p>O nome de utilizador aparece nos comentários e nas mensagens.</p></div>
     <div class="grid2"><div class="field"><label for="oName">Nome</label><input id="oName" autocomplete="name" value="${esc(d.name)}"></div>
-    <div class="field"><label for="oHandle">Nome de utilizador</label><input id="oHandle" value="${esc(d.handle)}" placeholder="ex.: anacristina"></div></div>
+    <div class="field"><label for="oHandle">Nome de utilizador</label><input id="oHandle" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(d.handle)}" placeholder="ex.: anacristina"></div></div>
     <div class="field"><label for="oBirth">Data de nascimento</label><input id="oBirth" type="date" max="${new Date(Date.now() - 18 * 365.25 * 864e5).toISOString().slice(0, 10)}" value="${esc(d.birth || '')}"><span class="hint">Não aparece no perfil. Serve só para confirmar que tens 18 anos ou mais.</span></div>`;
   else if (id === 'tipo') b = `<div class="hd"><h1>Como vais usar a plataforma?</h1><p>Podes tornar-te criador mais tarde, nas definições da conta.</p></div>
     <div class="choice" role="radiogroup">
@@ -260,17 +261,6 @@ async function finishOb(btn: any) {
     toast('Conta pronta. Bem-vindo, ' + (S.me?.name || '').split(' ')[0] + '!');
     go('explorar');
   } catch (e) { busy(btn, false); showErr('#oErr', errText(e)); }
-}
-
-/* ---------- Top 10 ---------- */
-export async function vTop() {
-  const { data, error } = await sb.rpc('top_creators', { p_period: S.topTab });
-  const list = data || [];
-  const inner = `<div class="pagehead"><div><h1>Top 10</h1><p>Os criadores que mais cresceram na plataforma.</p></div></div>
-   <div class="tabs" role="tablist">${[['week', 'Esta semana'], ['month', 'Este mês']].map(([k, l]) => `<button role="tab" aria-selected="${S.topTab === k}" class="${S.topTab === k ? 'on' : ''}" data-act="topTab" data-v="${k}">${l}</button>`).join('')}</div>
-   ${error ? `<p class="muted">${esc(errText(error))}</p>` : list.length ? `<div class="rank">${list.map((c: any, i: any) => `<a class="rw" href="#perfil-${esc(c.handle)}"><span class="n">${i + 1}</span>${avatarOf(c)}<span class="t"><b>${esc(c.name || c.handle)}</b><span>${esc(c.category)} · ${esc(c.city)}</span></span><span class="s"><b>${dots(c.follower_count)}</b>seguidores</span></a>`).join('')}</div>` : '<p class="muted">Ainda não há criadores suficientes para o ranking.</p>'}
-   ${S.me ? '' : '<div class="creator-cta" style="margin-top:28px"><div><h3>Queres ver os perfis?</h3><p>Cria conta grátis para seguir e subscrever criadores.</p></div><a class="btn pri" href="#registar">Criar conta</a></div>'}`;
-  return S.me ? inner : `<div class="doc" style="max-width:860px">${inner}</div>`;
 }
 
 /* ---------- Páginas de informação ---------- */
@@ -375,7 +365,6 @@ export const publicActions = {
     toast(error ? errText(error) : 'Enviámos um novo código.');
   },
   obBack() { readOb(); S.reg!.i--; rerender(); },
-  topTab(d: Record<string, string>) { S.topTab = d.v; rerender(); },
   installApp() { installModal(); },
   async mfaVerify() {
     const code = ($('#mfaCode')?.value || '').trim();

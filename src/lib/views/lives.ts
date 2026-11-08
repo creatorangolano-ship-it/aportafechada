@@ -170,7 +170,9 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
     }
   } catch (e) {
     if (!alive()) return;
-    status(/Permission|NotAllowed/i.test(String(e)) ? 'Precisamos de acesso à câmara e ao microfone. Autoriza no navegador e recarrega a página.' : errText(e));
+    status(/Permission|NotAllowed/i.test(String(e)) ? 'Precisamos de acesso à câmara e ao microfone. Autoriza no navegador e recarrega a página.'
+      : /Edge Function|Failed to fetch|LIVEKIT/i.test(String(e)) ? 'O servidor das lives não respondeu. Tenta outra vez dentro de alguns minutos.'
+      : errText(e));
   }
 }
 
