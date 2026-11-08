@@ -1186,3 +1186,10 @@ body.sem-rede::after{content:'Sem ligação à internet';position:fixed;left:50%
   .phead .acts>*{flex:1 1 140px}
 }
 
+
+/* Menos cantos arredondados (a pedido do dono): fotos e vídeos em grelha de cantos
+   rectos e juntos, como na concorrência; imagens das publicações e capa sem arredondar. */
+.mgrid{gap:3px}
+.gtile,.sk-tile{border-radius:0}
+.post .media{border-radius:0}
+.cover,.sk-cover{border-radius:4px}
