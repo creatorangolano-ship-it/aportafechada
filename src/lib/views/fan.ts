@@ -193,7 +193,7 @@ async function anuncioLateral(): Promise<{ esq: string; dir: string }> {
 
 /** Links do rodapé (coluna direita do Início e coluna esquerda do perfil). */
 function rodapeLinks(): string {
-  return `<nav class="railfoot" aria-label="Sobre a plataforma"><a href="/sobre">Sobre a plataforma</a><a href="/funciona">Como funciona</a><a href="/termos">Termos e condições</a><a href="/privacidade">Política de privacidade</a><a href="/regras">Regras</a><a href="/faq">Perguntas frequentes</a><a href="/dmca">Direitos de autor</a><a href="/contacto">Contacto</a><a href="/afiliados">Afiliados</a><a href="/blog">Blog</a><span>© ${new Date().getFullYear()} A Porta Fechada · Luanda, Angola</span></nav>`;
+  return `<nav class="railfoot" aria-label="Sobre a plataforma"><a href="/sobre">Sobre a plataforma</a><a href="/funciona">Como funciona</a><a href="/termos">Termos e condições</a><a href="/privacidade">Política de privacidade</a><a href="/regras">Regras</a><a href="/faq">Perguntas frequentes</a><a href="/dmca">Direitos de autor</a><a href="/contacto">Contacto</a><a href="/afiliados">Afiliados</a><a href="/blog">Blog</a><a href="/" data-act="installApp">Instalar app</a><span>© ${new Date().getFullYear()} A Porta Fechada · Luanda, Angola</span></nav>`;
 }
 
 /* ---------- Início ---------- */

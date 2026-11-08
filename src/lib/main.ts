@@ -187,6 +187,16 @@ window.addEventListener('online', () => {
   if ($('.falha')) { toast('Ligação restabelecida.'); void render(false); }
 });
 
+/** Mostra ou esconde o rodapé de baixo (ver render). Corre também ao mudar o tamanho da janela. */
+function rodapeVisivel(r = location.pathname.split('/')[1] || 'feed'): void {
+  const foot = $('#foot'); if (!foot) return;
+  const base = r.split('-')[0];
+  const lateral = [...document.querySelectorAll<HTMLElement>('#app .railfoot')].some((el) => el.offsetParent !== null);
+  foot.hidden = r === 'admin' || base === 'mensagens' || base === 'live' || lateral;
+}
+let rodapeT = 0;
+window.addEventListener('resize', () => { clearTimeout(rodapeT); rodapeT = window.setTimeout(() => rodapeVisivel(), 150); });
+
 export async function render(keep = false): Promise<void> {
   const seq = ++renderSeq;
   let r = route();
@@ -222,9 +232,10 @@ export async function render(keep = false): Promise<void> {
   document.body.classList.remove('a-carregar');
   app.innerHTML = h;
   // O rodapé (Sobre, Termos, Privacidade…) aparece em todas as páginas, também com sessão.
-  // Só sai das que ocupam o ecrã inteiro: a consola, as mensagens e as salas de live.
-  const base = r.split('-')[0];
-  $('#foot')!.hidden = r === 'admin' || base === 'mensagens' || base === 'live';
+  // Sai das que ocupam o ecrã inteiro (consola, mensagens, lives) e das que já mostram os
+  // mesmos links numa coluna lateral visível (Início, Explorar, perfil…): com a timeline
+  // infinita, o rodapé de baixo aparecia duplicado e quase nunca se chegava a ele.
+  rodapeVisivel(r);
   if (!keep) window.scrollTo(0, 0);
   const cs = $('#chatScroll'); if (cs) cs.scrollTop = cs.scrollHeight;
   const c0 = $<HTMLInputElement>('#cd0'); if (c0) c0.focus();
