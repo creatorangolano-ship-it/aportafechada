@@ -1,5 +1,5 @@
 // Páginas públicas: entrar, criar conta, etapas de registo, páginas de informação
-import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go } from '../lib';
+import { sb, $, $$, esc, kz, dots, ic, GOOGLE, LOGO, avatarOf, toast, modal, closeModal, showErr, busy, errText, fn, isEmail, upload, safeName, rerender, go, shrinkImage } from '../lib';
 import { register } from '../registry';
 import { INFO } from '../rotas';
 import { S, loadMe, netPct, isStaff } from '../state';
@@ -193,7 +193,7 @@ export function vOnboarding() {
   } else if (id === 'banco') b = `<div class="hd"><h1>Onde queres receber</h1><p>O titular da conta tem de ser a pessoa do documento.</p></div>
     <div class="grid2"><div class="field"><label for="oBank">Banco</label><select id="oBank">${BANKS.map((x) => `<option ${d.bank === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
     <div class="field"><label for="oHolder">Titular da conta</label><input id="oHolder" value="${esc(d.holder || d.name || S.me?.name || '')}"></div></div>
-    <div class="field"><label for="oIban">IBAN</label><input id="oIban" value="${esc(d.iban || '')}" placeholder="AO06 0000 0000 0000 0000 0000 0" autocomplete="off"><span class="hint">Começa por AO06, seguido de 21 dígitos.</span></div>
+    <div class="field"><label for="oIban">IBAN</label><div class="iban"><span class="iban-pre" aria-hidden="true">AO06</span><input id="oIban" value="${esc((d.iban || '').replace(/^AO06/, '').replace(/(\d{4})(?=\d)/g, '$1 '))}" placeholder="0000 0000 0000 0000 0000 0" autocomplete="off" spellcheck="false" inputmode="numeric" maxlength="40" aria-describedby="oIbanH"></div><span class="hint" id="oIbanH">O AO06 já está escrito: põe só os 21 dígitos que vêm a seguir.</span></div>
     <label class="check"><input type="checkbox" id="oTerms" ${d.cterms ? 'checked' : ''}><span>Li e aceito os <a href="#regras">termos para criadores</a> e confirmo que tenho os direitos de tudo o que publicar.</span></label>
     <div class="progress" id="upProg" hidden><i style="width:0"></i></div>`;
   const last = r.i === fl.length - 1;
@@ -201,10 +201,16 @@ export function vOnboarding() {
    <div class="actions">${r.i > 0 ? '<button type="button" class="btn out" data-act="obBack">Voltar</button>' : (r.upgrade ? '<a class="btn out" href="#conta">Cancelar</a>' : '<button type="button" class="btn link" data-act="logout">Sair</button>')}
    <button class="btn pri" id="obBtn">${last ? (d.tipo === 'criador' || r.upgrade ? 'Enviar para verificação' : 'Concluir') : 'Continuar'}</button></div></form></div>`;
 }
+/** «ao06.0040-0000…», «AO06 0040 …» ou só os 21 dígitos ficam todos «AO06…» (25 caracteres). */
+function normalizarIban(v: string): string {
+  const x = v.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^AO06/, '');
+  return 'AO06' + x;
+}
 function readOb() {
   const d = S.reg!.data as Record<string, any>, v = (id: any) => { const e = $('#' + id); return e ? e.value.trim() : undefined; };
   const map: Record<string, string> = { oName: 'name', oHandle: 'handle', oBirth: 'birth', oCat: 'cat', oPrice: 'price', oBio: 'bio', oCity: 'city', oBank: 'bank', oHolder: 'holder', oIban: 'iban' };
   for (const k in map) { const x = v(k); if (x !== undefined) d[map[k]] = x; }
+  if (d.iban) d.iban = normalizarIban(d.iban);
   const t = $('#oTerms'); if (t) d.cterms = t.checked;
   const tp = $('input[name=tipo]:checked'); if (tp) d.tipo = tp.value;
   const pm = $('input[name=pmode]:checked'); if (pm) d.pmode = pm.value;
@@ -225,7 +231,7 @@ function validOb(id: any) {
   }
   if (id === 'identidade' && (!S.reg!.files.front || !S.reg!.files.back || !S.reg!.files.selfie)) return 'Envia a frente e o verso do documento e a selfie.';
   if (id === 'banco') {
-    if (!/^AO06\d{21}$/i.test((d.iban || '').replace(/\s/g, ''))) return 'Confirma o IBAN: começa por AO06 e tem 21 dígitos depois disso.';
+    if (!/^AO06\d{21}$/.test(d.iban || '')) return `O IBAN tem 21 dígitos depois do AO06 (escreveste ${(d.iban || '').replace(/^AO06/, '').replace(/\D/g, '').length}).`;
     if (!d.holder) return 'Indica o titular da conta.';
     if (!d.cterms) return 'Aceita os termos para criadores para continuar.';
   }
@@ -260,7 +266,14 @@ async function finishOb(btn: any) {
     await loadMe(); S.reg = null;
     toast('Conta pronta. Bem-vindo, ' + (S.me?.name || '').split(' ')[0] + '!');
     go('explorar');
-  } catch (e) { busy(btn, false); showErr('#oErr', errText(e)); }
+  } catch (e) {
+    busy(btn, false);
+    const m = errText(e);
+    showErr('#oErr', /Load failed|Failed to fetch|NetworkError|network/i.test(m)
+      ? 'O envio dos documentos falhou. Verifica a ligação e carrega outra vez em «Enviar para verificação».'
+      : m);
+    $('#oErr')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
 }
 
 /* ---------- Páginas de informação ---------- */
@@ -464,12 +477,31 @@ export async function publicSubmit(f: HTMLFormElement) {
   return false;
 }
 
+/**
+ * Lê a foto para a memória já no momento da escolha, reduzida a no máximo 2000 px em JPEG.
+ * No iPhone (Safari), o ficheiro escolhido é só uma referência temporária que deixa de se
+ * poder ler depois de o ecrã mudar; como os documentos só são enviados no último passo
+ * (o do IBAN), o envio falhava ali com «Load failed», antes de chegar ao servidor.
+ */
+async function fotoEmMemoria(f: File): Promise<File> {
+  let r: File = f;
+  try { r = await shrinkImage(f, 2000); } catch { /* formato que o browser não desenha: segue o original */ }
+  const dados = await r.arrayBuffer();
+  const tipo = r.type && r.type.startsWith('image/') ? r.type : 'image/jpeg';
+  return new File([dados], r.name || 'foto.jpg', { type: tipo });
+}
+
 export function publicChange(t: FormControl) {
   if (t.name === 'pmode' && $('#oPriceRow')) { $('#oPriceRow').hidden = t.value === 'free'; return true; }
   if (t.classList.contains('kycfile') && (t as HTMLInputElement).files![0]) {
-    const f = (t as HTMLInputElement).files![0];
-    if (f.size > 10e6) { toast('A imagem tem mais de 10 MB. Escolhe uma mais pequena.'); return true; }
-    readOb(); S.reg!.files[t.dataset.k!] = f; rerender(); return true;
+    const f = (t as HTMLInputElement).files![0], k = t.dataset.k!;
+    readOb();
+    const drop = t.closest('.drop'); drop?.classList.add('a-ler');
+    void fotoEmMemoria(f).then((pronta) => {
+      if (pronta.size > 10e6) { drop?.classList.remove('a-ler'); toast('A imagem tem mais de 10 MB. Escolhe uma mais pequena.'); return; }
+      if (S.reg) { S.reg.files[k] = pronta; rerender(); }
+    }).catch(() => { drop?.classList.remove('a-ler'); toast('Não foi possível ler esta foto. Tira outra ou escolhe outra da galeria.'); });
+    return true;
   }
   return false;
 }

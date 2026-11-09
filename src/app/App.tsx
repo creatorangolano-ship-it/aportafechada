@@ -61,5 +61,14 @@ export default function App() {
     );
   }
 
-  return <main className="wrap" id="app" ref={ref}><p className="skel">A carregar…</p></main>;
+  // Enquanto o JavaScript descarrega (em rede móvel pode levar uns segundos), mostra a
+  // porta da marca a respirar e a barra no topo, em vez de um texto parado.
+  return (
+    <main className="wrap" id="app" ref={ref}>
+      <div className="arranque" role="status" aria-label="A carregar">
+        <svg viewBox="0 0 120 140" width="56" height="66" aria-hidden="true"><polygon points="25,28 82,12 82,122 25,122" fill="var(--acc)" /><polygon points="85,12 90,15 90,122 85,122" fill="var(--acc)" opacity=".7" /><circle cx="67" cy="72" r="4.5" fill="#fff" /></svg>
+        <span className="arranque-pontos"><i /><i /><i /></span>
+      </div>
+    </main>
+  );
 }
