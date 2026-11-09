@@ -27,7 +27,7 @@ const me_ = (): Profile => S.me!;
 const TABS = [['visao', 'Visão geral', 'home'], ['publicacoes', 'Publicações', 'doc'], ['nova', 'Nova publicação', 'plus'], ['lives', 'Lives', 'live'], ['subscritores', 'Subscritores', 'users'], ['perfil', 'Perfil de criador', 'user'], ['ganhos', 'Ganhos', 'coin'], ['afiliados', 'Afiliados', 'link']];
 
 function statusBanner(c: any) {
-  if (c.status === 'pending') return `<div class="banner">${ic('clock')}<span><b>Conta em verificação.</b> Já podes preparar o perfil e as publicações. Ficam visíveis e podes receber pagamentos depois de aprovarmos os documentos, normalmente em 48 horas.</span></div>`;
+  if (c.status === 'pending') return `<div class="banner">${ic('clock')}<span><b>Conta em verificação.</b> Já podes preparar o perfil. Publicar, fazer lives e receber pagamentos fica disponível depois de aprovarmos os documentos, normalmente em 48 horas.</span></div>`;
   if (c.status === 'rejected') return `<div class="banner">${ic('info')}<span><b>A tua verificação não foi aprovada.</b>${S.kycReason ? ' Motivo: ' + esc(S.kycReason) + '.' : ''} <button class="btn link small" data-act="appeal">Recorrer</button></span></div>`;
   if (c.status === 'suspended') return `<div class="banner">${ic('info')}<span><b>Conta suspensa.</b> Fala com o apoio através da página de contacto.</span></div>`;
   return '';
@@ -200,7 +200,7 @@ export async function vEstudio() {
   let b = '';
   if (t === 'visao') b = await tabVisao(c);
   else if (t === 'publicacoes') b = await tabPublicacoes(c);
-  else if (t === 'nova') b = tabNova(c);
+  else if (t === 'nova') b = c.status === 'approved' ? tabNova(c) : `<div class="pagehead"><div><h1>Nova publicação</h1></div></div><div class="box empty">${ic('clock', 'style="width:28px;height:28px"')}<h3>Ainda não podes publicar</h3><p style="margin-top:6px">O teu perfil está em verificação. Podes publicar assim que a equipa aprovar os documentos, normalmente em 48 horas.</p></div>`;
   else if (t === 'lives') b = await tabLives(c);
   else if (t === 'subscritores') b = await tabSubs(c);
   else if (t === 'perfil') b = tabPerfil(c);
@@ -224,6 +224,7 @@ function readDraft() {
  */
 export async function criarPublicacao(o: { body: string; access: string; price: number; files: File[]; status: 'published' | 'draft'; comentarios?: boolean; progresso?: (f: number) => void }): Promise<string | null> {
   const body = o.body.trim(), files = o.files;
+  if (S.creator?.status !== 'approved') return 'O teu perfil está em verificação. Podes publicar assim que a equipa aprovar os documentos, normalmente em 48 horas.';
   if (!body && !files.length) return 'Escreve alguma coisa ou junta uma foto ou vídeo.';
   if (o.access === 'paid' && !(o.price >= S.cfg.min_price)) return `O preço mínimo é ${kz(S.cfg.min_price)}.`;
   try {
@@ -255,7 +256,7 @@ export async function criarPublicacao(o: { body: string; access: string; price: 
       throw new Error('Não foi possível guardar o texto da publicação. Nada foi publicado — tenta outra vez.');
     }
     await refreshMe();
-    toast(status === 'draft' ? 'Rascunho guardado' : S.creator!.status === 'approved' ? 'Publicado' : 'Guardado. Fica visível depois da verificação.');
+    toast(status === 'draft' ? 'Rascunho guardado' : 'Publicado');
     return null;
   } catch (e) { return errText(e); }
 }

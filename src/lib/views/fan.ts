@@ -1084,6 +1084,10 @@ const estadoActions = {
     toast(ligar ? 'Comentários ativados' : 'Comentários desativados'); rerender();
   },
   composeOpen() {
+    if (S.creator && S.creator.status !== 'approved') {
+      return modal(`<div class="payhd"><span class="eyebrow">${ic('clock')}Em verificação</span><h3>Ainda não podes publicar</h3>
+        <p class="small muted">O teu perfil está em verificação. Podes publicar assim que a equipa aprovar os documentos, normalmente em 48 horas.</p></div><button class="btn out block" data-act="closeModal">Fechar</button>`);
+    }
     if (S.creator) return abrirCompositor();
     modal(`<div class="payhd"><span class="eyebrow">${ic('lock')}Só para criadores</span><h3>Só criadores podem publicar</h3>
       <p class="small muted">Para publicares fotos, vídeos e textos, cria a tua conta de criador. Passas a poder ter subscritores, vender conteúdos e receber gorjetas.</p></div>
