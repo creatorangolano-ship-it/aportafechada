@@ -896,22 +896,68 @@ export async function vCompras() {
 }
 
 /* ---------- Carteira ---------- */
+/** Valores sugeridos no carregamento, com uma frase curta para cada um. */
+const PACOTES: [number, string][] = [[2000, 'Para começar'], [5000, 'O mais escolhido'], [10000, 'Para o mês todo'], [20000, 'Fã de verdade']];
+
+/** Valor que vai ser carregado: o escrito à mão, ou o pacote escolhido. */
+function valorCarregamento(): number {
+  const o = Number($<HTMLInputElement>('#topOther')?.value || 0);
+  return o > 0 ? o : (S.topAmt || 5000);
+}
+
+/** Actualiza o resumo e o botão sem redesenhar a página. */
+function resumoCarregamento(): void {
+  const v = valorCarregamento(), saldo = Number(me_().wallet_balance) || 0;
+  const curto = v < S.cfg.min_topup;
+  const b = $('#topBtn'); if (b) b.innerHTML = `${ic('plus')}Carregar ${kz(v)}`;
+  const d = $('#topDepois'); if (d) d.textContent = kz(saldo + v);
+  const e = $('#topAviso'); if (e) { e.hidden = !curto; e.textContent = `O mínimo é ${kz(S.cfg.min_topup)}.`; }
+}
+
 export async function vCarteira() {
   const [{ data: tx }, { data: orders }] = await Promise.all([
     sb.from('wallet_tx').select('*').eq('user_id', me_().id).order('created_at', { ascending: false }).limit(50),
     sb.from('orders').select('id,kind,amount,method,status,created_at,provider_data').eq('user_id', me_().id).eq('status', 'pending').eq('method', 'reference').order('created_at', { ascending: false }).limit(5),
   ]);
-  return `<div class="pagehead"><div><h1>Carteira</h1><p>Carrega saldo e usa-o em subscrições, bilhetes, gorjetas e compras, sem aprovar cada pagamento. As subscrições renovam com este saldo.</p></div></div>
-   <div class="two"><div class="stack">
-    <div class="kpis" style="margin:0"><div class="kpi"><div class="l">Saldo disponível</div><div class="v">${kz(me_().wallet_balance)}</div><div class="s">O saldo não é convertível em dinheiro.</div></div></div>
-    ${orders?.length ? `<div class="box pad stack"><h4>Referências por pagar</h4>${orders.map((o) => `<div class="row between wrapf"><span>${kz(o.amount)} · entidade <b>${esc(o.provider_data?.entity || '')}</b> · referência <b>${esc(o.provider_data?.reference || '')}</b></span><span class="small muted">até ${esc(o.provider_data?.expires || '')}</span></div>`).join('')}</div>` : ''}
-    <div class="tw"><table style="min-width:420px"><thead><tr><th>Data</th><th>Movimento</th><th class="num">Valor</th></tr></thead><tbody>${(tx || []).length ? (tx || []).map((x) => `<tr><td>${fmtDate(x.created_at)}</td><td>${esc(x.description)}</td><td class="num" style="color:${x.amount > 0 ? 'var(--ok)' : 'var(--text)'}">${x.amount > 0 ? '+' : '−'}${kz(Math.abs(x.amount))}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Ainda sem movimentos.</td></tr>'}</tbody></table></div>
+  const saldo = Number(me_().wallet_balance) || 0;
+  const escolhido = S.topAmt || 5000;
+  const nome = esc(String(me_().name || me_().handle || '').split(' ')[0]);
+  const movs = (tx || []).map((x) => {
+    const entra = x.amount > 0;
+    return `<li class="wmov"><span class="wmov-ic ${entra ? 'in' : 'out'}">${ic(entra ? 'plus' : 'heart')}</span>
+      <span class="wmov-t"><b>${esc(x.description)}</b><span>${fmtDate(x.created_at)}</span></span>
+      <span class="wmov-v ${entra ? 'in' : ''}">${entra ? '+' : '−'}${kz(Math.abs(x.amount))}</span></li>`;
+  }).join('');
+
+  return `<div class="wallet">
+   <section class="whero" aria-label="Saldo">
+    <div class="whero-top"><span class="whero-ic">${ic('wallet')}</span><span>A tua carteira</span></div>
+    <div class="whero-v num">${kz(saldo)}</div>
+    <p class="whero-s">${saldo > 0 ? `Pronta a usar, ${nome}! Subscrições, gorjetas e bilhetes sem aprovar cada pagamento.` : `Olá, ${nome}! Carrega uma vez e apoia os teus criadores favoritos sem complicações.`}</p>
+    <div class="whero-chips"><span>${ic('star')}Subscrições</span><span>${ic('heart')}Gorjetas</span><span>${ic('live')}Bilhetes de lives</span><span>${ic('lock')}Conteúdos</span></div>
+   </section>
+
+   <div class="wgrid">
+    <section class="wtop box" aria-labelledby="wtopT">
+     <h2 id="wtopT">Quanto queres carregar?</h2>
+     <p class="small muted">Escolhe um valor ou escreve outro. O saldo entra assim que o pagamento for confirmado.</p>
+     <div class="wpacks" role="radiogroup" aria-label="Valor">${PACOTES.map(([v, t]) => `<button type="button" role="radio" aria-checked="${escolhido === v}" class="wpack${escolhido === v ? ' on' : ''}" data-act="topAmt" data-v="${v}">${v === 5000 ? '<span class="wpack-tag">Popular</span>' : ''}<b class="num">${dots(v)}<small>Kz</small></b><span>${t}</span></button>`).join('')}</div>
+     <label class="wother"><span>Outro valor</span><span class="wother-in"><input id="topOther" type="number" inputmode="numeric" min="${S.cfg.min_topup}" step="500" placeholder="${dots(S.cfg.min_topup)} ou mais" aria-label="Outro valor em kwanzas"><em>Kz</em></span></label>
+     <span class="err" id="topAviso" hidden></span>
+     <div class="wresumo"><span>Saldo depois do carregamento</span><b class="num" id="topDepois">${kz(saldo + escolhido)}</b></div>
+     <button class="btn pri block lg" id="topBtn" data-act="topup">${ic('plus')}Carregar ${kz(escolhido)}</button>
+     <div class="wpay"><span>${ic('phone')}Multicaixa Express</span><span>${ic('bank')}Referência Multicaixa</span></div>
+     <p class="wsafe">${ic('shield')}Pagamento seguro. O saldo não é convertível em dinheiro.</p>
+    </section>
+
+    <div class="stack">
+     ${orders?.length ? `<section class="box pad stack wrefs"><h3>${ic('clock')}Referências por pagar</h3>${orders.map((o) => `<div class="wref"><div><b class="num">${kz(o.amount)}</b><span class="small muted">até ${esc(o.provider_data?.expires || '')}</span></div><div class="wref-n"><span>Entidade <b>${esc(o.provider_data?.entity || '')}</b></span><span>Referência <b>${esc(String(o.provider_data?.reference || '').replace(/(\d{3})(?=\d)/g, '$1 '))}</b></span></div></div>`).join('')}<p class="small muted">Paga no ATM, no Multicaixa Express ou no internet banking. Confirmamos sozinhos.</p></section>` : ''}
+     <section class="box wmovs" aria-labelledby="wmovT"><h3 id="wmovT">Movimentos</h3>
+      ${movs ? `<ul>${movs}</ul>` : `<div class="wvazio"><span class="wvazio-ic">${ic('gift')}</span><b>Ainda sem movimentos</b><span>O teu primeiro carregamento aparece aqui.</span></div>`}
+     </section>
+    </div>
    </div>
-   <div class="box pad stack"><h3>Carregar saldo</h3>
-    <div class="amts" role="group" aria-label="Valor">${[2000, 5000, 10000, 20000].map((v) => `<button type="button" class="${(S.topAmt || 5000) === v ? 'on' : ''}" data-act="topAmt" data-v="${v}">${dots(v)}</button>`).join('')}</div>
-    <div class="field"><label for="topOther">Outro valor (Kz)</label><input id="topOther" type="number" min="${S.cfg.min_topup}" step="500" placeholder="Mínimo ${dots(S.cfg.min_topup)}"></div>
-    <button class="btn pri" data-act="topup">Carregar</button>
-    <p class="small muted">Multicaixa Express ou referência Multicaixa.</p></div></div>`;
+  </div>`;
 }
 
 /* ---------- Ações ---------- */
@@ -953,7 +999,7 @@ export const fanActions = {
   // Só o bloco de valores visível: a carteira tem o seu próprio .amts e as duas listas
   // partilhavam o selector global, o que desmarrava a seleção do outro lado.
   tipAmt(d: Record<string, string>) { S.tipAmt = +d.v; $$('#modalRoot .amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); const o = $('#tipOther'); if (o) o.value = ''; },
-  topAmt(d: Record<string, string>) { S.topAmt = +d.v; $$('main .amts button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.v)); const o = $('#topOther'); if (o) o.value = ''; },
+  topAmt(d: Record<string, string>) { S.topAmt = +d.v; $$('.wpack').forEach((b) => { const on = b.dataset.v === d.v; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); const o = $<HTMLInputElement>('#topOther'); if (o) o.value = ''; resumoCarregamento(); },
   tipGo() {
     const o = +$('#tipOther').value, amt = o || S.tipAmt, msg = $('#tipMsg').value.trim();
     if (!Number.isFinite(amt) || amt < S.cfg.min_tip) return showErr('#tipErr', `A gorjeta mínima é ${kz(S.cfg.min_tip)}.`);
@@ -1140,6 +1186,12 @@ register({
   },
   // Pesquisa do Explorar: redesenha só a grelha, com a última pesquisa a ganhar.
   input: (t) => {
+    if (t.id === 'topOther') {
+      const tem = Number((t as HTMLInputElement).value) > 0;
+      $$('.wpack').forEach((b) => { const on = !tem && b.dataset.v === String(S.topAmt || 5000); b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+      resumoCarregamento();
+      return true;
+    }
     if (!t.classList.contains('qin')) return false;
     S.q = t.value; clearTimeout(qT);
     document.querySelectorAll<HTMLInputElement>('.qin').forEach((x) => { if (x !== t) x.value = t.value; });
