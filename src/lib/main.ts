@@ -66,7 +66,7 @@ export function header(r: string): void {
     <a href="#perfil-${esc(u.handle)}" role="menuitem">${ic('user')}O meu perfil</a>
     ${S.creator ? `<a href="#estudio" data-act="menuIr" data-r="estudio" data-t="ganhos" role="menuitem">${ic('coin')}<span class="mi">Ganhos<b class="num">${kz(u.earnings_balance)}</b></span></a>` : ''}
     ${!isStaff(u) ? `<a href="#carteira" role="menuitem">${ic('wallet')}<span class="mi">Carteira<b class="num">${kz(u.wallet_balance)}</b></span></a>` : ''}
-    ${!isStaff(u) ? `<a href="#conta" data-act="menuIr" data-r="conta" data-t="afiliados" role="menuitem">${ic('link')}Afiliados</a>` : ''}
+    ${!isStaff(u) ? (S.creator ? `<a href="#estudio" data-act="menuIr" data-r="estudio" data-t="afiliados" role="menuitem">${ic('link')}Afiliados</a>` : `<a href="#conta" data-act="menuIr" data-r="conta" data-t="afiliados" role="menuitem">${ic('link')}Afiliados</a>`) : ''}
     ${S.creator ? `<a href="#estudio" data-act="menuIr" data-r="estudio" data-t="ganhos" role="menuitem">${ic('bank')}Os meus levantamentos</a>` : ''}
     ${!isStaff(u) ? `<a href="#subscricoes" role="menuitem">${ic('star')}As minhas subscrições</a>` : ''}
     ${!S.creator && !isStaff(u) ? `<hr><button data-act="becomeCreator" role="menuitem" class="mcriar">${ic('coin')}<span class="mi2"><b>Tornar-me criador</b><span>Ganhar dinheiro com o teu conteúdo</span></span></button>` : ''}
