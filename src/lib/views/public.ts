@@ -286,7 +286,7 @@ export function vInfo(r: any) {
     ['Como me torno criador?', 'Cria conta, escolhe “Quero ser criador” e completa três etapas: perfil de criador, documento com selfie e conta bancária. A equipa responde em até 48 horas.'],
     ['Que conteúdos posso publicar?', 'Fotografias, vídeos, texto e lives, dentro das regras da comunidade. Cada publicação pode ser grátis, para subscritores ou vendida à parte.'],
     ['Quanto custa usar a plataforma?', `Criar conta é grátis. Quando um criador vende, a plataforma fica com ${fee}% para pagamentos, servidores e impostos. O criador recebe ${net}%.`],
-    ['Como pago?', 'Com Multicaixa Express, referência Multicaixa, PayPal ou cartão internacional. Também podes carregar a carteira e pagar com o saldo.'],
+    ['Como pago?', 'Com Multicaixa Express, referência Multicaixa, PayPay, cartão Visa ou Mastercard (em dólares) ou Pix (em reais, para quem está no Brasil). Os pagamentos são processados pela kursiPay. Também podes carregar a carteira e pagar com o saldo.'],
     ['Posso cancelar uma subscrição?', 'Sim, quando quiseres, em Subscrições. Manténs o acesso até ao fim do período já pago.'],
     ['Como funciona a renovação?', 'As subscrições renovam todos os meses com o saldo da carteira. Se não houver saldo, a subscrição termina e podes renovar no perfil do criador.'],
     ['Há reembolsos?', 'Conteúdo digital já desbloqueado não é reembolsado, salvo problema técnico comprovado.'],

@@ -20,7 +20,7 @@ const catalogo = {
   },
 };
 const seguimento = { observar: () => () => {}, capturarPaypal: async () => 'paid' };
-const svc = new Pagamentos(catalogo, ['wallet', 'mcx', 'reference', 'paypal'].map((m) => estrategia(m as never)), seguimento);
+const svc = new Pagamentos(catalogo, ['wallet', 'mcx', 'reference', 'paypay', 'card', 'pix'].map((m) => estrategia(m as never)), seguimento);
 const minimos = { min_tip: 200, min_topup: 1000 };
 
 test('o preço vem do catálogo, não do valor que o ecrã mandou', async () => {
@@ -36,7 +36,7 @@ test('gorjetas e carregamentos respeitam os mínimos das definições', async ()
 });
 
 test('métodos: carregar a carteira não se paga com a carteira', async () => {
-  assert.deepEqual(svc.metodos('topup'), ['mcx', 'reference', 'paypal']);
+  assert.deepEqual(svc.metodos('topup'), ['mcx', 'reference', 'paypay', 'card', 'pix']);
   await assert.rejects(svc.iniciar('wallet', { kind: 'topup', target_id: null, amount: 1000, meta: {} }), ErroDeCompra);
 });
 

@@ -911,7 +911,7 @@ export async function vCarteira() {
     <div class="amts" role="group" aria-label="Valor">${[2000, 5000, 10000, 20000].map((v) => `<button type="button" class="${(S.topAmt || 5000) === v ? 'on' : ''}" data-act="topAmt" data-v="${v}">${dots(v)}</button>`).join('')}</div>
     <div class="field"><label for="topOther">Outro valor (Kz)</label><input id="topOther" type="number" min="${S.cfg.min_topup}" step="500" placeholder="Mínimo ${dots(S.cfg.min_topup)}"></div>
     <button class="btn pri" data-act="topup">Carregar</button>
-    <p class="small muted">Multicaixa Express, referência Multicaixa ou PayPal.</p></div></div>`;
+    <p class="small muted">Multicaixa Express, referência Multicaixa, PayPay, cartão Visa ou Mastercard e Pix.</p></div></div>`;
 }
 
 /* ---------- Ações ---------- */

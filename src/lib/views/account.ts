@@ -8,7 +8,7 @@ import { affiliateBlock, payoutBlock } from './studio';
 import type { Actions, ChangeFn, SubmitFn } from '../types';
 
 const KIND: Record<string, string> = { topup: 'Carregamento da carteira', subscription: 'Subscrição', post: 'Publicação', tip: 'Gorjeta', ticket: 'Bilhete de live', message: 'Mensagem paga' };
-const METHOD: Record<string, string> = { wallet: 'Carteira', reference: 'Referência', mcx: 'Multicaixa Express', paypal: 'PayPal' };
+const METHOD: Record<string, string> = { wallet: 'Carteira', reference: 'Referência', mcx: 'Multicaixa Express', paypay: 'PayPay', card: 'Cartão', pix: 'Pix', paypal: 'PayPal' };
 const STATUS: Record<string, string> = { paid: '<span class="tag ok">Pago</span>', pending: '<span class="tag warn">Por pagar</span>', failed: '<span class="tag plain">Falhou</span>', expired: '<span class="tag plain">Expirou</span>' };
 
 export async function vConta(): Promise<string> {

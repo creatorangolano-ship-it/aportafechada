@@ -20,7 +20,8 @@ export type InicioDePagamento =
   | { tipo: 'pago'; orderId: string }                          // carteira: já está pago
   | { tipo: 'aguardar'; orderId: string }                      // Multicaixa Express: aprovar na app
   | { tipo: 'referencia'; orderId: string; ref: Referencia }   // ATM / internet banking
-  | { tipo: 'redirecionar'; orderId: string; url: string };    // PayPal
+  | { tipo: 'redirecionar'; orderId: string; url: string }     // PayPal
+  | { tipo: 'checkout'; orderId: string; url: string };        // página de pagamento da kursiPay (abre noutro separador)
 
 /** Um método de pagamento (padrão Strategy): cada um sabe iniciar o seu fluxo. */
 export interface EstrategiaDePagamento {

@@ -11,7 +11,7 @@ import { ErroDeRegra } from '../shared/errors.ts';
 
 /** O que está a ser comprado. Determina de onde o preço é relido. */
 export type PayKind = 'subscription' | 'post' | 'message' | 'ticket' | 'tip' | 'topup';
-export type MetodoPagamento = 'wallet' | 'mcx' | 'reference' | 'paypal';
+export type MetodoPagamento = 'wallet' | 'mcx' | 'reference' | 'paypay' | 'card' | 'pix' | 'paypal';
 
 /** Tipos com preço fixo, guardado na base de dados. Gorjeta e carregamento têm valor livre. */
 export const TEM_PRECO_FIXO: ReadonlySet<PayKind> = new Set(['subscription', 'post', 'message', 'ticket']);

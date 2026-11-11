@@ -37,7 +37,7 @@ const carteira: EstrategiaDePagamento = {
   },
 };
 
-type RespostaCreateOrder = { order_id: string; approve_url?: string } & Partial<Referencia>;
+type RespostaCreateOrder = { order_id: string; approve_url?: string; checkout_url?: string } & Partial<Referencia>;
 
 /** Métodos que passam pela função `create-order`; só muda como se lê a resposta. */
 function viaCreateOrder(metodo: Exclude<MetodoPagamento, 'wallet'>, ler: (r: RespostaCreateOrder) => InicioDePagamento): EstrategiaDePagamento {
@@ -47,6 +47,8 @@ function viaCreateOrder(metodo: Exclude<MetodoPagamento, 'wallet'>, ler: (r: Res
       const r = await fn<RespostaCreateOrder>('create-order', {
         kind: p.kind, target_id: p.target_id, amount: p.amount, method: metodo, phone: p.telefone, meta: p.meta,
       });
+      // Sem cobrança direta ativa, a kursiPay manda para a página de pagamento dela.
+      if (r.checkout_url) return { tipo: 'checkout', orderId: r.order_id, url: r.checkout_url };
       return ler(r);
     },
   };
@@ -60,7 +62,10 @@ export const estrategiasSupabase: EstrategiaDePagamento[] = [
     tipo: 'referencia', orderId: r.order_id,
     ref: { entity: r.entity!, reference: r.reference!, amount: r.amount!, expires: r.expires! },
   })),
-  viaCreateOrder('paypal', (r) => ({ tipo: 'redirecionar', orderId: r.order_id, url: r.approve_url! })),
+  viaCreateOrder('paypay', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
+  viaCreateOrder('card', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
+  viaCreateOrder('pix', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
+  // PayPal fora do ecrã: o cartão pela kursiPay substitui-o (e o PayPal não tem chaves).
 ];
 
 /** Um pedido abandonado não pode ficar a ser vigiado para sempre. */

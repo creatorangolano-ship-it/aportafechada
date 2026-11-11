@@ -41,6 +41,8 @@ type Paying = OpenPayOpts & {
   method: Method;
   stage: 'form' | 'wait' | 'reference' | 'ok';
   phone?: string;
+  /** Página de pagamento da kursiPay (PayPay, cartão, Pix, ou quando não há cobrança direta). */
+  checkoutUrl?: string;
   orderId?: string;
   ref?: Referencia;
 };
@@ -52,7 +54,10 @@ const METODO_UI: Record<Method, [string, string]> = {
   wallet: ['Saldo da carteira', 'wallet'],
   mcx: ['Multicaixa Express', 'phone'],
   reference: ['Referência Multicaixa', 'bank'],
-  paypal: ['PayPal ou cartão internacional', 'card'],
+  paypay: ['PayPay', 'phone'],
+  card: ['Cartão Visa ou Mastercard', 'card'],
+  pix: ['Pix (Brasil)', 'coin'],
+  paypal: ['PayPal', 'card'],
 };
 
 /**
@@ -90,8 +95,9 @@ function draw(): void {
 
   if (p.stage === 'wait') {
     return modal(`<h3>À espera da confirmação</h3><div class="spin" aria-hidden="true"></div>
-      <p class="muted" style="text-align:center">${p.method === 'mcx' ? `Abre a app Multicaixa Express no telemóvel <b>${esc(p.phone)}</b> e aprova o pagamento de <b>${kz(p.amount)}</b>.` : 'A confirmar o pagamento.'}</p>
-      <p class="small muted" style="text-align:center">Esta janela atualiza-se sozinha.</p>
+      <p class="muted" style="text-align:center">${p.checkoutUrl ? `Conclui o pagamento de <b>${kz(p.amount)}</b> na página segura da kursiPay, que abriu noutro separador.` : p.method === 'mcx' ? `Abre a app Multicaixa Express no telemóvel <b>${esc(p.phone)}</b> e aprova o pagamento de <b>${kz(p.amount)}</b>.` : 'A confirmar o pagamento.'}</p>
+      ${p.checkoutUrl ? `<a class="btn pri block" href="${esc(p.checkoutUrl)}" target="_blank" rel="noopener">${ic('shield')}Abrir a página de pagamento</a>` : ''}
+      <p class="small muted" style="text-align:center">Esta janela atualiza-se sozinha quando o pagamento for confirmado.</p>
       <button class="btn out block" data-act="payCancel">Fechar</button>`, { noClose: true });
   }
 
@@ -111,7 +117,15 @@ function draw(): void {
   const needsAmount = p.amount == null;
   const methods = pagamentos().metodos(p.kind).map((m) => [m, ...METODO_UI[m]] as const);
   const curto = (p.amount || 0) > bal;
-  const desc = (v: Method): string => v === 'wallet' ? `Disponível: ${kz(bal)}${curto ? ' · saldo insuficiente' : ''}` : v === 'mcx' ? 'Aprovas na app do telemóvel' : v === 'reference' ? 'Pagas no ATM ou no internet banking' : `Cobrado em dólares (≈ ${usdOf(p.amount)})`;
+  const desc = (v: Method): string => ({
+    wallet: `Disponível: ${kz(bal)}${curto ? ' · saldo insuficiente' : ''}`,
+    mcx: 'Aprovas na app do telemóvel',
+    reference: 'Pagas no ATM ou no internet banking',
+    paypay: 'Pagas com a app PayPay',
+    card: `Cobrado em dólares (≈ ${usdOf(p.amount)})`,
+    pix: 'Para quem paga do Brasil, em reais',
+    paypal: `Cobrado em dólares (≈ ${usdOf(p.amount)})`,
+  })[v];
   modal(`<div class="payhd"><span class="eyebrow">${ic('shield')}Pagamento seguro</span><h3>${esc(p.title || '')}</h3>${p.sub ? `<p class="small muted">${esc(p.sub)}</p>` : ''}</div>
    ${needsAmount ? '' : `<div class="paytotal"><span>Total a pagar</span><b class="num">${kz(p.amount)}${p.recurring ? '<small>/mês</small>' : ''}</b></div>`}
    <form id="payForm" class="stack" novalidate>
@@ -119,7 +133,8 @@ function draw(): void {
     ${p.method === 'mcx' ? `<div class="field"><label for="payPhone">Número Multicaixa Express</label><input id="payPhone" inputmode="numeric" autocomplete="tel" placeholder="9XX XXX XXX" value="${esc(p.phone || '')}"></div>` : ''}
     ${p.method === 'wallet' && bal < (p.amount || 0) ? `<div class="aside">${ic('info')}<span>Saldo insuficiente. <a href="#carteira" data-act="closeModal">Carrega a carteira</a> ou escolhe outro método.</span></div>` : ''}
     <span class="err" id="payErr" hidden></span>
-    <button class="btn pri block lg" id="payBtn">${p.method === 'reference' ? 'Gerar referência' : p.method === 'paypal' ? 'Continuar para o PayPal' : 'Pagar ' + kz(p.amount)}</button>
+    <button class="btn pri block lg" id="payBtn">${p.method === 'reference' ? 'Gerar referência' : p.method === 'paypal' ? 'Continuar para o PayPal' : ['paypay', 'card', 'pix'].includes(p.method) ? 'Continuar para o pagamento' : 'Pagar ' + kz(p.amount)}</button>
+    ${p.method !== 'wallet' && p.method !== 'paypal' ? `<p class="small muted" style="text-align:center">Pagamento processado pela kursiPay.</p>` : ''}
     <p class="small muted" style="text-align:center">${p.recurring ? 'Renova todos os meses com o saldo da carteira. Podes cancelar em Subscrições.' : 'Pagamento único.'}</p>
    </form>`);
 }
@@ -148,6 +163,11 @@ async function submit(): Promise<void> {
         } catch { /* modo privado */ }
         location.href = r.url;
         return;
+      case 'checkout':
+        p.checkoutUrl = r.url; p.stage = 'wait';
+        // Pode ser bloqueado (o pedido demorou); nesse caso fica o botão «Abrir a página de pagamento».
+        try { window.open(r.url, '_blank', 'noopener'); } catch { /* bloqueado */ }
+        break;
       case 'referencia': p.ref = r.ref; p.stage = 'reference'; break;
       case 'aguardar': p.stage = 'wait'; break;
     }
@@ -246,7 +266,7 @@ export async function handlePaypalReturn(): Promise<void> {
 
 export const payActions = {
   payCancel() { closeModal(); P = null; },
-  payRetry() { if (P) { P.stage = 'form'; draw(); } },
+  payRetry() { if (P) { P.stage = 'form'; P.checkoutUrl = undefined; draw(); } },
   copyRef() { if (P?.ref) void copyText(String(P.ref.reference)); },
 };
 
