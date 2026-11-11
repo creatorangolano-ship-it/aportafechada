@@ -54,6 +54,9 @@ function viaCreateOrder(metodo: Exclude<MetodoPagamento, 'wallet'>, ler: (r: Res
   };
 }
 
+/** Métodos que a kursiPay ainda não ativou para a conta. */
+const METODOS_EM_ESPERA: ReadonlySet<MetodoPagamento> = new Set(['paypay', 'card', 'pix']);
+
 /** Ordem de apresentação no ecrã de pagamento. */
 export const estrategiasSupabase: EstrategiaDePagamento[] = [
   carteira,
@@ -62,9 +65,11 @@ export const estrategiasSupabase: EstrategiaDePagamento[] = [
     tipo: 'referencia', orderId: r.order_id,
     ref: { entity: r.entity!, reference: r.reference!, amount: r.amount!, expires: r.expires! },
   })),
-  viaCreateOrder('paypay', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
-  viaCreateOrder('card', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
-  viaCreateOrder('pix', (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! })),
+  // PayPay, cartão e Pix estão «temporariamente desativados pela kursiPay» (2026-11-12): a API
+  // recusa-os. Quando a kursiPay os ativar, basta tirá-los desta lista de espera.
+  ...(['paypay', 'card', 'pix'] as const)
+    .filter((m) => !METODOS_EM_ESPERA.has(m))
+    .map((m) => viaCreateOrder(m, (r) => ({ tipo: 'checkout', orderId: r.order_id, url: r.checkout_url! }))),
   // PayPal fora do ecrã: o cartão pela kursiPay substitui-o (e o PayPal não tem chaves).
 ];
 
