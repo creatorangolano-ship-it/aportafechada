@@ -151,13 +151,23 @@ function tabPerfil(c: any) {
    </div></div>`;
 }
 
+/** Saldo que já pode ser levantado. O que se ganha só fica disponível 24 h depois. */
+async function saldoLevantavel(): Promise<{ total: number; disponivel: number; aLibertar: number; proximo: string | null }> {
+  const total = Number(me_().earnings_balance) || 0;
+  const { data, error } = await sb.rpc('saldo_levantavel');
+  if (error || !data) return { total, disponivel: total, aLibertar: 0, proximo: null };
+  return { total: Number(data.total) || 0, disponivel: Number(data.disponivel) || 0, aLibertar: Number(data.a_libertar) || 0, proximo: data.proximo ?? null };
+}
+
 export async function payoutBlock() {
-  const [{ data: bank }, { data: pays }] = await Promise.all([
+  const [{ data: bank }, { data: pays }, sl] = await Promise.all([
     sb.from('payout_info').select('*').eq('user_id', me_().id).maybeSingle(),
     sb.from('payouts').select('*').eq('user_id', me_().id).order('created_at', { ascending: false }).limit(30),
+    saldoLevantavel(),
   ]);
   const st = (s: any) => s === 'paid' ? `<span class="tag ok">${ic('check')}Pago</span>` : s === 'rejected' ? '<span class="tag plain">Recusado</span>' : s === 'review' ? '<span class="tag info">Em revisão</span>' : '<span class="tag warn">Pendente</span>';
-  const bal = Number(me_().earnings_balance), blocked = S.creator && S.creator.status !== 'approved';
+  const bal = sl.disponivel, blocked = S.creator && S.creator.status !== 'approved';
+  const hora = (iso: string) => new Date(iso).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   return `<div class="two"><div class="stack">
     <div class="tw"><table style="min-width:420px"><thead><tr><th>Pedido</th><th class="num">Valor</th><th>Estado</th></tr></thead><tbody>${(pays || []).length ? (pays || []).map((p) => `<tr><td>${fmtDate(p.created_at)}${p.note ? `<div class="small muted">${esc(p.note)}</div>` : ''}</td><td class="num">${kz(p.amount)}</td><td>${st(p.status)}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Ainda sem levantamentos.</td></tr>'}</tbody></table></div>
     <form class="box pad stack" id="bankForm" novalidate><h3>Conta bancária</h3>
@@ -166,8 +176,9 @@ export async function payoutBlock() {
      <span class="err" id="bkErr" hidden></span><button class="btn out" style="align-self:flex-start">Guardar conta</button></form>
    </div>
    <form class="box pad stack" id="wdForm" novalidate><h3>Pedir levantamento</h3>
-    <div class="field"><label for="wdAmt">Valor (Kz)</label><input id="wdAmt" type="number" min="${S.cfg.min_payout}" step="500" value="${bal >= S.cfg.min_payout ? bal : ''}" ${bal >= S.cfg.min_payout && !blocked ? '' : 'disabled'}><span class="hint">Mínimo ${kz(S.cfg.min_payout)}. Disponível: ${kz(bal)}.</span></div>
-    <p class="small muted">A equipa aprova o pedido e o dinheiro chega em 2 a 4 dias úteis.</p>
+    <div class="wdsaldo"><div><span>Disponível para levantar</span><b class="num">${kz(sl.disponivel)}</b></div>${sl.aLibertar > 0 ? `<div><span>A libertar</span><b class="num">${kz(sl.aLibertar)}</b>${sl.proximo ? `<small>a partir de ${hora(sl.proximo)}</small>` : ''}</div>` : ''}</div>
+    <div class="field"><label for="wdAmt">Valor (Kz)</label><input id="wdAmt" type="number" min="${S.cfg.min_payout}" step="500" value="${bal >= S.cfg.min_payout ? bal : ''}" ${bal >= S.cfg.min_payout && !blocked ? '' : 'disabled'}><span class="hint">Mínimo ${kz(S.cfg.min_payout)}.</span></div>
+    <div class="aside">${ic('clock')}<span>O saldo só fica disponível para levantar 24 horas depois de o ganhares. Depois do pedido, o dinheiro chega à tua conta em até 48 horas.</span></div>
     <span class="err" id="wdErr" hidden></span>
     <button class="btn pri" ${bal >= S.cfg.min_payout && bank && !blocked ? '' : 'disabled'}>Pedir levantamento</button>
     ${!bank ? '<span class="small muted">Guarda primeiro a conta bancária.</span>' : blocked ? '<span class="small muted">Disponível depois de a conta ser verificada.</span>' : ''}</form></div>`;
@@ -366,9 +377,11 @@ export async function studioSubmit(f: HTMLFormElement) {
     if (!Number.isFinite(v) || !Number.isInteger(v) || v < S.cfg.min_payout) {
       return showErr('#wdErr', `O valor tem de ser um número inteiro de pelo menos ${kz(S.cfg.min_payout)}.`), true;
     }
-    const { data: bal } = await sb.from('profiles').select('earnings_balance').eq('id', me_().id).maybeSingle();
-    if (bal && v > Number(bal.earnings_balance || 0)) {
-      return showErr('#wdErr', `Só tens ${kz(bal.earnings_balance)} disponíveis para levantar.`), true;
+    const sl = await saldoLevantavel();
+    if (v > sl.disponivel) {
+      return showErr('#wdErr', sl.aLibertar > 0 && v <= sl.total
+        ? `Só tens ${kz(sl.disponivel)} disponíveis agora. O resto fica disponível 24 horas depois de o ganhares.`
+        : `Só tens ${kz(sl.disponivel)} disponíveis para levantar.`), true;
     }
     if (!confirm(`Pedir ${kz(v)}?\n\nO valor sai do teu saldo de ganhos e é transferido para a conta que registaste.`)) return true;
     const { error } = await sb.rpc('request_payout', { p_amount: v });

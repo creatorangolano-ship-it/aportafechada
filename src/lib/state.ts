@@ -153,7 +153,7 @@ export const S: AppState = {
   session: null,
   me: null,
   creator: null,
-  cfg: { fee_pct: 20, affiliate_pct: 10, min_payout: 5000, min_tip: 500, min_topup: 2000, min_price: 500, reference_days: 3, usd_rate: 920 },
+  cfg: { fee_pct: 20, affiliate_pct: 10, min_payout: 10000, min_tip: 500, min_topup: 2000, min_price: 500, reference_days: 3, usd_rate: 920 },
   unreadNotifs: 0,
   unreadMsgs: 0,
   liveAgora: false,
