@@ -62,12 +62,16 @@ export function header(r: string): void {
   const pesquisa = `<form class="hsearch" id="hsForm" role="search">${ic('search')}<input class="qin" type="search" placeholder="Procure um criador" value="${esc(S.q)}" aria-label="Procure um criador" autocomplete="off"></form>`;
   $('#hdr')!.innerHTML = `${brand}${pesquisa}<nav class="nav" aria-label="Principal">${links}</nav>${wal}${bell}${theme}
    <div class="me"><button data-act="menu" aria-expanded="${S.menu}" aria-haspopup="true">${avatarOf(u, 'xs')}<span class="nm">${esc((u.name || u.handle).split(' ')[0])}</span></button>
-   ${S.menu ? `<div class="menu" role="menu"><div class="hd"><b style="color:var(--ink)">${esc(u.name || u.handle)}</b><div class="small muted">@${esc(u.handle)}</div></div>
-    <a href="#perfil-${esc(u.handle)}" role="menuitem">${ic('user')}Ver o meu perfil</a>
-    ${S.creator ? `<a href="#subscricoes" role="menuitem">${ic('star')}As minhas subscrições</a>` : ''}
-    ${!isStaff(u) ? `<a href="#carteira" role="menuitem">${ic('wallet')}Carteira</a>` : ''}
-    <a href="#conta" role="menuitem">${ic('settings')}Definições da conta</a>
-    ${!S.creator && !isStaff(u) ? `<button data-act="becomeCreator" role="menuitem">${ic('star')}Tornar-me criador</button>` : ''}
+   ${S.menu ? `<div class="menu" role="menu"><div class="hd">${avatarOf(u, 'sm')}<div><b>${esc(u.name || u.handle)}</b><div class="small muted">@${esc(u.handle)}</div></div></div>
+    <a href="#perfil-${esc(u.handle)}" role="menuitem">${ic('user')}O meu perfil</a>
+    ${S.creator ? `<a href="#estudio" data-act="menuIr" data-r="estudio" data-t="ganhos" role="menuitem">${ic('coin')}<span class="mi">Ganhos<b class="num">${kz(u.earnings_balance)}</b></span></a>` : ''}
+    ${!isStaff(u) ? `<a href="#carteira" role="menuitem">${ic('wallet')}<span class="mi">Carteira<b class="num">${kz(u.wallet_balance)}</b></span></a>` : ''}
+    ${!isStaff(u) ? `<a href="#conta" data-act="menuIr" data-r="conta" data-t="afiliados" role="menuitem">${ic('link')}Afiliados</a>` : ''}
+    ${S.creator ? `<a href="#estudio" data-act="menuIr" data-r="estudio" data-t="ganhos" role="menuitem">${ic('bank')}Os meus levantamentos</a>` : ''}
+    ${!isStaff(u) ? `<a href="#subscricoes" role="menuitem">${ic('star')}As minhas subscrições</a>` : ''}
+    ${!S.creator && !isStaff(u) ? `<hr><button data-act="becomeCreator" role="menuitem" class="mcriar">${ic('coin')}<span class="mi2"><b>Tornar-me criador</b><span>Ganhar dinheiro com o teu conteúdo</span></span></button>` : ''}
+    <hr>
+    <a href="#conta" role="menuitem">${ic('settings')}Definições</a>
     <a href="#faq" role="menuitem">${ic('info')}Ajuda e regras</a>
     <button data-act="logout" role="menuitem">${ic('out')}Sair</button></div>` : ''}</div>`;
   $('#tabbar')!.innerHTML = links;
@@ -298,6 +302,8 @@ register({ actions: {
     const l = d.link || '';
     go(l.startsWith('post/') ? 'p-' + l.slice(5) : l.startsWith('live/') ? 'live-' + l.slice(5) : l || home());
   },
+  /** Atalhos do menu da conta que abrem um separador concreto (estúdio › ganhos, conta › afiliados). */
+  menuIr(d: Record<string, string>) { S.menu = false; if (d.r === 'estudio') S.stTab = d.t; else S.ctTab = d.t; go(d.r); },
   async logout() { S.menu = false; closeModal(); clearUrlCache(); await sb.auth.signOut(); },
   async becomeCreator() {
     S.menu = false;

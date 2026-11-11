@@ -1285,3 +1285,16 @@ body:has(.arranque)::before{content:'';position:fixed;top:0;left:0;height:3px;wi
 .wvazio-ic{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--acc-soft);color:var(--acc-text);margin-bottom:6px}
 .wvazio-ic svg{width:24px;height:24px}
 @media (max-width:520px){.whero{padding:20px 18px 18px}.wtop{padding:18px}.wpack b{font-size:19px}}
+
+/* Menu da conta (foto no cabeçalho), 2026-11-12 */
+.menu{min-width:250px;border-radius:10px;padding:6px}
+.menu .hd{display:flex;align-items:center;gap:10px}
+.menu .hd b{color:var(--ink)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+.menu a svg,.menu button svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.menu .mi{flex:1;display:flex;justify-content:space-between;gap:12px}
+.menu .mi b{color:var(--ink);font-weight:600;font-size:13px}
+.menu .mi2{display:flex;flex-direction:column;line-height:1.25}
+.menu .mi2 b{color:var(--ink);font-weight:600}
+.menu .mi2 span{font-size:12px;color:var(--muted)}
+.menu .mcriar svg{color:var(--acc)}
