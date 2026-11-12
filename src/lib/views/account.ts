@@ -19,7 +19,7 @@ export async function vConta(): Promise<string> {
   let b = '';
   if (t === 'perfil') b = `<div class="pagehead"><div><h1>Definições da conta</h1><p>O email e a data de nascimento só tu os vês.</p></div></div>
    <form class="box pad stack" id="accForm" style="max-width:720px" novalidate>
-    <div class="row">${avatarOf(me, 'lg')}<div style="flex:1"><h3>${esc(me.name || me.handle)}</h3><span class="small muted">@${esc(me.handle)} · ${cr ? 'criador' : ({ admin: 'administração', moderator: 'moderação' } as Record<string, string>)[r] || 'fã'} · desde ${fmtDate(me.created_at)}</span></div>
+    <div class="row" style="flex-wrap:wrap">${avatarOf(me, 'lg')}<div style="flex:1;min-width:0"><h3>${esc(me.name || me.handle)}</h3><span class="small muted">@${esc(me.handle)} · ${cr ? 'criador' : ({ admin: 'administração', moderator: 'moderação' } as Record<string, string>)[r] || 'fã'} · desde ${fmtDate(me.created_at)}</span></div>
      <label class="btn out sm" style="position:relative">Mudar foto<input type="file" accept="image/*" id="accAvatar" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>
     <div class="grid2"><div class="field"><label for="aName">Nome</label><input id="aName" value="${esc(me.name)}" maxlength="60"></div>
      <div class="field"><label for="aCountry">País</label><select id="aCountry">${COUNTRIES.map((c) => `<option ${me.country === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>

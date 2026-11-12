@@ -1307,3 +1307,24 @@ body:has(.arranque)::before{content:'';position:fixed;top:0;left:0;height:3px;wi
 .wdsaldo b{font-size:20px;color:var(--ink)}
 .wdsaldo > div:first-child b{color:var(--ok)}
 .wdsaldo small{font-size:11.5px;color:var(--muted)}
+
+/* ---------- Telemóvel: a página nunca desliza para o lado ----------
+   No iPhone, um campo com letra abaixo de 16 px faz o Safari aproximar a página ao
+   tocar nele, e a página fica a «balançar» de um lado para o outro e sem margens.
+   Também se impede que um elemento mais largo do que o ecrã empurre a página. */
+html,body{max-width:100%;overflow-x:clip}
+body{overflow-wrap:break-word}
+img,video,svg,canvas,iframe{max-width:100%}
+@media (max-width:900px){
+  input,select,textarea{font-size:16px!important}
+  /* As grelhas de uma coluna (Conta, Estúdio) encolhem ao ecrã em vez de alargarem com o conteúdo. */
+  .dash{grid-template-columns:minmax(0,1fr)}
+  .dash>*{min-width:0}
+}
+/* Cabeçalho com sessão em ecrãs estreitos: nome, mensagens, notificações e avatar cabem em 320 px. */
+@media (max-width:370px){
+  body.authed .top .wrap{gap:6px;padding-left:12px;padding-right:12px}
+  body.authed .top .brand{font-size:15.5px;gap:8px}
+  body.authed .top .tbtn{width:36px;height:36px}
+}
+@media (max-width:330px){body.authed .top .brand span{display:none}}
