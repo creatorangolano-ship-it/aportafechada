@@ -1,6 +1,11 @@
 /** Listas da interface (categorias, cidades, bancos, países). A ligação ao Supabase está em src/infrastructure/config.ts. */
 export { SUPABASE_URL, SUPABASE_ANON_KEY } from '../infrastructure/config';
 
+/** Chave pública do Cloudflare Turnstile (CAPTCHA invisível, ver lib/captcha.ts).
+ *  Vazia = CAPTCHA desligado. Só se liga «Enable Captcha protection» no Supabase
+ *  depois de esta chave estar publicada, senão ninguém consegue entrar. */
+export const TURNSTILE_SITE_KEY = '';
+
 /**
  * A biblioteca de vídeo das lives já não vem de um CDN: `livekit-client` é uma
  * dependência npm e é importada dinamicamente em `views/lives.ts`, só quando

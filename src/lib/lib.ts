@@ -371,6 +371,7 @@ export function errText(e: unknown): string {
   if (/User already registered/i.test(m)) return 'Já existe uma conta com este email. Entra ou recupera a palavra-passe.';
   if (/Password should be/i.test(m)) return 'A palavra-passe precisa de pelo menos 8 caracteres.';
   if (/rate limit/i.test(m)) return 'Demasiadas tentativas. Espera um minuto e tenta outra vez.';
+  if (/captcha/i.test(m)) return 'A verificação de segurança falhou. Atualiza a página e tenta outra vez.';
   if (/banned/i.test(m)) return 'Esta conta está banida. Se achas que é um engano, fala connosco em Contacto.';
   if (/Token has expired|invalid.*otp/i.test(m)) return 'O código expirou ou está errado. Pede um novo.';
   if (/Failed to fetch|NetworkError/i.test(m)) return 'Sem ligação à internet. Tenta outra vez.';

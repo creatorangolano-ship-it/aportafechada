@@ -14,7 +14,7 @@ const JANELA_MS = 15 * 60 * 1000, MAX_NOME = 5, MAX_IP = 20;
 
 Deno.serve(async (req) => {
   const pre = handleOptions(req); if (pre) return pre;
-  const { handle, password } = await req.json().catch(() => ({}));
+  const { handle, password, captcha } = await req.json().catch(() => ({}));
   if (!handle || !password) return json({ error: WRONG }, 400);
 
   const db = admin();
@@ -40,9 +40,12 @@ Deno.serve(async (req) => {
   if (!email) return falhou(WRONG);
 
   const anon = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), { auth: { persistSession: false } });
-  const { data, error } = await anon.auth.signInWithPassword({ email, password: String(password) });
+  // O token do CAPTCHA (Turnstile) vem do browser e segue para o Supabase, que o valida.
+  const captchaToken = typeof captcha === "string" && captcha ? captcha : undefined;
+  const { data, error } = await anon.auth.signInWithPassword({ email, password: String(password), options: { captchaToken } });
   if (error || !data.session) {
     const m = error?.message ?? "";
+    if (/captcha/i.test(m)) return json({ error: "A verificação de segurança falhou. Tenta outra vez." }, 400);
     const msg = /banned/i.test(m) ? BANNED : m.includes("confirm") ? "Confirma primeiro o teu email." : WRONG;
     return falhou(msg);
   }

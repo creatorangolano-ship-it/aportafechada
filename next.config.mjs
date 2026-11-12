@@ -33,12 +33,13 @@ const nextConfig = {
     const dev = process.env.NODE_ENV !== 'production';
     const csp = [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
+      // challenges.cloudflare.com: CAPTCHA invisível (Turnstile) no login e no registo.
+      `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${dev ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: https:`,
       `media-src 'self' blob: ${supa}`,
       "font-src 'self' data:",
-      `connect-src 'self' ${supa} ${supaWs} https://*.livekit.cloud wss://*.livekit.cloud${dev ? ' ws: http://localhost:*' : ''}`,
+      `connect-src 'self' ${supa} ${supaWs} https://*.livekit.cloud wss://*.livekit.cloud https://challenges.cloudflare.com${dev ? ' ws: http://localhost:*' : ''}`,
       "frame-src https:",
       "worker-src 'self' blob:",
       "object-src 'none'",

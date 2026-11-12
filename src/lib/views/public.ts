@@ -5,6 +5,7 @@ import { INFO } from '../rotas';
 import { S, loadMe, netPct, isStaff } from '../state';
 import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
+import { captcha } from '../captcha';
 
 import type { FormControl } from '../types';
 
@@ -368,13 +369,18 @@ export const publicActions = {
   async forgot() {
     const e = $('#lEmail').value.trim();
     if (!isEmail(e)) return showErr('#lErr', 'Escreve o teu email no primeiro campo e carrega outra vez em “Esqueceu a palavra-passe?”.');
-    await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + '/#nova-senha' });
+    let captchaToken: string | undefined;
+    try { captchaToken = await captcha(); } catch (x) { return showErr('#lErr', errText(x)); }
+    const { error } = await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + '/#nova-senha', captchaToken });
+    if (error) return showErr('#lErr', errText(error));
     toast('Se existir uma conta com esse email, enviámos um link para escolher uma nova palavra-passe.');
   },
   async resend() {
     const em = S.reg?.data?.email;
     if (!em) return showErr('#cErr', 'Recomeça o registo.'), true;
-    const { error } = await sb.auth.resend({ type: 'signup', email: em });
+    let captchaToken: string | undefined;
+    try { captchaToken = await captcha(); } catch (x) { return toast(errText(x)); }
+    const { error } = await sb.auth.resend({ type: 'signup', email: em, options: { captchaToken } });
     toast(error ? errText(error) : 'Enviámos um novo código.');
   },
   obBack() { readOb(); S.reg!.i--; rerender(); },
@@ -408,11 +414,12 @@ export async function publicSubmit(f: HTMLFormElement) {
     if (!pw) return showErr('#lErr', 'Escreve a tua palavra-passe.'), true;
     busy(btn, true, 'A entrar…');
     try {
+      const captchaToken = await captcha();
       if (who.includes('@')) {
-        const { error } = await sb.auth.signInWithPassword({ email: who, password: pw });
+        const { error } = await sb.auth.signInWithPassword({ email: who, password: pw, options: { captchaToken } });
         if (error) throw error;
       } else {
-        const s = await fn<{ access_token: string; refresh_token: string }>('login-handle', { handle: who, password: pw });
+        const s = await fn<{ access_token: string; refresh_token: string }>('login-handle', { handle: who, password: pw, captcha: captchaToken });
         const { error } = await sb.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
         if (error) throw error;
       }
@@ -428,7 +435,9 @@ export async function publicSubmit(f: HTMLFormElement) {
     if (!(pass.length >= 8 && /[a-z]/i.test(pass) && /\d/.test(pass))) return showErr('#rErr', 'A palavra-passe precisa de 8 caracteres ou mais, com pelo menos uma letra e um número.'), true;
     const btn = f.querySelector('button.pri'); busy(btn, true, 'A criar conta…');
     let ref = null; try { ref = localStorage.getItem('apf-ref'); } catch { /* */ }
-    const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name, country, ref }, emailRedirectTo: location.origin + '/' } });
+    let captchaToken: string | undefined;
+    try { captchaToken = await captcha(); } catch (x) { busy(btn, false); showErr('#rErr', errText(x)); return true; }
+    const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name, country, ref }, emailRedirectTo: location.origin + '/', captchaToken } });
     if (error) { busy(btn, false); showErr('#rErr', errText(error)); return true; }
     if (data.session) { await afterLogin(); return true; }
     if (data.user && !data.user.identities?.length) { busy(btn, false); showErr('#rErr', 'Já existe uma conta com este email. Entra ou recupera a palavra-passe.'); return true; }
