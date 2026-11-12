@@ -4,7 +4,18 @@ import { register } from '../registry';
 const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 /** `esc()` não protege um URL dentro de url('…') — ver nota em fan.js. */
 const cssUrl = (u: any) => `url("${String(u || '').replace(/["'\\()<>]/g, encodeURIComponent)}")`;
-import { S, refreshMe, netPct } from '../state';
+import { S, refreshMe } from '../state';
+
+/** Comissão deste criador agora: 10 % no 1.º mês depois da aprovação, 15 % no 2.º, depois a normal.
+ *  Vem da base de dados (comissao_criador), que é a mesma conta usada em cada venda. */
+type Comissao = { pct: number; normal: number; proxima_mudanca: string | null; proximo_pct: number | null };
+let comissao: Comissao | null = null;
+async function carregarComissao(): Promise<void> {
+  const { data, error } = await sb.rpc('comissao_criador', { p_creator: me_().id });
+  comissao = error || !data ? null : data as Comissao;
+}
+const taxa = (): number => comissao?.pct ?? Number(S.cfg.fee_pct || 0);
+const recebes = (): number => 100 - taxa();
 import { CATS, CITIES, BANKS } from '../config';
 import { startOnboarding } from './public';
 
@@ -99,7 +110,7 @@ function tabNova(c: any) {
     <div class="field"><span class="flabel">Quem pode ver</span><div class="opts">
      ${[['free', 'Todos', 'Grátis, visível no perfil'], ['subscribers', c.price ? 'Subscritores' : 'Seguidores', c.price ? 'Incluído na subscrição' : 'Quem te segue'], ['paid', 'Compra à parte', 'Pagamento único']].map(([v, l, s]) => `<label class="opt"><input type="radio" name="acc" value="${v}" ${d.access === v ? 'checked' : ''}><span><b>${l}</b><span>${s}</span></span></label>`).join('')}
     </div></div>
-    <div class="field" id="priceRow" ${d.access === 'paid' ? '' : 'hidden'} style="max-width:280px"><label for="pPrice">Preço (Kz)</label><input id="pPrice" type="number" min="${S.cfg.min_price}" step="100" value="${d.price}"><span class="hint">Recebes ${netPct()}% de cada venda.</span></div>
+    <div class="field" id="priceRow" ${d.access === 'paid' ? '' : 'hidden'} style="max-width:280px"><label for="pPrice">Preço (Kz)</label><input id="pPrice" type="number" min="${S.cfg.min_price}" step="100" value="${d.price}"><span class="hint">Recebes ${recebes()}% de cada venda.</span></div>
     <label class="check"><input type="checkbox" id="pCm" checked><span>Permitir comentários</span></label>
     <div class="progress" id="pProg" hidden><i style="width:0"></i></div>
     <span class="err" id="pErr" hidden></span>
@@ -134,7 +145,7 @@ async function tabSubs(c: any) {
    <form class="box pad stack" id="priceForm" novalidate><h3>Subscrição</h3><p class="small muted">Decides se cobras ou não. Quem já subscreve mantém o preço até à próxima renovação.</p>
     <div class="stack" style="gap:8px"><label class="opt"><input type="radio" name="pmode" value="free" ${c.price ? '' : 'checked'}><span><b>Perfil gratuito</b><span>Quem te segue vê o conteúdo para seguidores.</span></span></label>
     <label class="opt"><input type="radio" name="pmode" value="paid" ${c.price ? 'checked' : ''}><span><b>Subscrição paga</b><span>Os fãs pagam por mês.</span></span></label></div>
-    <div class="field" id="sPriceRow" ${c.price ? '' : 'hidden'}><label for="priceInp">Valor mensal (Kz)</label><input id="priceInp" type="number" min="${S.cfg.min_price}" step="100" value="${c.price || 2500}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes ${netPct()}%.</span></div>
+    <div class="field" id="sPriceRow" ${c.price ? '' : 'hidden'}><label for="priceInp">Valor mensal (Kz)</label><input id="priceInp" type="number" min="${S.cfg.min_price}" step="100" value="${c.price || 2500}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes ${recebes()}%.</span></div>
     <button class="btn pri">Guardar</button></form></div>`;
 }
 
@@ -188,7 +199,8 @@ async function tabGanhos() {
   const { data: st } = await sb.rpc('creator_stats');
   const bk = (st?.by_kind ?? {}) as Record<string, number>, tot = Object.values(bk).reduce((a, b) => a + b, 0);
   const L: Record<string, string> = { subscription: 'Subscrições', post: 'Publicações pagas', message: 'Mensagens pagas', ticket: 'Bilhetes de lives', tip: 'Gorjetas' };
-  return `<div class="pagehead"><div><h1>Ganhos</h1><p>A plataforma fica com ${S.cfg.fee_pct}% de cada venda. Recebes ${netPct()}%.</p></div></div>
+  return `<div class="pagehead"><div><h1>Ganhos</h1><p>A plataforma fica com ${taxa()}% de cada venda. Recebes ${recebes()}%.</p></div></div>
+   ${comissao?.proxima_mudanca ? `<div class="aside" style="margin-bottom:18px">${ic('star')}<span><b>Comissão de boas-vindas:</b> a plataforma fica só com ${comissao.pct}% até ${new Date(comissao.proxima_mudanca).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })}. Depois passa a ${comissao.proximo_pct}%${comissao.proximo_pct !== comissao.normal ? ` e, no mês seguinte, a ${comissao.normal}%` : ''}.</span></div>` : ''}
    <div class="kpis"><div class="kpi"><div class="l">Receita bruta do mês</div><div class="v">${kz(st?.month_gross || 0)}</div></div><div class="kpi"><div class="l">Recebes deste mês</div><div class="v">${kz(st?.month_net || 0)}</div></div><div class="kpi"><div class="l">Saldo para levantar</div><div class="v">${kz(me_().earnings_balance)}</div></div></div>
    ${tot ? `<div class="tw" style="margin-bottom:22px"><table style="min-width:400px"><thead><tr><th>Origem (este mês)</th><th class="num">Valor</th><th class="num">Parte</th></tr></thead><tbody>${Object.entries(bk).map(([k, v]) => `<tr><td>${L[k] || k}</td><td class="num">${kz(v)}</td><td class="num">${Math.round(v / tot * 100)}%</td></tr>`).join('')}</tbody></table></div>` : ''}
    ${await payoutBlock()}`;
@@ -207,6 +219,7 @@ export async function affiliateBlock() {
 export async function vEstudio() {
   const c = S.creator; if (!c) { go('conta'); return ''; }
   if (c.status === 'rejected') { const { data: k } = await sb.from('kyc_requests').select('reason').eq('user_id', c.id).order('created_at', { ascending: false }).limit(1).maybeSingle(); S.kycReason = k?.reason || ''; }
+  await carregarComissao();
   const t = S.stTab;
   let b = '';
   if (t === 'visao') b = await tabVisao(c);

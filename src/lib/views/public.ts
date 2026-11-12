@@ -181,7 +181,7 @@ export function vOnboarding() {
      <label class="opt"><input type="radio" name="pmode" value="free" ${d.pmode === 'free' ? 'checked' : ''}><span><b>Perfil gratuito</b><span>Quem te segue vê o conteúdo para seguidores. Podes vender publicações à parte e receber gorjetas.</span></span></label>
      <label class="opt"><input type="radio" name="pmode" value="paid" ${d.pmode !== 'free' ? 'checked' : ''}><span><b>Subscrição paga</b><span>Os fãs pagam por mês para ver o conteúdo exclusivo.</span></span></label></div>
      <span class="hint">Podes mudar quando quiseres no estúdio.</span></div>
-    <div class="field" id="oPriceRow" ${d.pmode === 'free' ? 'hidden' : ''} style="max-width:320px"><label for="oPrice">Preço da subscrição (Kz por mês)</label><input id="oPrice" type="number" min="${S.cfg.min_price}" step="100" value="${esc(d.price ?? 2500)}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes ${netPct()}% de cada subscrição.</span></div>
+    <div class="field" id="oPriceRow" ${d.pmode === 'free' ? 'hidden' : ''} style="max-width:320px"><label for="oPrice">Preço da subscrição (Kz por mês)</label><input id="oPrice" type="number" min="${S.cfg.min_price}" step="100" value="${esc(d.price ?? 2500)}"><span class="hint">Mínimo ${kz(S.cfg.min_price)}. Recebes 90% no primeiro mês, 85% no segundo e ${netPct()}% depois.</span></div>
     <div class="field"><label for="oBio">Apresentação</label><textarea id="oBio" maxlength="500" placeholder="Em duas ou três frases, o que vão encontrar no teu perfil.">${esc(d.bio || '')}</textarea></div>`;
   else if (id === 'identidade') {
     const f = r.files;
@@ -285,7 +285,7 @@ export function vInfo(r: any) {
     ['Quem pode usar?', 'Só maiores de 18 anos. Todos os criadores confirmam a identidade com documento antes de poderem receber pagamentos.'],
     ['Como me torno criador?', 'Cria conta, escolhe “Quero ser criador” e completa três etapas: perfil de criador, documento com selfie e conta bancária. A equipa responde em até 48 horas.'],
     ['Que conteúdos posso publicar?', 'Fotografias, vídeos, texto e lives, dentro das regras da comunidade. Cada publicação pode ser grátis, para subscritores ou vendida à parte.'],
-    ['Quanto custa usar a plataforma?', `Criar conta é grátis. Quando um criador vende, a plataforma fica com ${fee}% para pagamentos, servidores e impostos. O criador recebe ${net}%.`],
+    ['Quanto custa usar a plataforma?', `Criar conta é grátis. Quando um criador vende, a plataforma fica com ${fee}% para pagamentos, servidores e impostos. O criador recebe ${net}%. Para quem começa, a comissão é mais baixa: ${fee > 10 ? 'só 10% no primeiro mês depois da aprovação e 15% no segundo' : 'a mesma'}.`],
     ['Como pago?', 'Com Multicaixa Express ou referência Multicaixa (no ATM ou no internet banking). Os pagamentos são processados pela kursiPay. Também podes carregar a carteira e pagar com o saldo.'],
     ['Posso cancelar uma subscrição?', 'Sim, quando quiseres, em Subscrições. Manténs o acesso até ao fim do período já pago.'],
     ['Como funciona a renovação?', 'As subscrições renovam todos os meses com o saldo da carteira. Se não houver saldo, a subscrição termina e podes renovar no perfil do criador.'],
