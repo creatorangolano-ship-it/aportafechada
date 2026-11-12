@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
 import { SUPABASE_URL } from '@/infrastructure/config';
 import { SITE, NOME, DESCRICAO } from '@/lib/seo-textos';
+import Analise from './Analise';
 import './globals.css';
 
 /**
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <nav className="tabbar" id="tabbar" />
         <div id="modalRoot" />
         <div id="toastRoot" />
+        <Analise />
       </body>
     </html>
   );
