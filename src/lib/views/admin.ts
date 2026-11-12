@@ -20,6 +20,7 @@ import { ROLES } from '../../domain/identity/role.ts';
 import { ADVERTENCIAS_PARA_BANIMENTO, DURACOES_BANIMENTO, MOTIVOS, advertenciaBane, rotuloDoMotivo } from '../../domain/identity/moderacao.ts';
 import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import type { FormControl } from '../types';
+import { podeInstalar, instalarGestao } from '../gestao';
 
 /** A fachada para quem está a agir agora. As vistas só são chamadas com sessão (ver main.ts). */
 const bo = (): Backoffice => backoffice({ id: S.me!.id, role: S.me!.role });
@@ -352,6 +353,7 @@ export async function vAdmin() {
     <div class="csfoot">
      <a href="#explorar">${ic('compass')}<span>Ver a plataforma</span></a>
      <a href="#conta">${ic('user')}<span>A minha conta</span></a>
+     ${podeInstalar() ? `<a href="#admin" data-act="adInstalar">${ic('phone')}<span>Instalar app de gestão</span></a>` : ''}
      <div class="csme">${avatarOf(u, 'sm')}<span class="who"><b>${esc(u.name || u.handle)}</b><span class="small muted">@${esc(u.handle)}</span></span>
       <button class="tbtn" data-act="theme" aria-label="${dark ? 'Mudar para modo claro' : 'Mudar para modo escuro'}" title="${dark ? 'Modo claro' : 'Modo escuro'}">${ic(dark ? 'sun' : 'moon')}</button>
       <button class="tbtn" data-act="logout" aria-label="Sair" title="Sair">${ic('out')}</button></div>
@@ -388,6 +390,8 @@ export const adminActions = {
   },
   /** Abre/fecha a barra lateral em ecrãs pequenos (em ecrãs largos está sempre visível). */
   adNav() { document.body.classList.toggle('csnav-open'); },
+  /** Instala a consola como app no telemóvel (ver lib/gestao.ts). */
+  adInstalar() { document.body.classList.remove('csnav-open'); void instalarGestao(); },
 
   async kycOpen(d: Record<string, string>) {
     let det;

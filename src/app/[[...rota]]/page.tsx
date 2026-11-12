@@ -66,6 +66,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  // A consola tem a sua própria app instalável (public/gestao, lib/gestao.ts).
+  if (r === 'admin') {
+    return {
+      title: { absolute: tituloDe(r) }, description: DESCRICAO, robots: { index: false, follow: false },
+      manifest: '/gestao/manifest.webmanifest',
+      appleWebApp: { capable: true, title: 'Gestão APF', statusBarStyle: 'black' },
+      icons: { icon: '/img/icon.svg', apple: '/gestao/apple-touch-icon.png' },
+    };
+  }
+
   // Páginas com sessão (feed, mensagens, publicações, lives…): título, mas fora do Google.
   return { title: { absolute: tituloDe(r) }, description: DESCRICAO, robots: { index: false, follow: false } };
 }

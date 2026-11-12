@@ -1,0 +1,23 @@
+{
+  "id": "/admin",
+  "name": "A Porta Fechada · Gestão",
+  "short_name": "Gestão APF",
+  "description": "Gerir a A Porta Fechada: verificações, denúncias, levantamentos e suporte.",
+  "lang": "pt",
+  "start_url": "/admin?app=gestao",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141012",
+  "theme_color": "#141012",
+  "icons": [
+    { "src": "/gestao/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/gestao/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/gestao/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Verificações", "url": "/admin?app=gestao&aba=verificacoes", "icons": [{ "src": "/gestao/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Levantamentos", "url": "/admin?app=gestao&aba=levantamentos", "icons": [{ "src": "/gestao/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Denúncias", "url": "/admin?app=gestao&aba=denuncias", "icons": [{ "src": "/gestao/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

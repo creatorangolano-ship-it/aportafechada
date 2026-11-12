@@ -7,6 +7,7 @@ import { tituloDe } from './seo-textos';
 import { modulos, carregarTodos, preCarregar } from './modulos';
 import { action, register, handleSubmit, handleChange, handleInput } from './registry';
 import { observarTabelas } from './tabelas';
+import { iniciarGestao, manifestPara } from './gestao';
 import type { FormControl } from './types';
 
 /* ---------- Tema ---------- */
@@ -235,6 +236,7 @@ export async function render(keep = false): Promise<void> {
   if (r === 'estudio' && !S.creator) para('conta');
   if (r === 'admin' && !isStaff(S.me)) para(home());
   document.title = tituloDe(r);
+  manifestPara(r);
 
   header(r);
   const app = $('#app')!;
@@ -465,6 +467,7 @@ export async function boot(): Promise<void> {
   // Tabelas: no telemóvel cada linha vira um cartão (sem deslocação horizontal).
   observarTabelas(document.body);
   converterHashAntigo();
+  iniciarGestao();
   observarLinks();
   const yr = $('#yr'); if (yr) yr.textContent = String(new Date().getFullYear());
   const u = new URL(location.href), ref = u.searchParams.get('ref');
