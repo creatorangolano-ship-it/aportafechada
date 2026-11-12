@@ -20,7 +20,37 @@ const nextConfig = {
   },
 
   async headers() {
+    // Política de conteúdo (CSP). O que mais protege:
+    // * scripts só deste domínio (nenhum script de outro site corre aqui);
+    // * o browser só fala com este site, com o Supabase e com o LiveKit (lives):
+    //   um script injetado não consegue enviar sessões ou dados para outro lado;
+    // * ninguém pode pôr o site dentro de uma moldura (frame-ancestors).
+    // 'unsafe-inline' nos scripts fica porque o Next e o arranque do tema usam
+    // scripts embutidos. Imagens e molduras https de qualquer origem ficam
+    // permitidas por causa dos banners HTML de publicidade (ex.: AliExpress).
+    const supa = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xkcngjrlfmozlsttuxgs.supabase.co';
+    const supaWs = supa.replace(/^https:/, 'wss:');
+    const dev = process.env.NODE_ENV !== 'production';
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
+      "style-src 'self' 'unsafe-inline'",
+      `img-src 'self' data: blob: https:`,
+      `media-src 'self' blob: ${supa}`,
+      "font-src 'self' data:",
+      `connect-src 'self' ${supa} ${supaWs} https://*.livekit.cloud wss://*.livekit.cloud${dev ? ' ws: http://localhost:*' : ''}`,
+      "frame-src https:",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      ...(dev ? [] : ['upgrade-insecure-requests']),
+    ].join('; ');
     const common = {
+      'Content-Security-Policy': csp,
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'X-Permitted-Cross-Domain-Policies': 'none',
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',

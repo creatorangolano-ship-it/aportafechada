@@ -46,6 +46,17 @@ Deno.serve(async (req) => {
   if (method === "mcx" && !/^9\d{8}$/.test(phone)) return json({ error: "Escreve um número angolano com 9 dígitos, a começar por 9." }, 400);
 
   const db = admin();
+  // Limite de pedidos: trava quem tenta gerar cobranças em série (abuso, testes de
+  // números roubados, spam de notificações MCX para terceiros).
+  const desde = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  const [{ count: em10 }, { count: em60 }] = await Promise.all([
+    db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", desde(10)),
+    db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", desde(60)),
+  ]);
+  if ((em10 ?? 0) >= 8 || (em60 ?? 0) >= 25) {
+    return json({ error: "Fizeste muitos pedidos de pagamento seguidos. Espera alguns minutos e tenta outra vez." }, 429);
+  }
+
   const { data: order, error } = await db.rpc("create_order", {
     p_user: user.id, p_kind: kind, p_target: target, p_amount: amount, p_method: method, p_meta: meta,
   });

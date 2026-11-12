@@ -143,8 +143,26 @@ const ROUTES: Record<string, Rota> = {
   live: { v: (id) => modulos.lives().then((m) => m.vLive(id)) },
   estudio: { v: () => modulos.studio().then((m) => m.vEstudio()), cfg: true },
   conta: { v: () => modulos.account().then((m) => m.vConta()), cfg: true },
-  admin: { v: () => modulos.admin().then((m) => m.vAdmin()), cfg: true },
+  admin: { v: () => portaoDoisPassos().then((h) => h ?? modulos.admin().then((m) => m.vAdmin())), cfg: true },
 };
+
+/** A consola de administração exige a verificação em dois passos (código da app de
+ *  autenticação) nesta sessão. Sem ela, uma palavra-passe roubada bastava para mexer
+ *  em pagamentos, levantamentos e contas. Devolve a página de bloqueio, ou null se passa. */
+async function portaoDoisPassos(): Promise<string | null> {
+  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.currentLevel === 'aal2') return null;
+  const ativa = aal?.nextLevel === 'aal2';
+  return `<div class="wrap" style="max-width:520px;padding:48px 16px"><div class="box pad stack">
+    <h1 style="font-size:22px">${ic('lock')} Verificação em dois passos</h1>
+    ${ativa
+      ? `<p class="muted">Para abrir a administração, escreve o código de 6 dígitos da tua app de autenticação.</p>
+         <div class="field"><label for="admMfa">Código</label><input id="admMfa" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+         <span class="err" id="admMfaErr" hidden></span><button class="btn pri block" data-act="admMfa">Confirmar</button>`
+      : `<p class="muted">A administração só abre com a verificação em dois passos ativa. Ativa-a em Conta › Segurança com uma app como Google Authenticator ou Authy, e depois volta aqui.</p>
+         <a class="btn pri block" href="#conta" data-act="menuIr" data-r="conta" data-t="seguranca">${ic('lock')}Ativar agora</a>`}
+  </div></div>`;
+}
 
 /** Resolve o nome da rota (e o argumento, em `perfil-x`, `p-x`, `live-x`) para a entrada da tabela. */
 function resolver(r: string): { rota: Rota; arg: string } {
@@ -282,6 +300,17 @@ register({ submit: (f) => {
 } });
 register({ actions: {
   closeModal,
+  async admMfa() {
+    const code = ($<HTMLInputElement>('#admMfa')?.value || '').trim();
+    const err = (t: string) => { const e = $('#admMfaErr'); if (e) { e.textContent = t; e.hidden = false; } };
+    if (!/^\d{6}$/.test(code)) return err('O código tem 6 dígitos.');
+    const { data: f } = await sb.auth.mfa.listFactors();
+    const factor = f?.totp?.find((x) => x.status === 'verified');
+    if (!factor) return rerender(false);
+    const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if (error) return err('Código errado. Confirma a hora do telemóvel e tenta outra vez.');
+    rerender(false);
+  },
   reload() { rerender(false); },
   theme() { setTheme(isDark() ? 'light' : 'dark'); rerender(true); },
   menu() { S.menu = !S.menu; S.notifOpen = false; header(route()); },
