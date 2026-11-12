@@ -37,3 +37,6 @@ export const COUNTRIES = [
   'Angola', 'Portugal', 'Brasil', 'Moçambique', 'Cabo Verde', 'São Tomé e Príncipe',
   'Guiné-Bissau', 'Namíbia', 'África do Sul', 'Outro país',
 ] as const;
+
+/** Pixel da Meta (conjunto de dados «Pixel A Porta Fechada», portefólio Sonho002). É público: vai para o browser. */
+export const META_PIXEL_ID = '2336234790468962';

@@ -6,6 +6,7 @@ import { S, loadMe, netPct, isStaff } from '../state';
 import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
 import { captcha } from '../captcha';
+import { pixelEvento } from '../pixel';
 
 import type { FormControl } from '../types';
 
@@ -246,6 +247,7 @@ async function finishOb(btn: any) {
       let ref = null; try { ref = localStorage.getItem('apf-ref'); } catch { /* */ }
       const { error } = await sb.rpc('complete_profile', { p_handle: d.handle, p_name: d.name, p_birthdate: d.birth, p_interests: d.interests, p_country: S.me?.country || 'Angola', p_ref: ref });
       if (error) throw error;
+      pixelEvento('CompleteRegistration', { content_name: d.tipo === 'criador' ? 'criador' : 'fa' });
     }
     if (d.tipo === 'criador' || r.upgrade) {
       const uid = S.session!.user.id, prog = $('#upProg'); if (prog) prog.hidden = false;
@@ -260,6 +262,7 @@ async function finishOb(btn: any) {
         p_bank: d.bank || BANKS[0], p_holder: d.holder, p_iban: d.iban, p_doc_front: paths.front, p_doc_back: paths.back, p_selfie: paths.selfie,
       });
       if (error) throw error;
+      pixelEvento('SubmitApplication', { content_name: 'criador' });
       await loadMe(); S.reg = null; S.stTab = 'visao';
       toast(r.appeal ? 'Recurso enviado com os documentos novos. Respondemos em até 48 horas.' : 'Pedido enviado. Vamos verificar os teus documentos em até 48 horas.');
       return go('estudio');
@@ -439,8 +442,9 @@ export async function publicSubmit(f: HTMLFormElement) {
     try { captchaToken = await captcha(); } catch (x) { busy(btn, false); showErr('#rErr', errText(x)); return true; }
     const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name, country, ref }, emailRedirectTo: location.origin + '/', captchaToken } });
     if (error) { busy(btn, false); showErr('#rErr', errText(error)); return true; }
-    if (data.session) { await afterLogin(); return true; }
     if (data.user && !data.user.identities?.length) { busy(btn, false); showErr('#rErr', 'Já existe uma conta com este email. Entra ou recupera a palavra-passe.'); return true; }
+    pixelEvento('Lead');
+    if (data.session) { await afterLogin(); return true; }
     go('confirmar');
     return true;
   }

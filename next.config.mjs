@@ -34,12 +34,12 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       // challenges.cloudflare.com: CAPTCHA invisível (Turnstile) no login e no registo.
-      `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${dev ? " 'unsafe-eval'" : ''}`,
+      `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://connect.facebook.net${dev ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: https:`,
       `media-src 'self' blob: ${supa}`,
       "font-src 'self' data:",
-      `connect-src 'self' ${supa} ${supaWs} https://*.livekit.cloud wss://*.livekit.cloud https://challenges.cloudflare.com${dev ? ' ws: http://localhost:*' : ''}`,
+      `connect-src 'self' ${supa} ${supaWs} https://*.livekit.cloud wss://*.livekit.cloud https://challenges.cloudflare.com https://www.facebook.com https://connect.facebook.net${dev ? ' ws: http://localhost:*' : ''}`,
       "frame-src https:",
       "worker-src 'self' blob:",
       "object-src 'none'",
