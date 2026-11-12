@@ -49,12 +49,19 @@ Deno.serve(async (req) => {
   // Limite de pedidos: trava quem tenta gerar cobranças em série (abuso, testes de
   // números roubados, spam de notificações MCX para terceiros).
   const desde = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
-  const [{ count: em10 }, { count: em60 }] = await Promise.all([
-    db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", desde(10)),
+  // Regra do dono (2026-11-12): no máximo 2 pagamentos por dia (24 h) por pessoa.
+  // Contam os pagos e os que estão à espera (ex.: referência por pagar); tentativas
+  // falhadas ou expiradas não contam, mas há um travão para tentativas em série.
+  const [{ count: dia }, { count: tentativas }] = await Promise.all([
+    db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+      .in("status", ["paid", "pending"]).gte("created_at", desde(24 * 60)),
     db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", desde(60)),
   ]);
-  if ((em10 ?? 0) >= 8 || (em60 ?? 0) >= 25) {
-    return json({ error: "Fizeste muitos pedidos de pagamento seguidos. Espera alguns minutos e tenta outra vez." }, 429);
+  if ((dia ?? 0) >= 2) {
+    return json({ error: "Chegaste ao limite de 2 pagamentos por dia. Podes voltar a pagar daqui a 24 horas, ou usar o saldo da carteira." }, 429);
+  }
+  if ((tentativas ?? 0) >= 6) {
+    return json({ error: "Fizeste muitas tentativas de pagamento seguidas. Espera um pouco e tenta outra vez." }, 429);
   }
 
   const { data: order, error } = await db.rpc("create_order", {
