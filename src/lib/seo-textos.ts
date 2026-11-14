@@ -22,7 +22,7 @@ export const PUBLICAS: Record<string, { titulo: string; descricao: string }> = {
   privacidade: { titulo: 'Política de privacidade', descricao: 'Como a A Porta Fechada recolhe, usa e protege os teus dados.' },
   dmca: { titulo: 'Direitos de autor', descricao: 'Como pedir a remoção de um conteúdo teu publicado sem autorização.' },
   contacto: { titulo: 'Contacto', descricao: 'Fala com a equipa da A Porta Fechada. Respondemos em até 24 horas úteis.' },
-  afiliados: { titulo: 'Programa de afiliados', descricao: 'Convida pessoas e ganha uma percentagem de tudo o que elas gastam ou ganham na plataforma.' },
+  afiliados: { titulo: 'Programa de afiliados', descricao: 'Convida criadores e ganha 5% das vendas deles durante 6 meses.' },
   blog: { titulo: 'Blog', descricao: 'Novidades e dicas para criadores e fãs.' },
 };
 

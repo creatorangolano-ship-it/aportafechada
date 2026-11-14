@@ -15,7 +15,7 @@ export type Definicoes = {
 
 /** Valores usados enquanto as definições do servidor não chegam. */
 export const DEFINICOES_PADRAO: Readonly<Definicoes> = {
-  fee_pct: 20, affiliate_pct: 10, min_payout: 10000, min_tip: 500, min_topup: 2000, min_price: 500, reference_days: 3, usd_rate: 920,
+  fee_pct: 20, affiliate_pct: 5, min_payout: 10000, min_tip: 500, min_topup: 2000, min_price: 500, reference_days: 3, usd_rate: 920,
 };
 
 type Spec = { label: string; min: number; max: number; int: boolean };
