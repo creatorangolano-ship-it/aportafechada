@@ -163,11 +163,11 @@ function tabPerfil(c: any) {
 }
 
 /** Saldo que já pode ser levantado. O que se ganha só fica disponível 24 h depois. */
-async function saldoLevantavel(): Promise<{ total: number; disponivel: number; aLibertar: number; proximo: string | null }> {
+async function saldoLevantavel(): Promise<{ total: number; disponivel: number; aLibertar: number; porVerificar: number; proximo: string | null }> {
   const total = Number(me_().earnings_balance) || 0;
   const { data, error } = await sb.rpc('saldo_levantavel');
-  if (error || !data) return { total, disponivel: total, aLibertar: 0, proximo: null };
-  return { total: Number(data.total) || 0, disponivel: Number(data.disponivel) || 0, aLibertar: Number(data.a_libertar) || 0, proximo: data.proximo ?? null };
+  if (error || !data) return { total, disponivel: total, aLibertar: 0, porVerificar: 0, proximo: null };
+  return { total: Number(data.total) || 0, disponivel: Number(data.disponivel) || 0, aLibertar: Number(data.a_libertar) || 0, porVerificar: Number(data.por_verificar) || 0, proximo: data.proximo ?? null };
 }
 
 export async function payoutBlock() {
@@ -187,9 +187,9 @@ export async function payoutBlock() {
      <span class="err" id="bkErr" hidden></span><button class="btn out" style="align-self:flex-start">Guardar conta</button></form>
    </div>
    <form class="box pad stack" id="wdForm" novalidate><h3>Pedir levantamento</h3>
-    <div class="wdsaldo"><div><span>Disponível para levantar</span><b class="num">${kz(sl.disponivel)}</b></div>${sl.aLibertar > 0 ? `<div><span>A libertar</span><b class="num">${kz(sl.aLibertar)}</b>${sl.proximo ? `<small>a partir de ${hora(sl.proximo)}</small>` : ''}</div>` : ''}</div>
+    <div class="wdsaldo"><div><span>Disponível para levantar</span><b class="num">${kz(sl.disponivel)}</b></div>${sl.aLibertar > 0 ? `<div><span>A libertar</span><b class="num">${kz(sl.aLibertar)}</b>${sl.proximo ? `<small>a partir de ${hora(sl.proximo)}</small>` : ''}</div>` : ''}${sl.porVerificar > 0 ? `<div><span>Comissões retidas</span><b class="num">${kz(sl.porVerificar)}</b><small>até verificares a identidade</small></div>` : ''}</div>
     <div class="field"><label for="wdAmt">Valor (Kz)</label><input id="wdAmt" type="number" min="${S.cfg.min_payout}" step="500" value="${bal >= S.cfg.min_payout ? bal : ''}" ${bal >= S.cfg.min_payout && !blocked ? '' : 'disabled'}><span class="hint">Mínimo ${kz(S.cfg.min_payout)}.</span></div>
-    <div class="aside">${ic('clock')}<span>O saldo só fica disponível para levantar 24 horas depois de o ganhares. Depois do pedido, o dinheiro chega à tua conta em até 48 horas.</span></div>
+    <div class="aside">${ic('clock')}<span>Os ganhos ficam disponíveis 24 horas depois. As comissões de afiliado ficam disponíveis 30 dias depois da venda e só com a identidade verificada. Depois do pedido, o dinheiro chega à tua conta em até 48 horas.</span></div>
     <span class="err" id="wdErr" hidden></span>
     <button class="btn pri" ${bal >= S.cfg.min_payout && bank && !blocked ? '' : 'disabled'}>Pedir levantamento</button>
     ${!bank ? '<span class="small muted">Guarda primeiro a conta bancária.</span>' : blocked ? '<span class="small muted">Disponível depois de a conta ser verificada.</span>' : ''}</form></div>`;
@@ -210,7 +210,7 @@ export async function affiliateBlock() {
   const { data: a } = await sb.rpc('affiliate_stats');
   const link = `${location.origin}/?ref=${encodeURIComponent(me_().handle)}`;
   const K: Record<string, string> = { subscription: 'Subscrição', post: 'Publicação', message: 'Mensagem', ticket: 'Bilhete', tip: 'Gorjeta' };
-  return `<div class="pagehead"><div><h1>Afiliados</h1><p>Partilha o teu link. Ganhas ${S.cfg.affiliate_pct}% das vendas confirmadas de publicações pagas de quem se registar através dele, durante 6 meses. Subscrições, gorjetas, mensagens pagas e bilhetes de live não contam.</p></div></div>
+  return `<div class="pagehead"><div><h1>Afiliados</h1><p>Partilha o teu link. Ganhas ${S.cfg.affiliate_pct}% das vendas confirmadas de publicações pagas de quem se registar através dele, durante 6 meses. Subscrições, gorjetas, mensagens pagas e bilhetes de live não contam. Cada comissão pode ser levantada 30 dias depois da venda, com a identidade verificada.</p></div></div>
    <div class="box pad stack" style="margin-bottom:22px"><label class="flabel" for="affLink">O teu link</label><div class="row wrapf"><input class="inp" id="affLink" readonly value="${esc(link)}" style="flex:1;min-width:200px"><button class="btn pri" data-act="copy" data-v="${esc(link)}">${ic('copy')}Copiar</button></div></div>
    <div class="kpis"><div class="kpi"><div class="l">Pessoas registadas</div><div class="v">${dots(a?.referred || 0)}</div></div><div class="kpi"><div class="l">Comissões ganhas</div><div class="v">${kz(a?.earned || 0)}</div></div></div>
    ${(a?.recent || []).length ? `<div class="tw"><table><thead><tr><th>Pessoa</th><th>Movimento</th><th class="num">Comissão</th><th>Data</th></tr></thead><tbody>${a.recent.map((r: any) => `<tr><td>@${esc(r.handle)}</td><td>${K[r.kind] || r.kind}</td><td class="num">${kz(r.amount)}</td><td>${fmtDate(r.created_at)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="box empty">Quando alguém se registar com o teu link e comprar, aparece aqui.</div>'}`;
