@@ -64,24 +64,18 @@ export async function vPerfilPublico(handle: string): Promise<string> {
     <p class="muted" style="margin-top:6px">Cria conta grátis para seguir, subscrever e ver as publicações, as mensagens e as lives. Só para maiores de 18.</p></div>`;
 }
 
-/* ---------- Prova social na página de entrada ----------
-   Número real de membros (função `contagem_publica`) e três fotos de criadores.
-   Nunca um número inventado: é a contagem real da base de dados (contas com o
-   registo completo e não banidas). Sem membros, uma frase de boas-vindas. Preenche-se depois de a página aparecer, para
-   não atrasar o formulário de entrada. */
-const MIN_PARA_MOSTRAR_NUMERO = 1;
+/* ---------- Convite na página de entrada ----------
+   Três fotos de criadores (função `contagem_publica`) e uma frase de convite.
+   O número de membros deixou de aparecer, a pedido do dono. Preenche-se depois
+   de a página aparecer, para não atrasar o formulário de entrada. */
+const CONVITE = 'Descobre o que está por trás da Porta Fechada';
 let provaSocial: Promise<string> | null = null;
 function htmlProvaSocial(): Promise<string> {
   provaSocial ??= Promise.resolve(sb.rpc('contagem_publica')).then(({ data }) => {
-    const d = (data as Array<{ membros: number; fotos: string[] | null }> | null)?.[0];
-    if (!d) return '';
-    const fotos = (d.fotos || []).map((u) => `<img src="${esc(u)}" alt="" width="26" height="26" decoding="async">`).join('');
-    const n = Number(d.membros);
-    const texto = n >= MIN_PARA_MOSTRAR_NUMERO
-      ? `${n.toLocaleString('pt-PT')} ${n === 1 ? 'pessoa já está' : 'pessoas já estão'} na A Porta Fechada`
-      : 'Junta-te aos primeiros membros e descobre o que está na Porta Fechada';
-    return `${fotos ? `<span class="fotos">${fotos}</span>` : ''}<span>${texto}</span>`;
-  }).catch(() => '');
+    const d = (data as Array<{ fotos: string[] | null }> | null)?.[0];
+    const fotos = (d?.fotos || []).map((u) => `<img src="${esc(u)}" alt="" width="26" height="26" decoding="async">`).join('');
+    return `${fotos ? `<span class="fotos">${fotos}</span>` : ''}<span>${CONVITE}</span>`;
+  }).catch(() => `<span>${CONVITE}</span>`);
   return provaSocial;
 }
 function preencherProvaSocial(): void {
