@@ -22,6 +22,7 @@ import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/p
 import type { FormControl } from '../types';
 import { podeInstalar, instalarGestao } from '../gestao';
 import { painelHTML, instalarDicas, mudarFiltro, mudarPeriodo, tirarFiltro } from './painel';
+import { prepararParaEnviar } from '../media';
 
 /** A fachada para quem está a agir agora. As vistas só são chamadas com sessão (ver main.ts). */
 const bo = (): Backoffice => backoffice({ id: S.me!.id, role: S.me!.role });
@@ -585,7 +586,12 @@ export const adminActions = {
     };
     const btn = $('#promoBtn'); busy(btn, true, 'A guardar…');
     try {
-      await bo().guardarPromocao(S.promoEditId || null, dados, { principal: S.promoFile, mobile: S.promoFileMobile });
+      // As promoções aparecem a todos os visitantes: comprimem-se como as publicações (fotos até 2048 px, vídeos a 720p).
+      const pct = (p: number) => { if (btn) btn.textContent = `A preparar o vídeo… ${Math.round(p * 100)}%`; };
+      const principal = S.promoFile ? await prepararParaEnviar(S.promoFile, pct) : null;
+      const mobile = S.promoFileMobile ? await prepararParaEnviar(S.promoFileMobile, pct) : null;
+      if (btn) btn.textContent = 'A guardar…';
+      await bo().guardarPromocao(S.promoEditId || null, dados, { principal, mobile });
       S.promoFile = null; S.promoFileMobile = null; S.promoImageUrl = null; S.promoMobileImageUrl = null; S.promoMediaType = null; S.promoEditId = null;
       closeModal(); toast('Promoção guardada'); rerender();
     } catch (e) { busy(btn, false); showErr('#promoErr', errText(e)); }
