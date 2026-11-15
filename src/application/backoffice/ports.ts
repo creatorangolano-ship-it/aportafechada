@@ -49,8 +49,9 @@ export type DadosDoPainel = {
   mensal: boolean;
   serie: PontoDoPainel[];
   totais: Record<
-    'vendas' | 'vendas_ant' | 'receita' | 'receita_ant' | 'contas' | 'contas_ant'
+    'vendas' | 'vendas_ant' | 'receita' | 'receita_ant' | 'pedidos' | 'pedidos_ant' | 'compradores' | 'compradores_ant' | 'contas' | 'contas_ant'
     | 'criadores_vendas' | 'criadores_vendas_ant' | 'subs_activas' | 'subs_activas_ant', number>;
+  base: { utilizadores: number; criadores: number; subscricoes: number };
   tipos: Array<{ kind: string; total: number }>;
   funil: { contas: number; perfil: number; pedidos: number; aprovados: number };
   top: Array<{ id: string; handle: string | null; name: string | null; avatar_url: string | null; vendas: number; subscritores: number }>;

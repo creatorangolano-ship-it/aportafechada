@@ -139,14 +139,20 @@ function barraDeFiltros(f: FiltrosDoPainel, d: DadosDoPainel | null, hoje: strin
     `<option value="">${todos}</option>${lista.map(([k, l]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${l}</option>`).join('')}`;
   const criadores = (d?.criadores ?? []).map((c) => [c.id, `${c.name || c.handle} (@${c.handle})`] as [string, string]);
   if (f.criador && !criadores.some(([id]) => id === f.criador)) criadores.unshift([f.criador, 'Criador escolhido']);
-  return `<div class="pnper cschips" role="group" aria-label="Período">${PERIODOS.map(([k, l]) => `<button type="button" class="${f.periodo === k ? 'on' : ''}" aria-pressed="${f.periodo === k}" data-act="pnPeriodo" data-v="${k}">${l}</button>`).join('')}</div>
-   <div class="pnfiltros">
-    ${f.periodo === 'custom' ? `<label>De<input type="date" id="pnDe" value="${esc(f.de ?? '')}" max="${hoje}"></label><label>Até<input type="date" id="pnAte" value="${esc(f.ate ?? hoje)}" max="${hoje}"></label>` : ''}
-    <label>Tipo de venda<select id="pnTipo">${opcoes(TIPOS_DE_VENDA, f.tipo, 'Todos os tipos')}</select></label>
-    <label>Criador<select id="pnCriador">${opcoes(criadores, f.criador ?? null, 'Todos os criadores')}</select></label>
-    <label>Contas<select id="pnContas">${opcoes(TIPOS_DE_CONTA, f.contas, 'Fãs e criadores')}</select></label>
-    <label>Origem<select id="pnOrigem">${opcoes(ORIGENS, f.origem, 'Todas as origens')}</select></label>
+  const activos = [f.tipo, f.criador, f.contas, f.origem].filter(Boolean).length;
+  return `<div class="pnbarra">
+    <div class="pnseg" role="group" aria-label="Período">${PERIODOS.map(([k, l]) => `<button type="button" class="${f.periodo === k ? 'on' : ''}" aria-pressed="${f.periodo === k}" data-act="pnPeriodo" data-v="${k}">${l}</button>`).join('')}</div>
+    ${f.periodo === 'custom' ? `<div class="pndatas"><label><span>De</span><input type="date" id="pnDe" value="${esc(f.de ?? '')}" max="${hoje}"></label><label><span>Até</span><input type="date" id="pnAte" value="${esc(f.ate ?? hoje)}" max="${hoje}"></label></div>` : ''}
     <label class="pnchk"><input type="checkbox" id="pnComparar" ${f.comparar ? 'checked' : ''}> Comparar com o período anterior</label>
+    <details class="pnmais" ${activos ? 'open' : ''}>
+     <summary class="btn out sm">${ic('settings')}Filtros${activos ? ` <span class="count">${activos}</span>` : ''}</summary>
+     <div class="pnfiltros">
+      <label>Tipo de venda<select id="pnTipo">${opcoes(TIPOS_DE_VENDA, f.tipo, 'Todos os tipos')}</select></label>
+      <label>Criador<select id="pnCriador">${opcoes(criadores, f.criador ?? null, 'Todos os criadores')}</select></label>
+      <label>Contas<select id="pnContas">${opcoes(TIPOS_DE_CONTA, f.contas, 'Fãs e criadores')}</select></label>
+      <label>Origem<select id="pnOrigem">${opcoes(ORIGENS, f.origem, 'Todas as origens')}</select></label>
+     </div>
+    </details>
    </div>
    ${etiquetas(f, d)}`;
 }
@@ -206,7 +212,7 @@ function cartaoKpi(l: string, v: string, actual: number, anterior: number, compa
   const delta = !comparar ? '' : d === null
     ? '<div class="pndelta"><span>Sem dados do período anterior</span></div>'
     : `<div class="pndelta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '▲' : d < 0 ? '▼' : '='} ${Math.abs(d).toLocaleString('pt-PT')}% <span>vs. período anterior</span></div>`;
-  return `<div class="pnkpi"><div class="l">${l}</div><div class="v">${v}</div>${delta}${nota ? `<div class="s">${nota}</div>` : ''}${sparkline(serie, cor)}</div>`;
+  return `<div class="pnkpi"><div class="l">${l}</div><div class="v">${v}</div>${delta}${nota ? `<div class="s">${nota}</div>` : ''}${cor ? sparkline(serie, cor) : ''}</div>`;
 }
 
 /**
@@ -222,7 +228,13 @@ export async function painelHTML(b: Backoffice): Promise<string> {
   } catch (e) {
     const msg = (e as { message?: string })?.message || String(e);
     const semFuncao = /admin_painel|function|PGRST202/i.test(msg);
-    return `${barraDeFiltros(f, null, hoje)}<div class="banner">${ic('info')}<span>${semFuncao ? 'Os gráficos ainda não estão ligados à base de dados (falta aplicar a função <code>admin_painel</code>).' : `Não foi possível carregar os números: ${esc(msg)}`}</span></div>`;
+    const antigos = await b.estatisticas().catch(() => null);
+    const kpis = antigos ? `<h2 class="cssec">Últimos 30 dias</h2><div class="pnkpis">
+      ${cartaoKpi('Volume de vendas', kz(antigos.gross_30d), 0, 0, false, [], '')}
+      ${cartaoKpi('Receita da plataforma', kz(antigos.platform_30d), 0, 0, false, [], '')}
+      ${cartaoKpi('Saldos por levantar', kz(antigos.creators_balance), 0, 0, false, [], '', 'Dinheiro dos criadores ainda na plataforma')}
+      ${cartaoKpi('Utilizadores · criadores', `${dots(antigos.users)} · ${dots(antigos.creators)}`, 0, 0, false, [], '')}</div>` : '';
+    return `<div class="banner">${ic('info')}<span>${semFuncao ? 'Os gráficos e os filtros ficam disponíveis quando a função <code>admin_painel</code> for aplicada na base de dados. Por agora, os números de sempre:' : `Não foi possível carregar os gráficos: ${esc(msg)}`}</span></div>${kpis}`;
   }
   const t = d.totais, s = d.serie, comp = f.comparar;
   const titulo = f.periodo === 'custom' ? `De ${fmtData(d.de)} a ${fmtData(d.ate)}` : f.periodo === '365' ? 'Últimos 12 meses' : `Últimos ${f.periodo} dias`;
@@ -232,25 +244,18 @@ export async function painelHTML(b: Backoffice): Promise<string> {
   const din = d.dinheiro;
 
   return `${barraDeFiltros(f, d, hoje)}
-   <h2 class="cssec">${titulo}</h2>
+   <div class="pnsech"><h2 class="cssec">Dinheiro · ${titulo}</h2></div>
    <div class="pnkpis">
-    ${cartaoKpi('Volume de vendas', kz(t.vendas), t.vendas, t.vendas_ant, comp, s.map((p) => p.vendas), 'var(--c1)')}
-    ${cartaoKpi('Receita da plataforma', kz(t.receita), t.receita, t.receita_ant, comp, s.map((p) => p.receita), 'var(--c2)')}
-    ${cartaoKpi('Novas contas', dots(t.contas), t.contas, t.contas_ant, comp, s.map((p) => p.fas + p.criadores), 'var(--c3)')}
-    ${cartaoKpi('Subscrições activas', dots(t.subs_activas), t.subs_activas, t.subs_activas_ant, comp, [], 'var(--c4)', `No fim do período`)}
-    ${cartaoKpi('Criadores com vendas', dots(t.criadores_vendas), t.criadores_vendas, t.criadores_vendas_ant, comp, [], 'var(--c5)')}
+    ${cartaoKpi('Volume de vendas', kz(t.vendas), t.vendas, t.vendas_ant, comp, s.map((p) => p.vendas), 'var(--c1)', 'Tudo o que os fãs pagaram')}
+    ${cartaoKpi('Receita da plataforma', kz(t.receita), t.receita, t.receita_ant, comp, s.map((p) => p.receita), 'var(--c2)', 'A parte que fica para A Porta Fechada')}
+    ${cartaoKpi('Vendas pagas', dots(t.pedidos), t.pedidos, t.pedidos_ant, comp, [], '', `Valor médio: ${t.pedidos ? kz(t.vendas / t.pedidos) : '—'}`)}
+    ${cartaoKpi('Fãs que compraram', dots(t.compradores), t.compradores, t.compradores_ant, comp, [], '', t.compradores ? `Gastaram em média ${kz(t.vendas / t.compradores)}` : '')}
    </div>
    <div class="pngrid g21">
     <section class="pncard"><div class="pnch"><div><h3>Vendas e receita</h3><div class="sub">Por ${d.mensal ? 'mês' : 'dia'}, em Kz</div></div>
       <div class="pnleg"><span><i style="background:var(--c1)"></i>Volume de vendas</span><span><i style="background:var(--c2)"></i>Receita da plataforma</span>${comp ? '<span><i class="ant"></i>Período anterior</span>' : ''}</div></div>
       ${linhasDeVendas(s, d.mensal, comp)}</section>
     <section class="pncard"><div class="pnch"><div><h3>De onde vem o dinheiro</h3><div class="sub">Volume de vendas por tipo</div></div></div>${circulo(d.tipos)}</section>
-   </div>
-   <div class="pngrid g11">
-    <section class="pncard"><div class="pnch"><div><h3>Novas contas</h3><div class="sub">Por ${d.mensal ? 'mês' : 'dia'}</div></div>
-      <div class="pnleg"><span><i style="background:var(--c3)"></i>Fãs</span><span><i style="background:var(--c5)"></i>Criadores</span></div></div>
-      ${barrasDeContas(s, d.mensal)}</section>
-    <section class="pncard"><div class="pnch"><div><h3>Da conta ao criador</h3><div class="sub">Contas criadas no período e quantas avançam em cada passo</div></div></div>${funil(d.funil)}</section>
    </div>
    <div class="pngrid g21">
     <section class="pncard"><div class="pnch"><div><h3>Criadores que mais vendem</h3><div class="sub">Volume de vendas no período</div></div></div>${top}</section>
@@ -261,6 +266,19 @@ export async function painelHTML(b: Backoffice): Promise<string> {
       <div><span class="l">Levantamentos pedidos</span><span class="v">${kz(din.pedidos)}</span><span class="s">${dots(din.pedidos_n)} ${din.pedidos_n === 1 ? 'pedido' : 'pedidos'} por pagar</span></div>
       <div><span class="l">Pago no período</span><span class="v">${kz(din.pago)}</span><span class="s">${dots(din.pago_n)} ${din.pago_n === 1 ? 'levantamento' : 'levantamentos'}</span></div>
      </div></section>
+   </div>
+   <div class="pnsech"><h2 class="cssec">Comunidade · ${titulo}</h2><span class="pnbase">Hoje: ${dots(d.base.utilizadores)} contas · ${dots(d.base.criadores)} criadores aprovados · ${dots(d.base.subscricoes)} subscrições activas</span></div>
+   <div class="pnkpis">
+    ${cartaoKpi('Novas contas', dots(t.contas), t.contas, t.contas_ant, comp, s.map((p) => p.fas + p.criadores), 'var(--c3)')}
+    ${cartaoKpi('Novos criadores aprovados', dots(d.funil.aprovados), 0, 0, false, s.map((p) => p.criadores), 'var(--c5)', 'Das contas criadas no período')}
+    ${cartaoKpi('Subscrições activas', dots(t.subs_activas), t.subs_activas, t.subs_activas_ant, comp, [], '', 'No fim do período')}
+    ${cartaoKpi('Criadores com vendas', dots(t.criadores_vendas), t.criadores_vendas, t.criadores_vendas_ant, comp, [], '', d.base.criadores ? `${conversao(t.criadores_vendas, d.base.criadores) ?? 0}% dos criadores aprovados` : '')}
+   </div>
+   <div class="pngrid g11">
+    <section class="pncard"><div class="pnch"><div><h3>Novas contas</h3><div class="sub">Por ${d.mensal ? 'mês' : 'dia'}</div></div>
+      <div class="pnleg"><span><i style="background:var(--c3)"></i>Fãs</span><span><i style="background:var(--c5)"></i>Criadores</span></div></div>
+      ${barrasDeContas(s, d.mensal)}</section>
+    <section class="pncard"><div class="pnch"><div><h3>Da conta ao criador</h3><div class="sub">Contas criadas no período e quantas avançam em cada passo</div></div></div>${funil(d.funil)}</section>
    </div>`;
 }
 

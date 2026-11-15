@@ -61,7 +61,7 @@ begin
   with
   -- Vendas pagas com os filtros, dos dois períodos (actual e anterior).
   vendas as (
-    select o.id, o.kind, o.amount, o.creator_id, o.created_at,
+    select o.id, o.kind, o.amount, o.creator_id, o.user_id, o.created_at,
            (o.created_at >= v_ini) as actual,
            coalesce((select sum(l.amount) from ledger l where l.order_id = o.id and l.account = 'platform'), 0) as receita
       from orders o
@@ -135,6 +135,10 @@ begin
       'vendas_ant',       (select coalesce(sum(amount), 0) from vendas where not actual),
       'receita',          (select coalesce(sum(receita), 0) from vendas where actual),
       'receita_ant',      (select coalesce(sum(receita), 0) from vendas where not actual),
+      'pedidos',          (select count(*) from vendas where actual),
+      'pedidos_ant',      (select count(*) from vendas where not actual),
+      'compradores',      (select count(distinct user_id) from vendas where actual),
+      'compradores_ant',  (select count(distinct user_id) from vendas where not actual),
       'contas',           (select count(*) from contas_f where actual),
       'contas_ant',       (select count(*) from contas_f where not actual),
       'criadores_vendas',     (select count(distinct creator_id) from vendas where actual),
@@ -145,6 +149,12 @@ begin
       'subs_activas_ant', (select count(*) from subscriptions s
                             where s.started_at < v_afim and s.current_period_end >= v_afim
                               and (p_creator is null or s.creator_id = p_creator))
+    ),
+    -- A base toda, hoje (não depende do período nem dos filtros).
+    'base', jsonb_build_object(
+      'utilizadores', (select count(*) from profiles where banned_at is null),
+      'criadores',    (select count(*) from creators where status = 'approved'),
+      'subscricoes',  (select count(*) from subscriptions where status = 'active' and current_period_end > now())
     ),
     'tipos', (select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'total', total) order by total desc), '[]'::jsonb)
                 from (select kind, sum(amount) as total from vendas where actual group by kind) t),

@@ -140,7 +140,7 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
   const painelP = adm ? painelHTML(b) : null;
   const n = await nP;
   const antigos = await Promise.all(filas.map((q) => (n[q.fila] ? b.maisAntigo(q.fila).catch(() => null) : Promise.resolve(null))));
-  const cartoes = filas.map((q, i) => {
+  const lista = filas.map((q, i) => {
     const c = n[q.fila], a = antigos[i];
     const atrasada = !!(c && a && estaAtrasado(a));
     return `<button class="qcard ${c === null ? 'unk' : !c ? 'done' : atrasada ? 'late' : ''}" data-act="adTab" data-v="${q.k}">
@@ -148,8 +148,14 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
       <span class="qn">${c === null ? '—' : dots(c)}</span>
       <span class="qs">${c === null ? 'Não foi possível contar' : !c ? `${ic('check', 'style="width:14px;height:14px"')} Em dia` : a ? `Mais antigo ${descreverEspera(a)}` : ''}</span>
     </button>`;
-  }).join('');
+  });
+  const cartoes = lista.join('');
   const atencao = `<h2 class="cssec">Precisa de atenção</h2><div class="qgrid" style="--n:${filas.length}">${cartoes}</div>`;
+  // Admin: com as filas todas em dia, uma linha basta; com trabalho, só as filas com itens.
+  const comItens = filas.map((q, i) => ({ q, i })).filter(({ q }) => n[q.fila] !== 0);
+  const atencaoAdm = !comItens.length
+    ? `<div class="pnemdia">${ic('check')}<span><b>Filas em dia.</b> Nenhuma verificação, denúncia, levantamento, pedido de suporte ou de banimento à espera.</span></div>`
+    : `<h2 class="cssec">Precisa de atenção</h2><div class="qgrid" style="--n:${Math.min(comItens.length, 5)}">${comItens.map(({ i }) => lista[i]).join('')}</div>`;
 
   const numeros = painelP ? `<div class="pn">${await painelP}</div>` : '';
 
@@ -157,7 +163,7 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
   return {
     h: adm ? 'Visão geral' : 'Moderação',
     lead: adm ? '' : 'Não tens acesso a vendas, receita, levantamentos nem mensagens privadas: isso é só do admin completo.',
-    body: `${atencao}${numeros}
+    body: adm ? `${atencaoAdm}${numeros}` : `${atencao}
      <div class="sech"><h3>Verificações recentes</h3><button class="btn link" data-act="adTab" data-v="verificacoes">Abrir fila</button></div>${kyc}
      <div class="sech"><h3>Denúncias recentes</h3><button class="btn link" data-act="adTab" data-v="denuncias">Abrir fila</button></div>${rep}`,
   };
