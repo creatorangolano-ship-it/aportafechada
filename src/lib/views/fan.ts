@@ -1,5 +1,6 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
 import { sb, $, $$, esc, kz, dots, ic, PORTA, avatarOf, toast, modal, closeModal, showErr, errText, busy, safeName, upload, copyText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox, galeria, type ItemDoVisor } from '../lib';
+import { prepararParaEnviar } from '../media';
 import { colunaDe, posicaoNoFeed, promocaoDaVisita, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import { register } from '../registry';
 import { S, isStaff } from '../state';
@@ -401,14 +402,17 @@ function novoEstado(): void {
 }
 
 async function publicarEstado(f: HTMLFormElement): Promise<void> {
-  const file = $<HTMLInputElement>('#stFile')?.files?.[0];
+  const escolhido = $<HTMLInputElement>('#stFile')?.files?.[0];
   const err = (m: string) => { const e = $('#stErr'); if (e) { e.hidden = false; e.textContent = m; } };
-  if (!file) return err('Escolhe uma foto ou um vídeo.');
-  const tipo = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+  if (!escolhido) return err('Escolhe uma foto ou um vídeo.');
+  const tipo = escolhido.type.startsWith('video/') ? 'video' : escolhido.type.startsWith('image/') ? 'image' : null;
   if (!tipo) return err('Só fotos ou vídeos.');
-  if (file.size > 50 * 1024 * 1024) return err('O ficheiro passa dos 50 MB.');
   const btn = f.querySelector<HTMLButtonElement>('#stBtn');
-  busy(btn, true, 'A publicar…');
+  busy(btn, true, tipo === 'video' ? 'A preparar o vídeo…' : 'A publicar…');
+  // Comprime primeiro: um vídeo de 120 MB do telemóvel passa a caber nos 50 MB.
+  const file = await prepararParaEnviar(escolhido, (p) => { if (btn) btn.textContent = `A preparar o vídeo… ${Math.round(p * 100)}%`; });
+  if (file.size > 50 * 1024 * 1024) { busy(btn, false); return err('O ficheiro passa dos 50 MB.'); }
+  if (btn) btn.textContent = 'A publicar…';
   const id = crypto.randomUUID(), uid = me_().id;
   const path = `${uid}/${id}/${safeName(file.name)}`;
   try {

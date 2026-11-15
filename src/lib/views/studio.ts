@@ -1,5 +1,6 @@
 // Estúdio do criador: resumo, publicações, lives, subscritores, perfil, ganhos, afiliados
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, monthName, upload, publicUrl, safeName, blurPreview, shrinkImage, cropImage, assertImage, uuid, busy, copyText, rerender, go } from '../lib';
+import { prepararParaEnviar } from '../media';
 import { register } from '../registry';
 const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 /** `esc()` não protege um URL dentro de url('…') — ver nota em fan.js. */
@@ -254,7 +255,9 @@ export async function criarPublicacao(o: { body: string; access: string; price: 
   try {
     const id = uuid(), uid = me_().id, media = [];
     let i = 0;
-    for (const f of files) {
+    for (const original of files) {
+      // Comprime antes de enviar (fotos até 2048 px, vídeos a 720p): a barra conta a compressão e o envio.
+      const f = await prepararParaEnviar(original, (p) => o.progresso?.((i + p * 0.8) / files.length));
       const path = await upload('content', `${uid}/${id}/${i}-${safeName(f.name)}`, f);
       media.push({ path, type: f.type }); i++;
       o.progresso?.(i / files.length);

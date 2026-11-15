@@ -1,5 +1,6 @@
 // Mensagens em tempo real, com conteúdo pago enviado pelo criador
 import { sb, $, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, hhmm, fmtDate, signedUrls, upload, safeName, uuid, busy, rerender, field } from '../lib';
+import { prepararParaEnviar } from '../media';
 import { register } from '../registry';
 import { S, loadCounts } from '../state';
 import { openPay } from '../pay';
@@ -176,7 +177,7 @@ export const msgActions: Actions = {
     const btn = $<HTMLButtonElement>('#ppvBtn'); busy(btn, true, 'A enviar…');
     try {
       const uid = await myId(), id = uuid(), tId = cur!.t.id, media: Array<{ path: string; type: string }> = [];
-      for (const f of files) media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type });
+      for (const original of files) { const f = await prepararParaEnviar(original); media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
       const { error } = await sb.from('messages').insert({ id, thread_id: tId, sender_id: uid, body: label, ppv_price: price, media });
       if (error) throw error;
       closeModal(); toast('Conteúdo pago enviado'); rerender();
@@ -203,7 +204,7 @@ async function sendChatFiles(files: File[]): Promise<void> {
   if (!cur) return;
   const tId = cur.t.id, uid = await myId(), id = uuid(), media: Array<{ path: string; type: string }> = [];
   try {
-    for (const f of files) media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type });
+    for (const original of files) { const f = await prepararParaEnviar(original); media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
     const { error } = await sb.from('messages').insert({ id, thread_id: tId, sender_id: uid, body: '', media });
     if (error) throw error;
   } catch (e) { toast(errText(e)); return; }
