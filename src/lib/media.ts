@@ -78,9 +78,43 @@ export async function comprimirVideo(file: File, progresso?: (p: number) => void
   }
 }
 
-/** Foto ou vídeo: escolhe a compressão certa. `progresso` só é chamado nos vídeos. */
-export async function prepararParaEnviar(file: File, progresso?: (p: number) => void): Promise<File> {
-  if (file.type.startsWith('image/')) return comprimirImagem(file);
-  if (file.type.startsWith('video/')) return comprimirVideo(file, progresso);
-  return file;
+/* ---------- Limites de tamanho ----------
+ * Contam o ficheiro DEPOIS de comprimido: quem filma pode escolher um vídeo grande do telemóvel,
+ * porque sai do aparelho já a 720p (~12–15 MB por minuto). O limite só trava o caso em que o
+ * aparelho não consegue comprimir e o original seria enviado tal como está. */
+// 50 MB é o máximo que os buckets do Supabase aceitam («content», «messages», «promos», «stories»;
+// ver supabase/migrations/0016 e 0012). Subir isto exige subir primeiro o limite do bucket.
+const LIMITE_BUCKET = 50 * 1024 * 1024; // ~3 a 4 min de vídeo a 720p
+export const LIMITE_PUBLICACAO = LIMITE_BUCKET;
+export const LIMITE_MENSAGEM = LIMITE_BUCKET;
+export const LIMITE_ESTADO = LIMITE_BUCKET;
+/** Originais: fotos até 20 MB (qualquer foto de telemóvel); vídeos até 2 GB antes de comprimir. */
+const FOTO_ORIGINAL_MAX = 20e6;
+const VIDEO_ORIGINAL_MAX = 2e9;
+
+const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
+
+/** Recusa logo ao escolher o ficheiro o que nunca vai caber, mesmo comprimido. */
+export function recusaOriginal(files: File[]): string | null {
+  for (const f of files) {
+    if (f.type.startsWith('image/') && f.size > FOTO_ORIGINAL_MAX) return `A foto «${f.name}» passa dos ${mb(FOTO_ORIGINAL_MAX)}.`;
+    if (f.size > VIDEO_ORIGINAL_MAX) return `O ficheiro «${f.name}» passa dos 2 GB. Escolhe um vídeo mais curto.`;
+  }
+  return null;
+}
+
+/**
+ * Foto ou vídeo: escolhe a compressão certa. `progresso` só é chamado nos vídeos.
+ * Com `limite`, atira um erro legível se o ficheiro, já comprimido, continuar acima dele.
+ */
+export async function prepararParaEnviar(file: File, progresso?: (p: number) => void, limite?: number): Promise<File> {
+  const r = file.type.startsWith('image/') ? await comprimirImagem(file)
+    : file.type.startsWith('video/') ? await comprimirVideo(file, progresso)
+    : file;
+  if (limite && r.size > limite) {
+    throw new Error(r === file && file.type.startsWith('video/')
+      ? `Este aparelho não conseguiu comprimir «${file.name}» (${mb(file.size)}) e o máximo é ${mb(limite)}. Escolhe um vídeo mais curto ou usa o Chrome.`
+      : `«${file.name}» tem ${mb(r.size)} depois de comprimido e o máximo é ${mb(limite)}. Escolhe um vídeo mais curto.`);
+  }
+  return r;
 }

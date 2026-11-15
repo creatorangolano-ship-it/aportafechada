@@ -1,6 +1,6 @@
 // Estúdio do criador: resumo, publicações, lives, subscritores, perfil, ganhos, afiliados
 import { sb, $, $$, esc, kz, dots, ic, avatarOf, toast, modal, closeModal, showErr, errText, fmtDate, ago, monthName, upload, publicUrl, safeName, blurPreview, shrinkImage, cropImage, assertImage, uuid, busy, copyText, rerender, go } from '../lib';
-import { prepararParaEnviar } from '../media';
+import { prepararParaEnviar, recusaOriginal, LIMITE_PUBLICACAO } from '../media';
 import { register } from '../registry';
 const IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 /** `esc()` não protege um URL dentro de url('…') — ver nota em fan.js. */
@@ -106,7 +106,7 @@ function tabNova(c: any) {
   return `<div class="pagehead"><div><h1>Nova publicação</h1><p>Escolhe quem pode ver antes de publicar.</p></div></div>
    <form class="box pad stack" id="postForm" novalidate>
     <div class="field"><div class="row between"><label for="pDesc">Texto</label><span class="small muted num" id="dCount">${d.body.length}/2.000</span></div><textarea id="pDesc" maxlength="2000" placeholder="Em que estás a pensar?">${esc(d.body)}</textarea></div>
-    <div class="field"><span class="flabel">Fotografias e vídeos</span><label class="drop">${ic('upload', 'style="width:24px;height:24px"')}<b style="color:var(--ink)">Escolher ficheiros</b><span class="small muted">JPG, PNG ou MP4. Até 10 ficheiros, 500 MB cada.</span><input type="file" id="pFile" multiple accept="image/*,video/mp4,video/quicktime" aria-label="Escolher ficheiros"></label>
+    <div class="field"><span class="flabel">Fotografias e vídeos</span><label class="drop">${ic('upload', 'style="width:24px;height:24px"')}<b style="color:var(--ink)">Escolher ficheiros</b><span class="small muted">JPG, PNG ou MP4. Até 10 ficheiros. Os vídeos são comprimidos para 720p (até cerca de 3 minutos cada).</span><input type="file" id="pFile" multiple accept="image/*,video/mp4,video/quicktime" aria-label="Escolher ficheiros"></label>
      ${files.length ? `<div class="filelist">${files.map((f) => `<span>${esc(f.name)}</span>`).join('')}</div>` : ''}</div>
     <div class="field"><span class="flabel">Quem pode ver</span><div class="opts">
      ${[['free', 'Todos', 'Grátis, visível no perfil'], ['subscribers', c.price ? 'Subscritores' : 'Seguidores', c.price ? 'Incluído na subscrição' : 'Quem te segue'], ['paid', 'Compra à parte', 'Pagamento único']].map(([v, l, s]) => `<label class="opt"><input type="radio" name="acc" value="${v}" ${d.access === v ? 'checked' : ''}><span><b>${l}</b><span>${s}</span></span></label>`).join('')}
@@ -252,15 +252,22 @@ export async function criarPublicacao(o: { body: string; access: string; price: 
   if (S.creator?.status !== 'approved') return 'O teu perfil está em verificação. Podes publicar assim que a equipa aprovar os documentos, normalmente em 48 horas.';
   if (!body && !files.length) return 'Escreve alguma coisa ou junta uma foto ou vídeo.';
   if (o.access === 'paid' && !(o.price >= S.cfg.min_price)) return `O preço mínimo é ${kz(S.cfg.min_price)}.`;
+  const grande = recusaOriginal(files);
+  if (grande) return grande;
   try {
     const id = uuid(), uid = me_().id, media = [];
     let i = 0;
+    // Primeiro comprime todos (fotos até 2048 px, vídeos a 720p) e confirma os limites; só depois
+    // envia. Assim um ficheiro grande demais não deixa os anteriores carregados e órfãos.
+    const prontos: File[] = [];
     for (const original of files) {
-      // Comprime antes de enviar (fotos até 2048 px, vídeos a 720p): a barra conta a compressão e o envio.
-      const f = await prepararParaEnviar(original, (p) => o.progresso?.((i + p * 0.8) / files.length));
+      prontos.push(await prepararParaEnviar(original, (p) => o.progresso?.(((prontos.length + p) / files.length) * 0.6), LIMITE_PUBLICACAO));
+      o.progresso?.((prontos.length / files.length) * 0.6);
+    }
+    for (const f of prontos) {
       const path = await upload('content', `${uid}/${id}/${i}-${safeName(f.name)}`, f);
       media.push({ path, type: f.type }); i++;
-      o.progresso?.(i / files.length);
+      o.progresso?.(0.6 + (i / prontos.length) * 0.4);
     }
     let preview_url = null;
     const firstImg = files.find((f) => f.type.startsWith('image/'));
@@ -417,7 +424,8 @@ export async function studioChange(t: FormControl) {
   }
   if (t.id === 'pFile') {
     const files = [...((t as HTMLInputElement).files ?? [])].slice(0, 10);
-    if (files.some((f) => f.size > 500e6)) { toast('Cada ficheiro pode ter até 500 MB.'); return true; }
+    const grande = recusaOriginal(files);
+    if (grande) { toast(grande); return true; }
     readDraft(); S.draftFiles = files; rerender(); return true;
   }
   if (t.id === 'avatarFile' || t.id === 'coverFile') {

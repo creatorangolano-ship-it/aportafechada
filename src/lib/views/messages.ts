@@ -1,6 +1,6 @@
 // Mensagens em tempo real, com conteúdo pago enviado pelo criador
 import { sb, $, esc, kz, ic, avatarOf, toast, modal, closeModal, showErr, errText, hhmm, fmtDate, signedUrls, upload, safeName, uuid, busy, rerender, field } from '../lib';
-import { prepararParaEnviar } from '../media';
+import { prepararParaEnviar, recusaOriginal, LIMITE_MENSAGEM } from '../media';
 import { register } from '../registry';
 import { S, loadCounts } from '../state';
 import { openPay } from '../pay';
@@ -177,7 +177,7 @@ export const msgActions: Actions = {
     const btn = $<HTMLButtonElement>('#ppvBtn'); busy(btn, true, 'A enviar…');
     try {
       const uid = await myId(), id = uuid(), tId = cur!.t.id, media: Array<{ path: string; type: string }> = [];
-      for (const original of files) { const f = await prepararParaEnviar(original); media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
+      { const prontos: File[] = []; for (const original of files) prontos.push(await prepararParaEnviar(original, undefined, LIMITE_MENSAGEM)); for (const f of prontos) media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
       const { error } = await sb.from('messages').insert({ id, thread_id: tId, sender_id: uid, body: label, ppv_price: price, media });
       if (error) throw error;
       closeModal(); toast('Conteúdo pago enviado'); rerender();
@@ -204,7 +204,7 @@ async function sendChatFiles(files: File[]): Promise<void> {
   if (!cur) return;
   const tId = cur.t.id, uid = await myId(), id = uuid(), media: Array<{ path: string; type: string }> = [];
   try {
-    for (const original of files) { const f = await prepararParaEnviar(original); media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
+    { const prontos: File[] = []; for (const original of files) prontos.push(await prepararParaEnviar(original, undefined, LIMITE_MENSAGEM)); for (const f of prontos) media.push({ path: await upload('messages', `${tId}/${id}/${Date.now()}-${safeName(f.name)}`, f), type: f.type }); }
     const { error } = await sb.from('messages').insert({ id, thread_id: tId, sender_id: uid, body: '', media });
     if (error) throw error;
   } catch (e) { toast(errText(e)); return; }
@@ -216,7 +216,8 @@ export const msgChange: ChangeFn = (t) => {
   if (t.id === 'ppvFile') {
     const inp = t as HTMLInputElement;
     const files = [...(inp.files || [])].slice(0, 5);
-    if (files.some((f) => f.size > 200e6)) { toast('Cada ficheiro pode ter até 200 MB.'); return true; }
+    const grande = recusaOriginal(files);
+    if (grande) { toast(grande); return true; }
     S.ppvFiles = files; const lbl = $('#ppvF'); if (lbl) lbl.textContent = files.map((f) => f.name).join(', ');
     return true;
   }
@@ -224,8 +225,9 @@ export const msgChange: ChangeFn = (t) => {
     const inp = t as HTMLInputElement;
     const files = [...(inp.files || [])].slice(0, 4);
     inp.value = '';
-    if (files.length && !files.some((f) => f.size > 200e6)) void sendChatFiles(files);
-    else if (files.some((f) => f.size > 200e6)) toast('Cada ficheiro pode ter até 200 MB.');
+    const grande = recusaOriginal(files);
+    if (grande) toast(grande);
+    else if (files.length) void sendChatFiles(files);
     return true;
   }
   return false;

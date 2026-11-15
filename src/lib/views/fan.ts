@@ -1,6 +1,6 @@
 // Fã: início, explorar, perfis, publicações, subscrições, carteira
 import { sb, $, $$, esc, kz, dots, ic, PORTA, avatarOf, toast, modal, closeModal, showErr, errText, busy, safeName, upload, copyText, fmtDate, ago, signedUrls, safeHref, isExternal, rerender, go, lightbox, galeria, type ItemDoVisor } from '../lib';
-import { prepararParaEnviar } from '../media';
+import { prepararParaEnviar, recusaOriginal, LIMITE_ESTADO } from '../media';
 import { colunaDe, posicaoNoFeed, promocaoDaVisita, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import { register } from '../registry';
 import { S, isStaff } from '../state';
@@ -407,11 +407,14 @@ async function publicarEstado(f: HTMLFormElement): Promise<void> {
   if (!escolhido) return err('Escolhe uma foto ou um vídeo.');
   const tipo = escolhido.type.startsWith('video/') ? 'video' : escolhido.type.startsWith('image/') ? 'image' : null;
   if (!tipo) return err('Só fotos ou vídeos.');
+  const grande = recusaOriginal([escolhido]);
+  if (grande) return err(grande);
   const btn = f.querySelector<HTMLButtonElement>('#stBtn');
   busy(btn, true, tipo === 'video' ? 'A preparar o vídeo…' : 'A publicar…');
   // Comprime primeiro: um vídeo de 120 MB do telemóvel passa a caber nos 50 MB.
-  const file = await prepararParaEnviar(escolhido, (p) => { if (btn) btn.textContent = `A preparar o vídeo… ${Math.round(p * 100)}%`; });
-  if (file.size > 50 * 1024 * 1024) { busy(btn, false); return err('O ficheiro passa dos 50 MB.'); }
+  let file: File;
+  try { file = await prepararParaEnviar(escolhido, (p) => { if (btn) btn.textContent = `A preparar o vídeo… ${Math.round(p * 100)}%`; }, LIMITE_ESTADO); }
+  catch (e) { busy(btn, false); return err(errText(e)); }
   if (btn) btn.textContent = 'A publicar…';
   const id = crypto.randomUUID(), uid = me_().id;
   const path = `${uid}/${id}/${safeName(file.name)}`;

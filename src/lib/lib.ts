@@ -402,7 +402,8 @@ export type ImageKind = { type: 'image/jpeg' | 'image/png' | 'image/webp'; ext: 
  *  bucket público com esse MIME seria servido e executado na origem do Supabase. */
 export async function assertImage(file: File | null | undefined, label = 'a imagem'): Promise<ImageKind> {
   if (!file) throw new Error('Escolhe um ficheiro.');
-  if (file.size > 12e6) throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} é demasiado grande (máx. 12 MB).`);
+  // 20 MB: qualquer foto de telemóvel. A foto é reduzida antes de ser guardada (shrinkImage).
+  if (file.size > 20e6) throw new Error(`${label.charAt(0).toUpperCase() + label.slice(1)} é demasiado grande (máx. 20 MB).`);
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   const isJpeg = head[0] === 0xff && head[1] === 0xd8;
   const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
