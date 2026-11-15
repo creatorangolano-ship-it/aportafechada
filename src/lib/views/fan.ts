@@ -26,6 +26,31 @@ const POST_SEL = '*, creator:creators(id,price,status,profile:profiles!creators_
 const CR_SEL = 'id,category,city,price,cover_url,bio,status,follower_count,subscriber_count,post_count,created_at,profile:profiles!creators_id_fkey!inner(handle,name,avatar_url)';
 const cname = (c: any) => c?.profile?.name || c?.profile?.handle || '';
 
+/**
+ * Contas oficiais (a administração, ver supabase/migrations/0025_conta_oficial.sql): as
+ * publicações delas aparecem no Início de toda a gente, marcadas «Oficial». Se a coluna
+ * ainda não existir na base de dados, a consulta falha e simplesmente não há contas oficiais.
+ */
+let oficiais = new Set<string>();
+let oficiaisCarregados: Promise<string[]> | null = null;
+function carregarOficiais(): Promise<string[]> {
+  // Uma consulta por visita ao site: a lista quase nunca muda.
+  oficiaisCarregados ??= Promise.resolve(sb.from('creators').select('id').eq('official', true)).then(({ data, error }) => {
+    oficiais = new Set(error ? [] : (data || []).map((c: any) => c.id));
+    return [...oficiais];
+  }, () => []);
+  return oficiaisCarregados;
+}
+
+/**
+ * Selo ao lado do nome: a conta oficial da gestão tem um selo próprio (escudo + «Oficial»),
+ * diferente do selo de identidade verificada dos criadores, para ninguém se fazer passar por ela.
+ */
+function selo(c: any, cls = 'pok', estilo = ''): string {
+  if (c?.official || oficiais.has(c?.id)) return `<span class="selo-of" title="Conta oficial da gestão da A Porta Fechada">${ic('shield')}<b>Oficial</b></span>`;
+  return `<span class="${cls}" title="Identidade verificada"${estilo ? ` style="${estilo}"` : ''}>${ic('badge')}</span>`;
+}
+
 /** Junta a cada publicação o texto (se houver acesso), os gostos e os links dos ficheiros. */
 export async function enrichPosts(posts: any) {
   if (!posts.length) return posts;
@@ -87,7 +112,7 @@ export function postHTML(p: any) {
   const temCm = p.comment_count !== undefined, cmOn = p.comments_enabled !== false;
   const nc = Number(p.comment_count || 0), nv = Number(p.view_count || 0);
   return `<article class="box post" id="post-${p.id}"${p.canSee && !mine ? ` data-view="${p.id}"` : ''}>
-   <header class="phd"><a class="pauthor" href="#perfil-${esc(c.profile.handle)}">${avatarOf(c.profile, 'md')}<span><b>${esc(cname(c))}<span class="pok" title="Identidade verificada">${ic('badge')}</span></b><span class="pmeta">${ago(p.published_at || p.created_at)}${acesso}</span></span></a>${p.seguir ? `<button class="pseguir" data-act="follow" data-id="${c.id}" data-on="0">Seguir</button>` : ''}
+   <header class="phd"><a class="pauthor" href="#perfil-${esc(c.profile.handle)}">${avatarOf(c.profile, 'md')}<span><b>${esc(cname(c))}${selo(c)}</b><span class="pmeta">${ago(p.published_at || p.created_at)}${acesso}</span></span></a>${p.seguir ? `<button class="pseguir" data-act="follow" data-id="${c.id}" data-on="0">Seguir</button>` : ''}
     <button class="pmenu" data-act="postMenu" data-id="${p.id}" data-mine="${mine ? 1 : 0}" data-cm="${cmOn ? 1 : 0}" aria-label="Mais opções" title="Mais opções"><i></i><i></i><i></i></button></header>
    <div class="ptx">${p.canSee && p.body ? `<p class="postbody clamp">${esc(p.body)}</p><button class="btn link small more-btn" data-act="expandBody" data-id="${p.id}" hidden>Ver mais</button>` : ''}</div>
    ${mediaHTML(p)}
@@ -218,7 +243,7 @@ async function sideRail(banner: string) {
 async function perfisSugeridos(n: number): Promise<any[]> {
   const uid = me_().id;
   const [{ data: sug }, { data: fol }, { data: subs }, fas] = await Promise.all([
-    sb.from('creators').select(CR_SEL).eq('status', 'approved').neq('id', uid).order('follower_count', { ascending: false }).limit(30),
+    carregarOficiais().then(() => sb.from('creators').select(CR_SEL).eq('status', 'approved').neq('id', uid).order('follower_count', { ascending: false }).limit(30)),
     sb.from('follows').select('creator_id').eq('follower_id', uid),
     sb.from('subscriptions').select('creator_id').eq('fan_id', uid).eq('status', 'active'),
     fasVisiveis(30),
@@ -236,7 +261,7 @@ function cartaoSugerido(c: any): string {
      <span class="sugbg" style="${!c.fa && c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></span>
      ${c.fa ? '' : `<span class="sugtag">${c.price ? kz(c.price) + '/mês' : 'Grátis'}</span>`}
      ${avatarOf(c.profile, 'sugav')}
-     <span class="sugmeta"><b><span class="sugnm">${esc(nome)}</span>${c.fa ? '' : `<span class="sugok" title="Identidade verificada">${ic('badge')}</span>`}</b><span>@${esc(c.profile.handle)}</span></span></a>`;
+     <span class="sugmeta"><b><span class="sugnm">${esc(nome)}</span>${c.fa ? '' : selo(c, 'sugok')}</b><span>@${esc(c.profile.handle)}</span></span></a>`;
 }
 
 /** Coluna lateral do Início: três sugestões, com botão para ver outras. */
@@ -431,12 +456,14 @@ async function publicarEstado(f: HTMLFormElement): Promise<void> {
 
 export async function vFeed() {
   const uid = me_().id;
-  const [{ data: fol }, { data: subs }, promos] = await Promise.all([
+  const [{ data: fol }, { data: subs }, promos, oficiaisIds] = await Promise.all([
     sb.from('follows').select('creator_id').eq('follower_id', uid),
     sb.from('subscriptions').select('creator_id').eq('fan_id', uid).eq('status', 'active'),
     loadPromos(),
+    carregarOficiais(),
   ]);
-  const ids = [...new Set([...(fol || []), ...(subs || [])].map((x) => x.creator_id))];
+  // Os comunicados oficiais aparecem a toda a gente, mesmo a quem não segue a conta.
+  const ids = [...new Set([...(fol || []), ...(subs || [])].map((x) => x.creator_id).concat(oficiaisIds))];
   // Quem publica também vê as suas publicações no início, misturadas por data com as dos outros.
   if (S.creator && !ids.includes(uid)) ids.push(uid);
   const [{ data: rawPosts }, roda, faixa] = await Promise.all([
@@ -491,7 +518,7 @@ function faCard(p: any) {
 function creatorCard(c: any) {
   const ph = c.profile.avatar_url ? `<img src="${esc(c.profile.avatar_url)}" alt="" loading="lazy">` : c.cover_url ? `<img src="${esc(c.cover_url)}" alt="" loading="lazy">` : `<span class="letter">${esc((cname(c) || '?')[0].toUpperCase())}</span>`;
   return `<a class="ccard" href="#perfil-${esc(c.profile.handle)}"><span class="ph">${ph}</span>
-   <span><span class="nm">${esc(cname(c))}<span title="Identidade verificada">${ic('badge')}</span></span>
+   <span><span class="nm">${esc(cname(c))}${selo(c, '')}</span>
    <span class="ln"><span>${esc(c.category)}${c.bio ? ' · ' + esc(c.bio.slice(0, 50)) : ''}</span></span>
    <span class="ln" style="margin-top:2px"><span class="pr">${c.price ? kz(c.price) + '/mês' : 'Grátis'}</span><span>${esc(c.city)}</span></span></span></a>`;
 }
@@ -516,7 +543,7 @@ async function conteudosExplorar(): Promise<{ posts: any[] }> {
     if (S.cat !== 'Tudo') q = q.eq('creator.category', S.cat);
     return q;
   };
-  let { data } = await consulta(known);
+  let [{ data }] = await Promise.all([consulta(known), carregarOficiais()]);
   if (!data?.length && known.length) ({ data } = await consulta([]));
   const posts = await enrichPosts(data || []);
   return { posts };
@@ -539,7 +566,7 @@ export async function exploreGrid() {
   const t = S.q.trim().replace(/[%,()*]/g, '').slice(0, 60);
   if (t) q = q.or(`name.ilike.%${t}%,handle.ilike.%${t}%`, { referencedTable: 'profile' });
   // A pesquisa mostra só criadores.
-  const { data, error } = await q;
+  const [{ data, error }] = await Promise.all([q, carregarOficiais()]);
   if (error) return `<p class="empty">${esc(errText(error))}</p>`;
   const html = (data || []).map(creatorCard).join('');
   return html || `<p class="empty">Nenhum criador encontrado com esse nome. Experimenta outra palavra.</p>`;
@@ -726,6 +753,7 @@ export async function vPerfil(handle: any) {
   if (prof && !c) return perfilDeFa(prof);
   if (!prof || !c) return `<div class="empty"><h2>Perfil não encontrado</h2><p style="margin-top:8px">Este perfil não existe ou ainda está em verificação.</p><a class="btn out" style="margin-top:16px" href="#explorar">Voltar a explorar</a></div>`;
   c.profile = prof;
+  if (c.official) oficiais.add(c.id);
   const mine = c.id === me_().id;
   // Um perfil que não passou na verificação só pode ser visto por quem o tem. Sem este if, o
   // perfil completo (capa, bio, publicações) aparecia público enquanto a página dizia "só tu vês".
@@ -776,14 +804,14 @@ export async function vPerfil(handle: any) {
      ${linha('star', esc(c.category))}
      ${linha('cal', `Desde ${fmtDate(c.created_at)}`)}
      ${linha('coin', c.price ? `${kz(c.price)} por mês` : 'Subscrição gratuita')}
-     ${c.status === 'approved' ? linha('badge', 'Identidade verificada') : ''}
+     ${c.official ? linha('shield', 'Conta oficial da gestão') : c.status === 'approved' ? linha('badge', 'Identidade verificada') : ''}
     </ul>
     ${mine ? '' : `<button class="btn link small" data-act="report" data-type="creator" data-id="${c.id}">${ic('flag')}Denunciar perfil</button>`}
    </div>${rodapeLinks()}`;
   return `${c.status !== 'approved' ? `<div class="banner">${ic('clock')}<span><b>O teu perfil está em verificação.</b> Só tu o vês até a equipa aprovar os documentos.</span></div>` : ''}
    <div class="cover" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></div>
    <section class="phead">${prof.avatar_url ? `<div class="big"><img src="${esc(prof.avatar_url)}" alt=""></div>` : `<div class="big">${esc((cname(c) || '?')[0].toUpperCase())}</div>`}
-    <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(cname(c))}${c.status === 'approved' ? `<span style="color:var(--acc);display:inline-flex" title="Identidade verificada">${ic('badge', 'style="width:22px;height:22px"')}</span>` : ''}</h1>
+    <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(cname(c))}${c.official ? selo(c) : c.status === 'approved' ? `<span style="color:var(--acc);display:inline-flex" title="Identidade verificada">${ic('badge', 'style="width:22px;height:22px"')}</span>` : ''}</h1>
      <div class="muted">@${esc(prof.handle)}</div>
      <p style="margin-top:10px;max-width:62ch">${esc((c.bio || '').slice(0, 220))}</p>
      <div class="meta"><span>${ic('pin')}${esc(c.city)}, Angola</span><span>${ic('cal')}Desde ${fmtDate(c.created_at)}</span></div>

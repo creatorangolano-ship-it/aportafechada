@@ -460,7 +460,7 @@ export async function publicSubmit(f: HTMLFormElement) {
     if (error) return showErr('#npErr', errText(error)), true;
     S.recovery = false; toast('Palavra-passe alterada'); await loadMe();
     // Vai para a página certa para o papel: um criador ou admin não deve aterrar no feed de Torch.
-    go(S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed');
+    go(isStaff() ? 'admin' : S.creator ? 'estudio' : 'feed');
     return true;
   }
   if (f.id === 'obForm') {

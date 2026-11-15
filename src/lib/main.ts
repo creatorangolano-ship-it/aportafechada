@@ -22,8 +22,9 @@ function setTheme(t: 'light' | 'dark'): void {
 type NavItem = [string, string, string];
 function navFor(): NavItem[] {
   const n: NavItem[] = [['feed', 'Início', 'home'], ['explorar', 'Explorar', 'compass'], ['lives', 'Lives', 'live'], ['mensagens', 'Mensagens', 'chat'], ['guardados', 'Guardados', 'bookmark']];
+  // A administração pode ter também um perfil de criador (a conta oficial, que publica comunicados).
+  if (isStaff(S.me)) return [['admin', 'Administração', 'shield'], ...(S.creator ? [['estudio', 'Estúdio', 'grid'] as NavItem] : []), ...n];
   if (S.creator) return [['estudio', 'Estúdio', 'grid'], ...n];
-  if (isStaff(S.me)) return [['admin', 'Administração', 'shield'], ...n];
   return [...n, ['compras', 'Meus conteúdos', 'doc'], ['subscricoes', 'Subscrições', 'star']];
 }
 
@@ -112,7 +113,7 @@ function observarLinks(): void {
     for (const m of ms) for (const n of m.addedNodes) if (n instanceof Element) realizarLinks(n);
   }).observe(document.body, { childList: true, subtree: true });
 }
-const home = (): string => (S.creator ? 'estudio' : isStaff() ? 'admin' : 'feed');
+const home = (): string => (isStaff() ? 'admin' : S.creator ? 'estudio' : 'feed');
 let renderSeq = 0;
 
 /**
