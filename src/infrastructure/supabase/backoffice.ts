@@ -8,7 +8,7 @@ import { sb } from './client';
 import { signedUrls } from './storage';
 import type { ContagensDasFilas } from '../../domain/backoffice/queue.ts';
 import { ESTADOS_POR_TRATAR } from '../../domain/backoffice/payout.ts';
-import type { Fila, Linha, RepositoriosDoBackoffice } from '../../application/backoffice/ports.ts';
+import type { DadosDoPainel, Fila, Linha, RepositoriosDoBackoffice } from '../../application/backoffice/ports.ts';
 
 /** Converte `{ error }` do supabase-js numa excepção (a interface mostra a mensagem). */
 function ok<T>(r: { data: T; error: unknown }): T {
@@ -46,6 +46,11 @@ export const repositoriosSupabase: RepositoriosDoBackoffice = {
       return data?.[0]?.created_at ?? null;
     },
     async estatisticas() { return ok(await sb.rpc('admin_stats')) as Linha; },
+    async painel(p) {
+      return ok(await sb.rpc('admin_painel', {
+        p_de: p.de, p_ate: p.ate, p_kind: p.tipo, p_creator: p.criador, p_contas: p.contas, p_origem: p.origem,
+      })) as DadosDoPainel;
+    },
   },
 
   verificacoes: {

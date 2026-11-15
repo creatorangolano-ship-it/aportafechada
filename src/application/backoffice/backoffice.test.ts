@@ -13,7 +13,8 @@ function falsos() {
   const chamadas: string[] = [];
   const reg = (s: string) => { chamadas.push(s); return Promise.resolve(); };
   const repos: RepositoriosDoBackoffice = {
-    filas: { contar: async (p) => ({ kyc: 1, rep: 2, ct: 3, pay: p ? 4 : 0, ban: p ? 5 : 0 }), maisAntigo: async () => null, estatisticas: async () => ({}) },
+    filas: { contar: async (p) => ({ kyc: 1, rep: 2, ct: 3, pay: p ? 4 : 0, ban: p ? 5 : 0 }), maisAntigo: async () => null, estatisticas: async () => ({}),
+      painel: async (p) => { chamadas.push(`painel ${p.de} ${p.ate} ${p.tipo} ${p.criador} ${p.contas} ${p.origem}`); return {} as never; } },
     verificacoes: { listar: async () => [], detalhe: async () => ({ pedido: {}, criador: null, banco: null, urls: {} }), decidir: (id, a, m) => reg(`kyc ${id} ${a} ${m}`) },
     denuncias: {
       listar: async () => [],
@@ -114,4 +115,16 @@ test('moderador não bane nem adverte: pede, e o admin decide', async () => {
   await recusa(a.decidirPedidoDeBanimento(2, false, null, 'não'));
   await a.decidirPedidoDeBanimento(2, false, null, 'Fotos verificadas, são da própria');
   assert.deepEqual(chamadas, ['pedido x perfil_falso Fotos de outra pessoa', 'decide 1 true 30 null', 'decide 2 false null Fotos verificadas, são da própria']);
+});
+
+test('painel: só o admin completo, com o período resolvido e os filtros validados', async () => {
+  const { repos, chamadas } = falsos();
+  await recusa(new Backoffice(repos, moderador).painel({ periodo: '30', comparar: true }, '2026-11-15'));
+  const a = new Backoffice(repos, admin);
+  await a.painel({ periodo: '30', comparar: true }, '2026-11-15');
+  await a.painel({ periodo: 'custom', de: '2026-10-01', ate: '2026-10-31', tipo: 'tip', contas: 'fas', origem: 'afiliado', comparar: false }, '2026-11-15');
+  await recusa(a.painel({ periodo: 'custom', de: '2026-11-10', ate: '2026-11-01', comparar: true }, '2026-11-15'));
+  await recusa(a.painel({ periodo: '30', tipo: 'topup' as never, comparar: true }, '2026-11-15'));
+  await recusa(a.painel({ periodo: '30', criador: "1' or 1=1", comparar: true }, '2026-11-15'));
+  assert.deepEqual(chamadas, ['painel 2026-10-17 2026-11-15 null null null null', 'painel 2026-10-01 2026-10-31 tip null fas afiliado']);
 });

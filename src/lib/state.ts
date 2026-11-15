@@ -1,6 +1,7 @@
 // Estado da aplicação e dados do utilizador com sessão
 import { sb, modal } from './lib';
 import { banimentoAtivo } from '../domain/identity/moderacao.ts';
+import type { FiltrosDoPainel } from '../domain/backoffice/painel.ts';
 import type { Session } from '@supabase/supabase-js';
 import type { Cfg, Creator, Profile } from './types';
 
@@ -104,6 +105,8 @@ export type AppState = {
   adTab: string;
   /** Filtro escolhido em cada fila da administração (ex.: `{ denuncias: 'open' }`). */
   adFilter: Record<string, string>;
+  /** Filtros do painel da «Visão geral» (null = os de omissão: 30 dias, a comparar). */
+  adPainel: FiltrosDoPainel | null;
   topTab: string;
   thread: any;
   cleanup: Array<() => void>; // funções a correr ao sair da página (canais em tempo real, lives)
@@ -163,7 +166,7 @@ export const S: AppState = {
   reg: null,
   cat: 'Tudo',
   q: '',
-  ptab: 'pub', stTab: 'visao', ctTab: 'perfil', adTab: 'visao', adFilter: {}, topTab: 'week',
+  ptab: 'pub', stTab: 'visao', ctTab: 'perfil', adTab: 'visao', adFilter: {}, adPainel: null, topTab: 'week',
   thread: null,
   cleanup: [],
   draft: null,

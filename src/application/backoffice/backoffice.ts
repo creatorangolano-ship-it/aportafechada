@@ -17,8 +17,9 @@ import { recusaAdvertencia, recusaBanimento, recusaPedidoBanimento, DURACOES_BAN
 import { eEstadoLevantamento, podeTransitar, recusaMotivo, type EstadoLevantamento } from '../../domain/backoffice/payout.ts';
 import { validarDefinicoes } from '../../domain/platform/settings.ts';
 import { recusaPromocao } from '../../domain/platform/promo.ts';
+import { recusaFiltros, resolverPeriodo, type FiltrosDoPainel } from '../../domain/backoffice/painel.ts';
 import type {
-  Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroPedidosBanimento, FiltroSuporte, Linha, RepositoriosDoBackoffice,
+  DadosDoPainel, Fila, FiltroDenuncias, FiltroKyc, FiltroLevantamentos, FiltroPedidosBanimento, FiltroSuporte, Linha, RepositoriosDoBackoffice,
 } from './ports.ts';
 
 export type Actor = { id: string; role: Role };
@@ -45,6 +46,20 @@ export class Backoffice {
   async contagens() { this.#exige('moderar'); return this.#r.filas.contar(this.pode('banir_contas')); }
   async maisAntigo(fila: Fila) { this.#exige('moderar'); return this.#r.filas.maisAntigo(fila); }
   async estatisticas() { this.#exige('ver_financas'); return this.#r.filas.estatisticas(); }
+  /**
+   * O painel da «Visão geral» para os filtros escolhidos. `hoje` é o dia de hoje em Luanda
+   * (AAAA-MM-DD). Só o admin completo: são números de dinheiro.
+   */
+  async painel(filtros: FiltrosDoPainel, hoje: string): Promise<DadosDoPainel> {
+    this.#exige('ver_financas');
+    exigir(recusaFiltros(filtros));
+    const p = resolverPeriodo(filtros, hoje);
+    if ('erro' in p) throw new ErroDeRegra(p.erro);
+    return this.#r.filas.painel({
+      de: p.de, ate: p.ate,
+      tipo: filtros.tipo ?? null, criador: filtros.criador ?? null, contas: filtros.contas ?? null, origem: filtros.origem ?? null,
+    });
+  }
 
   /* ---------- Verificações (KYC) ---------- */
   async verificacoes(filtro: FiltroKyc, limite: number) { this.#exige('moderar'); return this.#r.verificacoes.listar(filtro, limite); }

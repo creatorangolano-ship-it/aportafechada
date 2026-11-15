@@ -28,7 +28,35 @@ export interface RepositorioDeFilas {
   maisAntigo(fila: Fila): Promise<string | null>;
   /** Números dos últimos 30 dias (vendas, receita, saldos, contas). */
   estatisticas(): Promise<Linha>;
+  /** Números e séries do painel da «Visão geral» (função `admin_painel`). */
+  painel(pedido: PedidoDoPainel): Promise<DadosDoPainel>;
 }
+
+/** O que se pede à função `admin_painel`: datas já resolvidas e filtros já validados. */
+export type PedidoDoPainel = {
+  de: string;
+  ate: string;
+  tipo: string | null;
+  criador: string | null;
+  contas: string | null;
+  origem: string | null;
+};
+
+export type PontoDoPainel = { d: string; vendas: number; receita: number; fas: number; criadores: number; anterior: number };
+export type DadosDoPainel = {
+  de: string;
+  ate: string;
+  mensal: boolean;
+  serie: PontoDoPainel[];
+  totais: Record<
+    'vendas' | 'vendas_ant' | 'receita' | 'receita_ant' | 'contas' | 'contas_ant'
+    | 'criadores_vendas' | 'criadores_vendas_ant' | 'subs_activas' | 'subs_activas_ant', number>;
+  tipos: Array<{ kind: string; total: number }>;
+  funil: { contas: number; perfil: number; pedidos: number; aprovados: number };
+  top: Array<{ id: string; handle: string | null; name: string | null; avatar_url: string | null; vendas: number; subscritores: number }>;
+  dinheiro: { saldos: number; retido: number; pedidos: number; pedidos_n: number; pago: number; pago_n: number };
+  criadores: Array<{ id: string; handle: string | null; name: string | null }>;
+};
 
 export interface RepositorioDeVerificacoes {
   listar(filtro: FiltroKyc, limite: number): Promise<Linha[]>;

@@ -21,6 +21,7 @@ import { ADVERTENCIAS_PARA_BANIMENTO, DURACOES_BANIMENTO, MOTIVOS, advertenciaBa
 import { colunaDe, POSICOES_TELEMOVEL, TEXTO_BOTAO_PADRAO } from '../../domain/platform/promo.ts';
 import type { FormControl } from '../types';
 import { podeInstalar, instalarGestao } from '../gestao';
+import { painelHTML, instalarDicas, mudarFiltro, mudarPeriodo, tirarFiltro } from './painel';
 
 /** A fachada para quem está a agir agora. As vistas só são chamadas com sessão (ver main.ts). */
 const bo = (): Backoffice => backoffice({ id: S.me!.id, role: S.me!.role });
@@ -136,7 +137,7 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
   const filas = FILAS.filter((q) => !q.perm || b.pode(q.perm));
   // As tabelas e os números começam já; as datas do mais antigo precisam das contagens.
   const tabelas = Promise.all([kycTable(b, 5), reportTable(b, 5)]);
-  const numerosP = adm ? b.estatisticas().then((s) => ({ s, erro: null }), (e) => ({ s: null, erro: e })) : null;
+  const painelP = adm ? painelHTML(b) : null;
   const n = await nP;
   const antigos = await Promise.all(filas.map((q) => (n[q.fila] ? b.maisAntigo(q.fila).catch(() => null) : Promise.resolve(null))));
   const cartoes = filas.map((q, i) => {
@@ -150,14 +151,7 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
   }).join('');
   const atencao = `<h2 class="cssec">Precisa de atenção</h2><div class="qgrid" style="--n:${filas.length}">${cartoes}</div>`;
 
-  let numeros = '';
-  if (numerosP) {
-    const { s, erro } = await numerosP;
-    numeros = erro || !s
-      ? `<div class="banner">${ic('info')}<span>Não foi possível carregar os números: ${esc(errText(erro))}</span></div>`
-      : `<h2 class="cssec">Últimos 30 dias</h2>
-         <div class="kpis"><div class="kpi"><div class="l">Volume de vendas</div><div class="v">${kz(s.gross_30d)}</div></div><div class="kpi"><div class="l">Receita da plataforma</div><div class="v">${kz(s.platform_30d)}</div></div><div class="kpi"><div class="l">Saldos por levantar</div><div class="v">${kz(s.creators_balance)}</div><div class="s">Dinheiro dos criadores ainda na plataforma</div></div><div class="kpi"><div class="l">Utilizadores · criadores</div><div class="v">${dots(s.users)} · ${dots(s.creators)}</div></div></div>`;
-  }
+  const numeros = painelP ? `<div class="pn">${await painelP}</div>` : '';
 
   const [kyc, rep] = await tabelas;
   return {
@@ -331,6 +325,7 @@ async function pagina(b: Backoffice, t: string, nP: PContagens): Promise<Pagina>
  * esconde o cabeçalho do site nesta rota (classe `console` no `body`).
  */
 export async function vAdmin() {
+  instalarDicas();
   const b = bo();
   const grupos = gruposPara(b);
   const abas = grupos.flatMap((g) => g.abas);
@@ -390,6 +385,15 @@ export const adminActions = {
   },
   /** Abre/fecha a barra lateral em ecrãs pequenos (em ecrãs largos está sempre visível). */
   adNav() { document.body.classList.toggle('csnav-open'); },
+  /** Painel da «Visão geral»: período e etiquetas dos filtros. */
+  pnPeriodo(d: Record<string, string>) {
+    if (!mudarPeriodo(d.v)) return;
+    $('#csBody')?.classList.add('loading'); rerender(true);
+  },
+  pnTira(d: Record<string, string>) {
+    tirarFiltro(d.k);
+    $('#csBody')?.classList.add('loading'); rerender(true);
+  },
   /** Instala a consola como app no telemóvel (ver lib/gestao.ts). */
   adInstalar() { document.body.classList.remove('csnav-open'); void instalarGestao(); },
 
@@ -623,6 +627,10 @@ function promoForm(p: any) {
 
 /** Mudanças em campos da administração fora dos formulários habituais (ex.: o menu de papel na lista de utilizadores). */
 export async function adminChange(t: FormControl) {
+  if (t.id?.startsWith('pn') && mudarFiltro(t.id, t.value, (t as HTMLInputElement).checked)) {
+    $('#csBody')?.classList.add('loading'); rerender(true);
+    return true;
+  }
   if (t.dataset?.act === 'uRoleSel') {
     if (await tentar(() => bo().mudarPapel(t.dataset.id!, t.value), 'Papel atualizado')) rerender();
     else rerender(); // volta a mostrar o papel verdadeiro no menu
