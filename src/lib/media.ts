@@ -88,9 +88,9 @@ const LIMITE_BUCKET = 50 * 1024 * 1024; // ~3 a 4 min de vídeo a 720p
 export const LIMITE_PUBLICACAO = LIMITE_BUCKET;
 export const LIMITE_MENSAGEM = LIMITE_BUCKET;
 export const LIMITE_ESTADO = LIMITE_BUCKET;
-/** Originais: fotos até 20 MB (qualquer foto de telemóvel); vídeos até 2 GB antes de comprimir. */
+/** Originais: fotos até 20 MB (qualquer foto de telemóvel); vídeos até 500 MB antes de comprimir (cerca de 3 a 4 min filmados em 1080p). */
 const FOTO_ORIGINAL_MAX = 20e6;
-const VIDEO_ORIGINAL_MAX = 2e9;
+const VIDEO_ORIGINAL_MAX = 500e6;
 
 const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
 
@@ -98,7 +98,7 @@ const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
 export function recusaOriginal(files: File[]): string | null {
   for (const f of files) {
     if (f.type.startsWith('image/') && f.size > FOTO_ORIGINAL_MAX) return `A foto «${f.name}» passa dos ${mb(FOTO_ORIGINAL_MAX)}.`;
-    if (f.size > VIDEO_ORIGINAL_MAX) return `O ficheiro «${f.name}» passa dos 2 GB. Escolhe um vídeo mais curto.`;
+    if (f.size > VIDEO_ORIGINAL_MAX) return `O ficheiro «${f.name}» passa dos ${mb(VIDEO_ORIGINAL_MAX)}. Escolhe um vídeo mais curto.`;
   }
   return null;
 }
