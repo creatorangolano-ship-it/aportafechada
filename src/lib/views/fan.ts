@@ -43,12 +43,14 @@ function carregarOficiais(): Promise<string[]> {
 }
 
 /**
- * Selo ao lado do nome: a conta oficial da gestão tem um selo próprio (escudo + «Oficial»),
- * diferente do selo de identidade verificada dos criadores, para ninguém se fazer passar por ela.
+ * Selo ao lado do nome: a conta oficial da gestão tem um selo próprio (escudo dourado), do
+ * mesmo tamanho mas com outra forma e outra cor que o selo de verificado dos criadores.
  */
-function selo(c: any, cls = 'pok', estilo = ''): string {
-  if (c?.official || oficiais.has(c?.id)) return `<span class="selo-of" title="Conta oficial da gestão da A Porta Fechada">${ic('shield')}<b>Oficial</b></span>`;
-  return `<span class="${cls}" title="Identidade verificada"${estilo ? ` style="${estilo}"` : ''}>${ic('badge')}</span>`;
+const eOficial = (c: any): boolean => !!(c?.official || oficiais.has(c?.id));
+function selo(c: any, cls = 'pok', x = ''): string {
+  return eOficial(c)
+    ? `<span class="${cls} selo-of" title="Conta oficial da gestão da A Porta Fechada">${ic('escudo', x)}</span>`
+    : `<span class="${cls}" title="Identidade verificada">${ic('badge', x)}</span>`;
 }
 
 /** Junta a cada publicação o texto (se houver acesso), os gostos e os links dos ficheiros. */
@@ -804,14 +806,14 @@ export async function vPerfil(handle: any) {
      ${linha('star', esc(c.category))}
      ${linha('cal', `Desde ${fmtDate(c.created_at)}`)}
      ${linha('coin', c.price ? `${kz(c.price)} por mês` : 'Subscrição gratuita')}
-     ${c.official ? linha('shield', 'Conta oficial da gestão') : c.status === 'approved' ? linha('badge', 'Identidade verificada') : ''}
+     ${c.official ? linha('escudo', 'Conta oficial da gestão') : c.status === 'approved' ? linha('badge', 'Identidade verificada') : ''}
     </ul>
     ${mine ? '' : `<button class="btn link small" data-act="report" data-type="creator" data-id="${c.id}">${ic('flag')}Denunciar perfil</button>`}
    </div>${rodapeLinks()}`;
   return `${c.status !== 'approved' ? `<div class="banner">${ic('clock')}<span><b>O teu perfil está em verificação.</b> Só tu o vês até a equipa aprovar os documentos.</span></div>` : ''}
    <div class="cover" style="${c.cover_url ? `background-image:${cssUrl(c.cover_url)}` : ''}"></div>
    <section class="phead">${prof.avatar_url ? `<div class="big"><img src="${esc(prof.avatar_url)}" alt=""></div>` : `<div class="big">${esc((cname(c) || '?')[0].toUpperCase())}</div>`}
-    <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(cname(c))}${c.official ? selo(c) : c.status === 'approved' ? `<span style="color:var(--acc);display:inline-flex" title="Identidade verificada">${ic('badge', 'style="width:22px;height:22px"')}</span>` : ''}</h1>
+    <div class="info"><h1 style="display:flex;align-items:center;gap:8px">${esc(cname(c))}${c.status === 'approved' ? `<span style="color:var(--acc);display:inline-flex" ${eOficial(c) ? 'class="selo-of" title="Conta oficial da gestão da A Porta Fechada">' + ic('escudo', 'style="width:22px;height:22px"') : 'title="Identidade verificada">' + ic('badge', 'style="width:22px;height:22px"')}</span>` : ''}</h1>
      <div class="muted">@${esc(prof.handle)}</div>
      <p style="margin-top:10px;max-width:62ch">${esc((c.bio || '').slice(0, 220))}</p>
      <div class="meta"><span>${ic('pin')}${esc(c.city)}, Angola</span><span>${ic('cal')}Desde ${fmtDate(c.created_at)}</span></div>
