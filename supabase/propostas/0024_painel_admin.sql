@@ -1,6 +1,6 @@
 -- Painel da «Visão geral» da consola: números, gráficos e filtros (pedido pelo dono, 15/11/2026).
 --
--- Uma só função de leitura, só para o admin completo (assert_admin). Não escreve nada.
+-- Uma só função de leitura, só para o admin completo (is_admin). Não escreve nada.
 --
 -- Parâmetros (todos opcionais, excepto as datas):
 --   p_de, p_ate  dias do período, inclusive, na hora de Luanda
@@ -43,7 +43,7 @@ declare
   v_hold int := coalesce(setting_int('affiliate_hold_days'), 30);
   r jsonb;
 begin
-  perform assert_admin();
+  if not public.is_admin() then raise exception 'Sem permissão.' using errcode = 'P0001'; end if;
 
   if p_de is null or p_ate is null or p_ate < p_de then raise exception 'Período inválido.' using errcode = 'P0001'; end if;
   if p_ate - p_de > 731 then raise exception 'O período não pode passar de 2 anos.' using errcode = 'P0001'; end if;
