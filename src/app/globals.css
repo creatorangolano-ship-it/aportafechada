@@ -1444,4 +1444,4 @@ img,video,svg,canvas,iframe{max-width:100%}
 main:has(.arranque)+.pub-foot{display:none}
 /* / e /registar desenhados no servidor não têm cabeçalho (a app esconde-o ao arrancar): escondê-lo
    já no HTML evita que a página suba 64 px quando o JavaScript chega. */
-html:not(.sessao) body:has(#app[data-ssr]) .top{display:none}
+html:not(.sessao) body:has(#app[data-ssr="inicio"], #app[data-ssr="registar"]) .top{display:none}

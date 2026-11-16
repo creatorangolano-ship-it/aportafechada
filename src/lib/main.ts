@@ -133,6 +133,7 @@ const ROUTES: Record<string, Rota> = {
   // quem chega de um anúncio não espera pelas definições do servidor.
   registar: { v: () => modulos.public().then((m) => (S.me ? m.vOnboarding() : m.vSignup())), cfg: () => !!S.me },
   info: { v: (r) => modulos.public().then((m) => m.vInfo(r)), cfg: true },
+  'alternativa-oprivado': { v: () => import('./views/comparar').then((m) => m.oprivadoHtml()) },
   feed: { v: () => modulos.fan().then((m) => m.vFeed()) },
   explorar: { v: () => modulos.fan().then((m) => m.vExplorar()) },
   // Sem sessão, o perfil de um criador tem uma versão pública (é o que o Google e quem
@@ -249,7 +250,7 @@ export async function render(keep = false): Promise<void> {
   // a pessoa já escreveu enquanto o JavaScript descarregava. Só vale na primeira vez.
   const doServidor = app.dataset.ssr;
   delete app.dataset.ssr;
-  if (doServidor === r && (r === 'registar' || r === 'inicio') && !S.me) {
+  if (doServidor === r && (((r === 'registar' || r === 'inicio') && !S.me) || r === 'alternativa-oprivado')) {
     if (r === 'inicio') void modulos.public().then((m) => m.preencherProvaSocial());
     rodapeVisivel(r);
     return;

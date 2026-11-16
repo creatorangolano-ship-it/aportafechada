@@ -6,4 +6,6 @@
  * o que obrigava a descarregar essa área inteira só para as ler.
  */
 export const INFO = ['sobre', 'funciona', 'faq', 'regras', 'termos', 'privacidade', 'dmca', 'contacto', 'afiliados', 'blog'];
-export const PUBLIC: string[] = ['inicio', 'registar', 'confirmar', 'nova-senha', ...INFO];
+/** Páginas para o Google que não são informativas da plataforma (comparações). */
+export const COMPARAR = ['alternativa-oprivado'];
+export const PUBLIC: string[] = ['inicio', 'registar', 'confirmar', 'nova-senha', ...INFO, ...COMPARAR];

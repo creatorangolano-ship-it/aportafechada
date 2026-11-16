@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import App from '../App';
 import { registoHtml, inicioHtml } from '@/lib/views/entrada';
+import { oprivadoHtml, OPRIVADO_FAQ, ROTA_OPRIVADO } from '@/lib/views/comparar';
 import { caminhoDe, rotaDe } from '@/lib/caminhos';
 import { DESCRICAO, NOME, PUBLICAS, ROTAS_CONHECIDAS, tituloDe } from '@/lib/seo-textos';
 import { perfilPublico } from '../seo';
@@ -95,12 +96,19 @@ export default async function Pagina({ params }: Props) {
       }).replace(/</g, '\\u003c');
     }
   }
+  // Perguntas da página de comparação: o Google pode mostrá-las directamente nos resultados.
+  if (r === ROTA_OPRIVADO) {
+    ld = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'FAQPage',
+      mainEntity: OPRIVADO_FAQ.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+    }).replace(/</g, '\\u003c');
+  }
   // /registar (para onde vão os anúncios) e / saem já desenhados do servidor: o formulário aparece
   // antes de o JavaScript chegar. A app assume-o quando arranca (ver `render()` em lib/main.ts).
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />}
-      <App rota={r} inicial={r === 'registar' ? registoHtml({}) : r === 'inicio' ? inicioHtml() : null} />
+      <App rota={r} inicial={r === 'registar' ? registoHtml({}) : r === 'inicio' ? inicioHtml() : r === ROTA_OPRIVADO ? oprivadoHtml() : null} />
     </>
   );
 }
