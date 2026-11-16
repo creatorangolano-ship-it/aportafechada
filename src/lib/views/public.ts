@@ -8,20 +8,12 @@ import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
 import { captcha } from '../captcha';
 import { pixelEvento } from '../pixel';
 import { authShell, pwField, registoHtml, inicioHtml, CONVITE } from './entrada';
+import { infoHtml } from './info';
 
 import type { FormControl } from '../types';
 
 
-/* ---------- Identidade legal da empresa ----------
-   Preenche estes dados reais antes de publicares os Termos e a Privacidade.
-   Enquanto tiverem "[...]" o texto continua a não estar pronto para lançamento. */
-const COMPANY = {
-  legalName: 'CDM Corporate',
-  nif: '5000000000', // FICTÍCIO/TEMPORÁRIO — substitui pelo NIF real antes do lançamento
-  address: 'Morro Bento, Luanda, Angola',
-  email: 'Creatorangolano@gmail.com',
-  dpoEmail: 'Creatorangolano@gmail.com',
-};
+/* A identidade legal da empresa (COMPANY) e o texto destas páginas vivem em `info.ts`. */
 
 /* A moldura da página inicial e o formulário de registo vivem em `entrada.ts` (o servidor também os desenha). */
 
@@ -241,70 +233,8 @@ async function finishOb(btn: any) {
 
 /* ---------- Páginas de informação ---------- */
 export { INFO };
-export function vInfo(r: any) {
-  const fee = S.cfg.fee_pct, net = netPct(), aff = S.cfg.affiliate_pct;
-  const FAQ = [
-    ['O que é A Porta Fechada?', 'Uma plataforma onde criadores vendem conteúdo exclusivo aos fãs através de subscrições, publicações pagas, gorjetas, mensagens e lives.'],
-    ['Quem pode usar?', 'Só maiores de 18 anos. Todos os criadores confirmam a identidade com documento antes de poderem receber pagamentos.'],
-    ['Como me torno criador?', 'Cria conta, escolhe “Quero ser criador” e completa três etapas: perfil de criador, documento com selfie e conta bancária. A equipa responde em até 48 horas.'],
-    ['Que conteúdos posso publicar?', 'Fotografias, vídeos, texto e lives, dentro das regras da comunidade. Cada publicação pode ser grátis, para subscritores ou vendida à parte.'],
-    ['Quanto custa usar a plataforma?', `Criar conta é grátis. Quando um criador vende, a plataforma fica com ${fee}% para pagamentos, servidores e impostos. O criador recebe ${net}%. Para quem começa, a comissão é mais baixa: ${fee > 10 ? 'só 10% no primeiro mês depois da aprovação e 15% no segundo' : 'a mesma'}.`],
-    ['Como pago?', 'Com Multicaixa Express ou referência Multicaixa (no ATM ou no internet banking). Os pagamentos são processados pela kursiPay. Também podes carregar a carteira e pagar com o saldo.'],
-    ['Posso cancelar uma subscrição?', 'Sim, quando quiseres, em Subscrições. Manténs o acesso até ao fim do período já pago.'],
-    ['Como funciona a renovação?', 'As subscrições renovam todos os meses com o saldo da carteira. Se não houver saldo, a subscrição termina e podes renovar no perfil do criador.'],
-    ['Há reembolsos?', 'Conteúdo digital já desbloqueado não é reembolsado, salvo problema técnico comprovado.'],
-    ['Quando recebe o criador?', `Depois de pedires o levantamento (mínimo ${kz(S.cfg.min_payout)}), o valor chega à tua conta em até 48 horas. O que ganhas fica disponível para levantar 24 horas depois. Não há taxa extra da plataforma sobre o levantamento: eventuais custos cobrados pelo banco na transferência são absorvidos pela plataforma, não descontados do valor pedido. Aceitamos contas nos bancos ${BANKS.join(', ')}, sempre em nome do titular da conta de criador. Se um pedido for recusado (por exemplo, dados bancários incorretos), o valor volta automaticamente ao teu saldo e explicamos o motivo, para corrigires e pedires de novo.`],
-    ['Os meus dados ficam visíveis?', 'Não. O email, a data de nascimento e os dados de pagamento nunca aparecem no perfil. Perfis de fãs não aparecem nas pesquisas.'],
-    ['Como protegem os conteúdos?', 'Os ficheiros pagos só abrem com links temporários para quem tem acesso, e cada conteúdo mostra o nome de utilizador de quem o está a ver.'],
-    ['É um site de encontros?', 'Não. A plataforma é só para conteúdo digital. Não permitimos marcar encontros nem vender serviços presenciais.'],
-    ['Posso ter mais do que uma conta?', 'Não. Cada pessoa pode ter uma conta. Contas duplicadas são eliminadas.'],
-    ['Como denuncio um perfil ou conteúdo?', 'Usa “Denunciar” no perfil ou na publicação. Respondemos em até 24 horas.'],
-  ];
-  const P: Record<string, string> = {
-    sobre: `<h1>Sobre a plataforma</h1><p class="lead">A Porta Fechada liga criadores angolanos a quem gosta do trabalho deles, com pagamentos em kwanzas.</p>
-     <h2>Para quem é</h2><ul><li><b>Fãs</b> subscrevem criadores, compram conteúdos, enviam gorjetas e mensagens e assistem a lives.</li><li><b>Criadores</b> verificados publicam, definem os preços e recebem na conta bancária.</li><li><b>Afiliados</b> ganham ${aff}% das vendas dos criadores que convidaram, durante 6 meses.</li></ul>
-     <h2>Formas de ganhar</h2><ul><li>Subscrição mensal</li><li>Publicações vendidas à parte</li><li>Gorjetas em perfis e lives</li><li>Mensagens com conteúdo pago</li><li>Bilhetes para lives</li><li>Comissões de afiliado</li></ul>
-     <h2>O que não somos</h2><p>Não somos um site de encontros nem uma agência. Só conteúdo digital, só maiores de 18.</p>`,
-    funciona: `<h1>Como funciona</h1><p class="lead">Em poucos minutos tens conta. Criadores precisam de um passo extra: a verificação.</p>
-     <h2>Se queres acompanhar criadores</h2><ol><li>Cria conta com email ou Google.</li><li>Escolhe os teus interesses e segue criadores.</li><li>Subscreve, compra publicações ou carrega a carteira.</li><li>Conversa por mensagem e entra nas lives.</li></ol>
-     <h2>Se queres ser criador</h2><ol><li>Cria conta e escolhe “Quero ser criador”.</li><li>Define a categoria, o preço da subscrição e a apresentação.</li><li>Envia o BI (frente e verso) e uma selfie com o documento.</li><li>Indica o banco e o IBAN para receber.</li><li>Depois da aprovação, o perfil aparece em Explorar e podes levantar o saldo.</li></ol>
-     <h2>Taxas</h2><p>A plataforma fica com ${fee}% de cada venda. O criador recebe ${net}%.</p>`,
-    faq: `<h1>Perguntas frequentes</h1><p class="lead">Não encontras a resposta? <a href="#contacto">Fala connosco</a>.</p>${FAQ.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}`,
-    regras: `<h1>Regras da comunidade</h1><p class="lead">Estas regras protegem criadores e fãs. Quebrá-las pode levar à remoção do conteúdo ou da conta.</p>
-     <ul><li>Só maiores de 18, tanto quem publica como quem aparece nos conteúdos.</li><li>Todas as pessoas nos conteúdos deram consentimento e estão verificadas.</li><li>Nada de violência, ódio, assédio ou conteúdo ilegal.</li><li>Publica só o que é teu ou aquilo para que tens autorização.</li><li>É proibido partilhar fora da plataforma conteúdos pagos de outros.</li><li>Não é permitido marcar encontros nem vender serviços presenciais.</li><li>Uma conta por pessoa. Pagamentos só para contas em nome do titular.</li></ul>`,
-    termos: `<h1>Termos e condições</h1>
-     <p class="lead">Bem-vindo à plataforma A Porta Fechada, operada por <b>${COMPANY.legalName}</b> (NIF ${COMPANY.nif}, sede em ${COMPANY.address}). Estes Termos e Condições regulam o uso da plataforma e dos serviços oferecidos. Ao acessar e utilizar a plataforma, concordas com os termos aqui descritos. Caso não concordes, por favor não utilizes a plataforma.</p>
-     <h2>1. Definições</h2><p><b>A Porta Fechada:</b> a plataforma e os serviços nela oferecidos. <b>Utilizador:</b> qualquer pessoa que acede ou utiliza os serviços. <b>Criador:</b> utilizador que publica conteúdo e recebe pagamentos. <b>Conteúdo:</b> qualquer informação, texto, imagem, áudio ou vídeo disponibilizado na plataforma.</p>
-     <h2>2. Uso da plataforma</h2><p>O utilizador deve ter 18 anos ou mais e usar a plataforma apenas para propósitos legais, de acordo com estes Termos. É proibido usar a plataforma para marcar encontros presenciais, fins ilegais ou fraudulentos, ou que possam prejudicar terceiros. Reservamo-nos o direito de suspender ou bloquear o acesso de utilizadores que violem estes Termos.</p>
-     <h2>3. Conta de utilizador</h2><p>Para aceder a alguns serviços é preciso criar conta, com informações verdadeiras e atualizadas. Para te tornares criador e receberes pagamentos, confirmamos a tua identidade e idade com documento de identificação e uma selfie com esse documento. És responsável por manter a segurança da tua conta e palavra-passe; não nos responsabilizamos por acessos não autorizados. Cada pessoa só pode ter uma conta, e a conta de qualquer utilizador pode ser removida sem aviso prévio ao violar as regras da plataforma, ainda que tenha saldo ou ganhos por levantar (nesse caso, sujeitos a análise conforme a secção 7).</p>
-     <h2>4. Serviços oferecidos</h2><p>Um espaço onde criadores publicam conteúdo digital e ganham através de subscrições, publicações vendidas à parte, gorjetas, mensagens pagas e bilhetes de live. A plataforma cobra uma percentagem de serviço sobre as vendas, que cobre pagamentos, alojamento e operação.</p>
-     <h2>5. Privacidade e proteção de dados</h2><p>Respeitamos a privacidade dos utilizadores e protegemos os seus dados conforme a legislação angolana aplicável. Ao utilizares a plataforma, concordas com a coleta e uso de dados conforme descrito na nossa <a href="#privacidade">Política de Privacidade</a>.</p>
-     <h2>6. Conteúdo e propriedade intelectual</h2><p>O criador mantém os direitos de autor sobre o que publica e concede à plataforma uma licença para o armazenar, processar e mostrar apenas a quem tenha acesso pago ou autorizado. O criador declara que tem 18 anos ou mais, que qualquer outra pessoa que apareça no conteúdo também tem 18 anos ou mais e deu consentimento para essa publicação, e que tem todos os direitos necessários sobre o conteúdo. É proibido publicar conteúdo que envolva menores, violência não consensual ou qualquer material ilegal em Angola, bem como copiar, descarregar ou redistribuir fora da plataforma conteúdo pago de outra pessoa.</p>
-     <h2>7. Pagamentos, levantamentos e reembolsos</h2><p>Os preços de subscrição e de conteúdo são definidos por cada criador. As subscrições renovam mensalmente até serem canceladas. Conteúdo digital, uma vez desbloqueado, não é reembolsável, salvo erro técnico comprovado da nossa parte. Criadores recebem os seus ganhos por transferência bancária mediante pedido de levantamento, conforme detalhado nas <a href="#faq">Perguntas frequentes</a>; a conta bancária tem de estar em nome do titular da conta de criador, e pedidos podem ser recusados por dados incorretos ou suspeita de fraude, devolvendo-se o valor ao saldo do criador.</p>
-     <h2>8. Regras da comunidade e moderação</h2><p>Todas as contas devem seguir as <a href="#regras">Regras da comunidade</a>. Podemos rever, ocultar ou remover conteúdo denunciado, e suspender ou encerrar contas que violem estas regras ou a lei angolana.</p>
-     <h2>9. Limitação de responsabilidade</h2><p>Não garantimos que a plataforma estará sempre disponível ou livre de erros. O uso da plataforma é de inteira responsabilidade do utilizador; não nos responsabilizamos por perdas ou danos decorrentes do uso da plataforma, nem por qualquer tipo de atividade entre um assinante e o criador fora da plataforma.</p>
-     <h2>10. Modificações nos termos</h2><p>Podemos modificar estes Termos a qualquer momento. As alterações entram em vigor a partir da publicação na plataforma. O utilizador deve rever periodicamente os Termos para se manter informado.</p>
-     <h2>11. Lei aplicável e foro</h2><p>Estes Termos são regidos pelas leis de Angola. Qualquer disputa será resolvida no foro da comarca de Luanda, salvo disposição legal em contrário.</p>
-     <h2>12. Contacto</h2><p>Para qualquer dúvida sobre estes Termos, contacta-nos pelo email <b>${COMPANY.email}</b>.</p>
-     <p class="small muted" style="margin-top:24px">Data da última atualização: 27 de setembro de 2026.</p>`,
-    privacidade: `<h1>Política de privacidade</h1>
-     <p class="lead">A tua privacidade é importante para nós. Esta Política de Privacidade explica como <b>${COMPANY.legalName}</b> coleta, usa, armazena e protege os teus dados ao utilizares a plataforma A Porta Fechada. Ao acessar e utilizar a plataforma, concordas com os termos desta política.</p>
-     <h2>1. Responsável pelo tratamento</h2><p><b>${COMPANY.legalName}</b>, NIF ${COMPANY.nif}, com sede em ${COMPANY.address}, é a entidade responsável pelos dados pessoais tratados nesta plataforma. Para qualquer pedido relacionado com proteção de dados, escreve para <b>${COMPANY.dpoEmail}</b>.</p>
-     <h2>2. Coleta de dados pessoais</h2><p>Podemos coletar: nome completo, nome de utilizador, endereço de email, data de nascimento, documento de identificação e selfie de verificação (para criadores), dados bancários e de pagamento, endereço IP, dados de navegação e preferências, conteúdo publicado ou enviado, e outras informações fornecidas voluntariamente. A coleta ocorre quando o utilizador se cadastra, contacta-nos, utiliza os nossos serviços ou navega na plataforma.</p>
-     <h2>3. Uso dos dados</h2><p>Os dados coletados podem ser utilizados para: criar e gerir a tua conta; verificar idade e identidade; processar pagamentos e levantamentos; melhorar a experiência do utilizador e personalizar conteúdo; enviar comunicações informativas; garantir a segurança e prevenção contra fraudes; e cumprir obrigações legais.</p>
-     <h2>4. Partilha de dados</h2><p>Não vendemos, alugamos ou partilhamos dados pessoais com terceiros, exceto: com consentimento expresso do utilizador; para cumprimento de obrigações legais; ou com prestadores de serviços que auxiliam na operação da plataforma (processamento de pagamentos, alojamento), sob acordos de confidencialidade. O teu email, data de nascimento e dados bancários nunca são mostrados a outros utilizadores.</p>
-     <h2>5. Proteção e armazenamento de dados</h2><p>Implementamos medidas de segurança adequadas para proteger os dados contra acesso não autorizado, alteração, divulgação ou destruição indevida. Os dados são armazenados em servidores seguros e mantidos pelo tempo necessário para cumprir as finalidades descritas nesta política, incluindo o cumprimento de obrigações fiscais e legais aplicáveis em Angola.</p>
-     <h2>6. Os teus direitos</h2><p>Tens direito a: aceder aos teus dados armazenados; solicitar a correção de informações incorretas; solicitar a eliminação dos teus dados (salvo exceções legais); e revogar consentimentos dados anteriormente. Para exercer estes direitos, contacta-nos pelo email <b>${COMPANY.dpoEmail}</b> ou pelo <a href="#contacto">formulário de contacto</a>. Podes eliminar a tua conta a qualquer momento em Definições › Segurança.</p>
-     <h2>7. Cookies e tecnologias de rastreamento</h2><p>A plataforma pode utilizar cookies e tecnologias semelhantes para melhorar a experiência do utilizador. Podes gerir as tuas preferências de cookies nas configurações do teu navegador.</p>
-     <h2>8. Menores</h2><p>A plataforma é exclusivamente para maiores de 18 anos. Não recolhemos intencionalmente dados de menores; se identificarmos uma conta de um menor, é encerrada e os dados eliminados.</p>
-     <h2>9. Alterações a esta política</h2><p>Podemos atualizar esta Política de Privacidade periodicamente. As alterações serão publicadas na plataforma e entram em vigor a partir dessa publicação.</p>
-     <h2>10. Contacto</h2><p>Para qualquer dúvida sobre esta Política de Privacidade, contacta-nos pelo email <b>${COMPANY.dpoEmail}</b>.</p>`,
-    dmca: `<h1>Direitos de autor</h1><p class="lead">Se encontraste um conteúdo teu publicado sem autorização, pedimos a remoção.</p><p>Envia pelo <a href="#contacto">formulário de contacto</a>, com o assunto “Direitos de autor”: o link do conteúdo, a prova de que é teu e os teus contactos. Removemos o conteúdo em até 48 horas depois de confirmado.</p>`,
-    contacto: `<h1>Contacto</h1><p class="lead">Respondemos em até 24 horas úteis.</p><form class="box pad stack" id="contactForm" style="max-width:620px" novalidate><div class="grid2"><div class="field"><label for="ctName">Nome</label><input id="ctName" value="${esc(S.me?.name || '')}"></div><div class="field"><label for="ctMail">Email</label><input id="ctMail" type="email" value="${esc(S.me?.email || '')}"></div></div><div class="field"><label for="ctSubj">Assunto</label><select id="ctSubj"><option>Ajuda com a conta</option><option>Pagamentos</option><option>Verificação de criador</option><option>Direitos de autor</option><option>Parcerias e investidores</option><option>Outro</option></select></div><div class="field"><label for="ctMsg">Mensagem</label><textarea id="ctMsg"></textarea></div><span class="err" id="ctErr" hidden></span><button class="btn pri" style="align-self:flex-start">Enviar mensagem</button></form>`,
-    afiliados: `<h1>Programa de afiliados</h1><p class="lead">Convida criadores e ganha ${aff}% de tudo o que eles venderem durante 6 meses.</p><ul><li>Recebes ${aff}% das vendas confirmadas de publicações pagas das pessoas que se registarem com o teu link.</li><li>Subscrições (o acesso ao perfil), gorjetas, mensagens pagas e bilhetes de live não contam.</li><li>A comissão conta durante 6 meses a partir do dia em que a pessoa convidada criou conta.</li><li>A comissão sai da parte da plataforma: o criador convidado não perde nada.</li><li>Cada comissão pode ser levantada 30 dias depois da venda. Para levantar, tens de ter a identidade verificada.</li><li>Os ganhos de afiliado podem ser levantados para a tua conta bancária.</li></ul>${S.me ? '<a class="btn pri" href="#conta" data-act="ctGo" data-v="afiliados">Ver o meu link</a>' : '<a class="btn pri" href="#registar">Criar conta e receber o link</a>'}`,
-    blog: `<h1>Blog</h1><p class="lead">Novidades e dicas para criadores e fãs.</p><div class="bloglist">${[['Como definir o preço da tua subscrição', 'O que ter em conta antes de escolher entre 1.000 e 5.000 Kz por mês.'], ['Cinco ideias de conteúdo exclusivo', 'Bastidores, perguntas e respostas, tutoriais e mais.'], ['Como proteger a tua conta', 'Palavras-passe, verificação em dois passos e cuidados com mensagens.']].map(([t, e]) => `<article class="box pad stack" style="gap:6px"><h3>${t}</h3><p class="small muted">${e}</p></article>`).join('')}</div>`,
-  };
-  return `<article class="doc">${P[r]}</article>`;
+export function vInfo(r: string) {
+  return infoHtml(r, S.cfg, S.me);
 }
 export function installModal() {
   modal(`<h3>Instalar a app</h3><p class="muted small">Fica no ecrã principal como uma app, sem ocupar espaço.</p><div class="stack" style="gap:10px"><div class="aside">${ic('phone')}<span><b>Android (Chrome):</b> abre o menu ⋮ e toca em “Adicionar ao ecrã principal” ou “Instalar app”.</span></div><div class="aside">${ic('phone')}<span><b>iPhone (Safari):</b> toca em Partilhar e depois em “Adicionar ao ecrã principal”.</span></div></div><button class="btn pri block" data-act="closeModal">Percebi</button>`);

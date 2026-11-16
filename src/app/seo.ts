@@ -34,3 +34,17 @@ export async function perfilPublico(handle: string): Promise<PerfilPublico | nul
 export async function criadoresPublicos(): Promise<Array<{ handle: string; atualizado: string }>> {
   return (await rpc<Array<{ handle: string; atualizado: string }>>('criadores_publicos', {})) ?? [];
 }
+
+/** Taxa e mínimos para o texto das páginas de informação (Como funciona, FAQ, Afiliados).
+ *  Os mesmos valores por omissão que `S.cfg` no browser, se o Supabase não responder. */
+export async function definicoes(): Promise<{ fee_pct: number; affiliate_pct: number; min_payout: number }> {
+  const c = { fee_pct: 20, affiliate_pct: 5, min_payout: 10000 };
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=key,value`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      next: { revalidate: 600 },
+    });
+    if (r.ok) for (const { key, value } of (await r.json()) as Array<{ key: string; value: unknown }>) if (key in c) c[key as keyof typeof c] = Number(value);
+  } catch { /* fica com os valores por omissão */ }
+  return c;
+}

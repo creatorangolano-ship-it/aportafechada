@@ -5,7 +5,9 @@ import { registoHtml, inicioHtml } from '@/lib/views/entrada';
 import { onlyfansHtml, ONLYFANS_FAQ, ROTA_ONLYFANS } from '@/lib/views/comparar';
 import { caminhoDe, rotaDe } from '@/lib/caminhos';
 import { DESCRICAO, NOME, PUBLICAS, ROTAS_CONHECIDAS, tituloDe } from '@/lib/seo-textos';
-import { perfilPublico } from '../seo';
+import { perfilPublico, definicoes } from '../seo';
+import { infoHtml } from '@/lib/views/info';
+import { INFO } from '@/lib/rotas';
 
 /** Imagem de partilha por omissão (src/app/og.jpg). */
 const OG = [{ url: '/og.jpg', width: 1200, height: 630, alt: NOME }];
@@ -82,6 +84,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: { absolute: tituloDe(r) }, description: DESCRICAO, robots: { index: false, follow: false } };
 }
 
+/** Os links `#rota` do texto passam a caminhos a sério (`/termos`): o Google só segue esses. */
+const comCaminhos = (h: string): string => h.replace(/href="#([\w-]+)"/g, (_, x: string) => `href="${caminhoDe(x)}"`);
+
 export default async function Pagina({ params }: Props) {
   const r = await rotaDoPedido(params);
   // Dados estruturados do perfil: o Google percebe que é a página de uma pessoa.
@@ -105,10 +110,14 @@ export default async function Pagina({ params }: Props) {
   }
   // /registar (para onde vão os anúncios) e / saem já desenhados do servidor: o formulário aparece
   // antes de o JavaScript chegar. A app assume-o quando arranca (ver `render()` em lib/main.ts).
+  // Páginas que saem já desenhadas do servidor: o texto vai no HTML (o Google lê-o sem esperar pelo
+  // JavaScript) e a app assume-o quando arranca (ver `render()` em lib/main.ts).
+  const inicial = r === 'registar' ? registoHtml({}) : r === 'inicio' ? inicioHtml() : r === ROTA_ONLYFANS ? onlyfansHtml()
+    : INFO.includes(r) ? infoHtml(r, await definicoes()) : null;
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />}
-      <App rota={r} inicial={r === 'registar' ? registoHtml({}) : r === 'inicio' ? inicioHtml() : r === ROTA_ONLYFANS ? onlyfansHtml() : null} />
+      <App rota={r} inicial={inicial === null ? null : comCaminhos(inicial)} />
     </>
   );
 }

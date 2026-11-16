@@ -250,7 +250,9 @@ export async function render(keep = false): Promise<void> {
   // a pessoa já escreveu enquanto o JavaScript descarregava. Só vale na primeira vez.
   const doServidor = app.dataset.ssr;
   delete app.dataset.ssr;
-  if (doServidor === r && (((r === 'registar' || r === 'inicio') && !S.me) || r === 'onlyfans-angola')) {
+  // Contacto e Afiliados mudam com sessão (nome e email no formulário, link de afiliado): essas redesenham.
+  const comSessaoMuda = !!S.me && (r === 'contacto' || r === 'afiliados');
+  if (doServidor === r && (((r === 'registar' || r === 'inicio') && !S.me) || r === 'onlyfans-angola' || (INFO.includes(r) && !comSessaoMuda))) {
     if (r === 'inicio') void modulos.public().then((m) => m.preencherProvaSocial());
     rodapeVisivel(r);
     return;
