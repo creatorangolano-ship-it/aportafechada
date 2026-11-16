@@ -268,7 +268,7 @@ export async function loadMe(): Promise<Profile | null> {
   if (!session) { S.me = null; S.creator = null; return null; }
   const uid = session.user.id;
   const [{ data: me }, { data: cr }] = await Promise.all([
-    sb.from('profiles').select('*').eq('id', uid).maybeSingle(),
+    sb.rpc('meu_perfil').maybeSingle(),
     sb.from('creators').select('*').eq('id', uid).maybeSingle(),
   ]);
   S.me = (me as Profile | null) ?? null;
@@ -293,7 +293,7 @@ export async function refreshMe(): Promise<void> {
   if (!S.session) return;
   const uid = S.session.user.id;
   const [{ data: me }, { data: cr }] = await Promise.all([
-    sb.from('profiles').select('*').eq('id', uid).maybeSingle(),
+    sb.rpc('meu_perfil').maybeSingle(),
     sb.from('creators').select('*').eq('id', uid).maybeSingle(),
   ]);
   if (me) {

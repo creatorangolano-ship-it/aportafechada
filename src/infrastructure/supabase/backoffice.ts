@@ -16,7 +16,20 @@ function ok<T>(r: { data: T; error: unknown }): T {
   return r.data;
 }
 
-const KYC_SEL = '*, user:profiles!kyc_requests_user_id_fkey(handle,name,birthdate,country,avatar_url)';
+const KYC_SEL = '*, user:profiles!kyc_requests_user_id_fkey(handle,name,country,avatar_url)';
+
+/**
+ * A data de nascimento já não se lê da tabela `profiles` (migração 0027: só as colunas
+ * públicas). A equipa recebe-a pela função `admin_nascimentos`, que recusa quem não é staff.
+ */
+async function comNascimento(linhas: Linha[]): Promise<Linha[]> {
+  const ids = [...new Set(linhas.map((l) => l.user_id).filter(Boolean))];
+  if (!ids.length) return linhas;
+  const datas = ok(await sb.rpc('admin_nascimentos', { p_users: ids })) as { id: string; birthdate: string | null }[] | null;
+  const porId = new Map((datas || []).map((d) => [d.id, d.birthdate]));
+  for (const l of linhas) if (l.user) l.user.birthdate = porId.get(l.user_id) ?? null;
+  return linhas;
+}
 
 /** Que estados contam como «por tratar» em cada fila, e em que tabela. */
 const FILAS: Record<Fila, { tabela: string; estados: readonly string[] }> = {
@@ -63,10 +76,11 @@ export const repositoriosSupabase: RepositoriosDoBackoffice = {
         filtro === 'pending' ? Promise.resolve({ data: [] as Linha[], error: null })
           : sb.from('kyc_requests').select(KYC_SEL).neq('status', 'pending').order('created_at', { ascending: false }).limit(limite),
       ]);
-      return [...(ok(pend) || []), ...(ok(done) || [])].slice(0, limite);
+      return comNascimento([...(ok(pend) || []), ...(ok(done) || [])].slice(0, limite));
     },
     async detalhe(id) {
-      const pedido = ok(await sb.from('kyc_requests').select('*, user:profiles!kyc_requests_user_id_fkey(id,handle,name,birthdate,country)').eq('id', id).single()) as Linha;
+      const pedido = ok(await sb.from('kyc_requests').select('*, user:profiles!kyc_requests_user_id_fkey(id,handle,name,country)').eq('id', id).single()) as Linha;
+      await comNascimento([pedido]);
       const [c, b, urls] = await Promise.all([
         sb.from('creators').select('*').eq('id', pedido.user_id).maybeSingle(),
         sb.from('payout_info').select('*').eq('user_id', pedido.user_id).maybeSingle(),
