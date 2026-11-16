@@ -124,12 +124,14 @@ let renderSeq = 0;
  * `cfg: true` marca as páginas que mostram ou validam valores das definições
  * (taxas, mínimos). Só essas esperam pelas definições; as outras desenham logo.
  */
-type Rota = { v: (arg: string) => Promise<string>; cfg?: boolean };
+type Rota = { v: (arg: string) => Promise<string>; cfg?: boolean | (() => boolean) };
 const ROUTES: Record<string, Rota> = {
   inicio: { v: () => modulos.public().then((m) => m.vInicio()) },
   confirmar: { v: () => modulos.public().then((m) => m.vConfirmEmail()) },
   'nova-senha': { v: () => modulos.public().then((m) => m.vNovaSenha()) },
-  registar: { v: () => modulos.public().then((m) => (S.me ? m.vOnboarding() : m.vSignup())), cfg: true },
+  // Só o perfil por completar (vOnboarding) mostra taxas e mínimos; o formulário de registo de
+  // quem chega de um anúncio não espera pelas definições do servidor.
+  registar: { v: () => modulos.public().then((m) => (S.me ? m.vOnboarding() : m.vSignup())), cfg: () => !!S.me },
   info: { v: (r) => modulos.public().then((m) => m.vInfo(r)), cfg: true },
   feed: { v: () => modulos.fan().then((m) => m.vFeed()) },
   explorar: { v: () => modulos.fan().then((m) => m.vExplorar()) },
@@ -249,7 +251,7 @@ export async function render(keep = false): Promise<void> {
   try {
     if (!navigator.onLine) throw new Error('offline');
     const { rota, arg } = resolver(r);
-    if (rota.cfg) await cfgReady();
+    if (typeof rota.cfg === 'function' ? rota.cfg() : rota.cfg) await cfgReady();
     h = await rota.v(arg);
   } catch (e) {
     if (navigator.onLine) console.error(e);
@@ -466,6 +468,10 @@ window.addEventListener('popstate', () => { S.ptab = 'pub'; void render(false); 
 window.addEventListener('hashchange', () => { if (converterHashAntigo()) { S.ptab = 'pub'; void render(false); } });
 
 /* ---------- Arranque ---------- */
+const temSessaoGuardada = (): boolean => {
+  try { return Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k)); } catch { return false; }
+};
+
 export async function boot(): Promise<void> {
   // Tabelas: no telemóvel cada linha vira um cartão (sem deslocação horizontal).
   observarTabelas(document.body);
@@ -482,6 +488,9 @@ export async function boot(): Promise<void> {
   // Em paralelo: as definições (com cache local) e a sessão. Antes eram em fila,
   // e a primeira página esperava pelas duas idas ao servidor uma atrás da outra.
   void loadCfg().catch(() => {});
+  // Quem chega sem sessão guardada (ex.: de um anúncio) vai ver uma página da área pública:
+  // o ficheiro dessa área começa a descarregar já, ao mesmo tempo que a sessão é lida.
+  if (!temSessaoGuardada()) void modulos.public().catch(() => {});
   await loadMe().catch(() => {});
   if (S.me) {
     startRealtime();

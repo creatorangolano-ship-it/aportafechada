@@ -56,7 +56,7 @@ export const viewport: Viewport = {
  * Se activares o CSP em `next.config.mjs`, este é o único script inline da
  * página e precisa do sha256 correspondente — recalcula-o sempre que o mudares.
  */
-const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname;if((h==='/'||h==='/registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';l.setAttribute('fetchpriority','high');document.head.appendChild(l)}}catch(e){}`;
+const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname;if((h==='/'||h==='/registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';document.head.appendChild(l)}}catch(e){}`;
 
 /**
  * Píxel da Meta no `<head>`, com o PageView da página de entrada logo à chegada do HTML.
