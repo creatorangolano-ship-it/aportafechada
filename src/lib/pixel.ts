@@ -21,6 +21,8 @@ const ativo = (): boolean => typeof window !== 'undefined' && !!META_PIXEL_ID &&
 function iniciar(): boolean {
   if (iniciado) return true;
   if (!ativo()) return false;
+  // O `<head>` (app/layout.tsx) já carregou o píxel e contou a página de entrada.
+  if (window.fbq) { iniciado = true; return true; }
   // Código oficial da Meta, escrito por extenso.
   const f = function (...a: unknown[]) { if (f.callMethod) f.callMethod(...a); else f.queue.push(a); } as Fbq;
   f.push = f; f.loaded = true; f.version = '2.0'; f.queue = [];
@@ -39,6 +41,10 @@ export function pixelPagina(rota: string): void {
   if (rota === 'admin' || !iniciar()) return;
   const aqui = location.pathname + location.search;
   if (aqui === ultimaPagina) return;
+  // Primeira página: o `<head>` já enviou o PageView deste endereço (o `?ref=` pode
+  // ter saído do URL entretanto, por isso compara só o caminho).
+  const doHead = (window as { __apfPV?: string }).__apfPV;
+  if (!ultimaPagina && doHead && doHead === location.pathname) { ultimaPagina = aqui; return; }
   ultimaPagina = aqui;
   window.fbq!('track', 'PageView');
 }

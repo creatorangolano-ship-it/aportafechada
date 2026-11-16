@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Archivo } from 'next/font/google';
 import { SUPABASE_URL } from '@/infrastructure/config';
 import { SITE, NOME, DESCRICAO } from '@/lib/seo-textos';
+import { META_PIXEL_ID } from '@/lib/config';
 import Analise from './Analise';
 import './globals.css';
 
@@ -11,7 +12,9 @@ import './globals.css';
  * aparecer, e o ficheiro vem pré-carregado. Só o subconjunto latino; os eixos
  * de peso e de largura (`wdth`, usado nos títulos) ficam no mesmo ficheiro variável.
  */
-const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], display: 'swap', variable: '--font-archivo' });
+// preload: false — em rede móvel lenta, os 88 KB da letra pré-carregada competiam com o
+// JavaScript que desenha a página. Com `swap`, o texto aparece já na letra do sistema.
+const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], display: 'swap', preload: false, variable: '--font-archivo' });
 
 /**
  * Metadados por omissão. Cada endereço (/sobre, /perfil/<nome>…) acrescenta os seus
@@ -55,6 +58,19 @@ export const viewport: Viewport = {
  */
 const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname;if((h==='/'||h==='/registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';l.setAttribute('fetchpriority','high');document.head.appendChild(l)}}catch(e){}`;
 
+/**
+ * Píxel da Meta no `<head>`, com o PageView da página de entrada logo à chegada do HTML.
+ *
+ * Antes, o píxel só arrancava depois de todo o JavaScript da app descarregar e de a
+ * primeira página ser desenhada. Em rede móvel isso leva segundos, e a Meta só conta
+ * uma «visualização da página de destino» quando o píxel dispara: na campanha de
+ * Novembro de 2026 perdiam-se ~60 % dos cliques (754 cliques → 289 visualizações).
+ * `fbevents.js` continua assíncrono; não atrasa a página. As mudanças de página
+ * seguintes e os eventos (registo, candidatura) continuam em `lib/pixel.ts`.
+ * Só em aportafechada.net, e nunca na consola de administração.
+ */
+const PIXEL_BOOT = `try{var p=location.pathname;if(/(^|\\.)aportafechada\\.net$/.test(location.hostname)&&p.indexOf('/admin')!==0){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');fbq('track','PageView');window.__apfPV=p}}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt" data-theme="light" className={archivo.variable}>
@@ -63,6 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ligação (DNS + TLS) enquanto o JavaScript descarrega. */}
         <link rel="preconnect" href={SUPABASE_URL} crossOrigin="anonymous" />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script dangerouslySetInnerHTML={{ __html: PIXEL_BOOT }} />
       </head>
       <body>
         {/* A estrutura que o roteador em `lib/main.ts` espera. Os ids não são
