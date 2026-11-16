@@ -108,6 +108,7 @@ main{padding-block:32px 64px;min-height:70vh}
 /* Prova social na entrada: fotos sobrepostas + número real de membros. */
 .provasocial{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--text);text-align:left}
 .provasocial[hidden]{display:none}
+.provasocial{min-height:30px} /* lugar das fotos reservado: nada salta quando chegam */
 .provasocial .fotos{display:flex;flex:none}
 .provasocial .fotos img{width:26px;height:26px;border-radius:50%;object-fit:cover;border:2px solid var(--bg);margin-left:-9px}
 .provasocial .fotos img:first-child{margin-left:0}
@@ -1438,3 +1439,9 @@ img,video,svg,canvas,iframe{max-width:100%}
 
 /* /registar vem desenhado do servidor; com sessão guardada a app vai para outra página, por isso não se mostra. */
 .sessao #app[data-ssr]{visibility:hidden}
+
+/* Enquanto a app arranca, o rodapé não aparece colado ao topo para depois saltar para baixo (CLS). */
+main:has(.arranque)+.pub-foot{display:none}
+/* / e /registar desenhados no servidor não têm cabeçalho (a app esconde-o ao arrancar): escondê-lo
+   já no HTML evita que a página suba 64 px quando o JavaScript chega. */
+html:not(.sessao) body:has(#app[data-ssr]) .top{display:none}

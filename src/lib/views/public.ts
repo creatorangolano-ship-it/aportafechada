@@ -7,7 +7,7 @@ import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
 import { captcha } from '../captcha';
 import { pixelEvento } from '../pixel';
-import { authShell, pwField, registoHtml } from './entrada';
+import { authShell, pwField, registoHtml, inicioHtml, CONVITE } from './entrada';
 
 import type { FormControl } from '../types';
 
@@ -56,7 +56,6 @@ export async function vPerfilPublico(handle: string): Promise<string> {
    Três fotos de criadores (função `contagem_publica`) e uma frase de convite.
    O número de membros deixou de aparecer, a pedido do dono. Preenche-se depois
    de a página aparecer, para não atrasar o formulário de entrada. */
-const CONVITE = 'Descobre o que está por trás da Porta Fechada';
 let provaSocial: Promise<string> | null = null;
 function htmlProvaSocial(): Promise<string> {
   provaSocial ??= Promise.resolve(sb.rpc('contagem_publica')).then(({ data }) => {
@@ -66,25 +65,15 @@ function htmlProvaSocial(): Promise<string> {
   }).catch(() => `<span>${CONVITE}</span>`);
   return provaSocial;
 }
-function preencherProvaSocial(): void {
+export function preencherProvaSocial(): void {
   void htmlProvaSocial().then((h) => {
-    const el = $('#provaSocial'); if (el && h) { el.innerHTML = h; el.hidden = false; }
+    const el = $('#provaSocial'); if (el && h) el.innerHTML = h;
   });
 }
 
 export function vInicio() {
   preencherProvaSocial();
-  return authShell(`<h1 class="sr-only">Entrar na A Porta Fechada</h1><form id="loginForm" class="stack" style="gap:12px" novalidate>
-     <input class="linp" id="lEmail" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"placeholder="Email ou nome de utilizador" aria-label="Email ou nome de utilizador">
-     ${pwField('lPass', 'Palavra-passe', 'current-password')}
-     <button type="button" class="btn link small" style="align-self:flex-start" data-act="forgot">Esqueceu a palavra-passe?</button>
-     <span class="err" id="lErr" hidden></span>
-     <button class="btn pri block lg" style="margin-top:6px">Entrar</button>
-    </form>
-    <div class="provasocial" id="provaSocial" hidden></div>
-    <div class="or" style="margin:4px 0">ou</div>
-    <button class="gbtn" data-act="google">${GOOGLE}Entrar com Google</button>`,
-  `<a class="lcard lnew" href="#registar">Não tem uma conta? <b>Criar conta</b></a>`);
+  return inicioHtml();
 }
 
 export function vSignup() {

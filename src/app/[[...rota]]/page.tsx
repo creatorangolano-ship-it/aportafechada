@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import App from '../App';
-import { registoHtml } from '@/lib/views/entrada';
+import { registoHtml, inicioHtml } from '@/lib/views/entrada';
 import { caminhoDe, rotaDe } from '@/lib/caminhos';
 import { DESCRICAO, NOME, PUBLICAS, ROTAS_CONHECIDAS, tituloDe } from '@/lib/seo-textos';
 import { perfilPublico } from '../seo';
@@ -95,12 +95,12 @@ export default async function Pagina({ params }: Props) {
       }).replace(/</g, '\\u003c');
     }
   }
-  // /registar sai já desenhado do servidor (é para onde vão os anúncios): o formulário aparece
+  // /registar (para onde vão os anúncios) e / saem já desenhados do servidor: o formulário aparece
   // antes de o JavaScript chegar. A app assume-o quando arranca (ver `render()` em lib/main.ts).
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />}
-      <App rota={r} inicial={r === 'registar' ? registoHtml({}) : null} />
+      <App rota={r} inicial={r === 'registar' ? registoHtml({}) : r === 'inicio' ? inicioHtml() : null} />
     </>
   );
 }

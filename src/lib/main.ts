@@ -245,11 +245,12 @@ export async function render(keep = false): Promise<void> {
 
   header(r);
   const app = $('#app')!;
-  // Página desenhada no servidor (hoje só /registar sem sessão): fica como está, com o que
+  // Página desenhada no servidor (/ e /registar sem sessão): fica como está, com o que
   // a pessoa já escreveu enquanto o JavaScript descarregava. Só vale na primeira vez.
   const doServidor = app.dataset.ssr;
   delete app.dataset.ssr;
-  if (doServidor === r && r === 'registar' && !S.me) {
+  if (doServidor === r && (r === 'registar' || r === 'inicio') && !S.me) {
+    if (r === 'inicio') void modulos.public().then((m) => m.preencherProvaSocial());
     rodapeVisivel(r);
     return;
   }

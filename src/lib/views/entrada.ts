@@ -13,6 +13,24 @@ import { esc, ic, GOOGLE, LOGO } from '../marcacao';
 import { COUNTRIES } from '../config';
 import type { RegData } from '../state';
 
+/** Frase da prova social, por baixo do «Entrar» (as fotos chegam depois, do Supabase). */
+export const CONVITE = 'Descobre o que está por trás da Porta Fechada';
+
+/** Página de entrada (/). A prova social já ocupa o seu lugar, para nada saltar quando as fotos chegam. */
+export function inicioHtml(): string {
+  return authShell(`<h1 class="sr-only">Entrar na A Porta Fechada</h1><form id="loginForm" class="stack" style="gap:12px" novalidate onsubmit="return false">
+     <input class="linp" id="lEmail" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Email ou nome de utilizador" aria-label="Email ou nome de utilizador">
+     ${pwField('lPass', 'Palavra-passe', 'current-password')}
+     <button type="button" class="btn link small" style="align-self:flex-start" data-act="forgot">Esqueceu a palavra-passe?</button>
+     <span class="err" id="lErr" hidden></span>
+     <button class="btn pri block lg" style="margin-top:6px">Entrar</button>
+    </form>
+    <div class="provasocial" id="provaSocial"><span>${CONVITE}</span></div>
+    <div class="or" style="margin:4px 0">ou</div>
+    <button class="gbtn" data-act="google">${GOOGLE}Entrar com Google</button>`,
+  `<a class="lcard lnew" href="#registar">Não tem uma conta? <b>Criar conta</b></a>`);
+}
+
 export function authShell(card: string, second: string): string {
   return `<section class="home">
    <div class="blob-wrap" aria-hidden="true"><div class="blob"></div></div>
