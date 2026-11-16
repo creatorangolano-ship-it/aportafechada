@@ -1,24 +1,25 @@
 /**
- * Página «Alternativa ao Oprivado» (/alternativa-oprivado), para quem pesquisa no Google
- * por «Oprivado», «O Privado» ou «sites como o Oprivado».
+ * Página de comparação (/oprivado-ou-a-porta-fechada), para quem pesquisa no Google por
+ * «Oprivado», «O Privado» ou «plataformas como o Oprivado».
  *
  * Regras desta página (para não sermos castigados pelo Google nem termos problemas com a marca):
  * - só dizemos coisas verdadeiras sobre a A Porta Fechada; sobre o Oprivado, nada que não
  *   possamos provar (nem preços, nem defeitos);
  * - fica claro que não temos ligação ao Oprivado;
  * - o nome aparece onde é natural (título, subtítulos, perguntas), nunca repetido à força
- *   nem escondido.
+ *   nem escondido;
+ * - a A Porta Fechada apresenta-se como plataforma própria, nunca como «alternativa» (pedido do dono).
  *
  * Texto HTML puro: o servidor desenha-a antes de o JavaScript chegar, e o browser usa a mesma
  * função. Não pode importar nada que toque no DOM ou no Supabase.
  */
 
-export const ROTA_OPRIVADO = 'alternativa-oprivado';
+export const ROTA_OPRIVADO = 'oprivado-ou-a-porta-fechada';
 
 /** Perguntas e respostas: aparecem na página e vão para o Google como FAQPage (page.tsx). */
 export const OPRIVADO_FAQ: Array<[string, string]> = [
   ['A Porta Fechada é o Oprivado?', 'Não. A Porta Fechada e o Oprivado (oprivado.ao) são plataformas diferentes, de empresas diferentes. Não temos qualquer ligação ao Oprivado.'],
-  ['Qual é a melhor alternativa ao Oprivado em Angola?', 'A Porta Fechada é uma alternativa angolana ao Oprivado: criadores vendem conteúdo exclusivo por subscrição, publicações pagas, gorjetas, mensagens e lives, com pagamentos em kwanzas por Multicaixa Express.'],
+  ['Que plataformas de conteúdo exclusivo existem em Angola?', 'Em Angola há várias, entre elas o Oprivado e A Porta Fechada. Na A Porta Fechada, criadores vendem conteúdo exclusivo por subscrição, publicações pagas, gorjetas, mensagens e lives, com pagamentos em kwanzas por Multicaixa Express.'],
   ['Posso estar no Oprivado e na A Porta Fechada ao mesmo tempo?', 'Sim. Não pedimos exclusividade. Muitos criadores usam mais de uma plataforma para chegar a mais fãs.'],
   ['Como pago na A Porta Fechada?', 'Com Multicaixa Express ou referência Multicaixa (no ATM ou no internet banking). Também podes carregar a carteira e pagar com o saldo.'],
   ['Quanto tempo demora a receber como criador?', 'Depois de pedires o levantamento, o valor chega à tua conta bancária em Angola em até 48 horas, sempre em nome do titular.'],
@@ -28,14 +29,14 @@ export const OPRIVADO_FAQ: Array<[string, string]> = [
 export function oprivadoHtml(): string {
   const faq = OPRIVADO_FAQ.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
   return `<article class="doc">
-   <h1>Alternativa ao Oprivado em Angola</h1>
-   <p class="lead">Procuras uma plataforma como o Oprivado (ou «O Privado») para vender ou ver conteúdo exclusivo em Angola? A Porta Fechada é a alternativa angolana, com pagamentos em kwanzas, criadores verificados e levantamentos em até 48 horas.</p>
+   <h1>Oprivado ou A Porta Fechada: como escolher a tua plataforma de conteúdo exclusivo</h1>
+   <p class="lead">Estás a decidir onde vender ou ver conteúdo exclusivo em Angola, no Oprivado, n'«O Privado» ou noutra plataforma? Conhece A Porta Fechada: pagamentos em kwanzas, criadores verificados e levantamentos em até 48 horas.</p>
    <p><a class="btn pri lg" href="/registar">Criar conta grátis</a></p>
 
    <h2>O que é A Porta Fechada</h2>
-   <p>Uma plataforma onde criadores angolanos partilham conteúdo exclusivo com os fãs e ganham dinheiro com isso: subscrições mensais, publicações vendidas à parte, gorjetas, mensagens pagas e lives com bilhete. Fotografia, música, fitness, moda, humor, culinária, bastidores: o criador decide o que publica e quanto cobra.</p>
+   <p>A plataforma angolana onde criadores partilham conteúdo exclusivo com os fãs e ganham dinheiro com isso: subscrições mensais, publicações vendidas à parte, gorjetas, mensagens pagas e lives com bilhete. Fotografia, música, fitness, moda, humor, culinária, bastidores: o criador decide o que publica e quanto cobra.</p>
 
-   <h2>Porque escolher A Porta Fechada como alternativa ao Oprivado</h2>
+   <h2>O que A Porta Fechada oferece</h2>
    <ul>
     <li><b>Pagamentos em kwanzas, à angolana:</b> Multicaixa Express, referência Multicaixa no ATM ou internet banking, ou saldo da carteira.</li>
     <li><b>O criador recebe depressa:</b> pedes o levantamento e o dinheiro chega à tua conta bancária em Angola em até 48 horas, sem taxa extra da plataforma sobre o levantamento.</li>

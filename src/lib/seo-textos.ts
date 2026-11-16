@@ -24,7 +24,6 @@ export const PUBLICAS: Record<string, { titulo: string; descricao: string }> = {
   contacto: { titulo: 'Contacto', descricao: 'Fala com a equipa da A Porta Fechada. Respondemos em até 24 horas úteis.' },
   afiliados: { titulo: 'Programa de afiliados', descricao: 'Convida criadores e ganha 5% das vendas deles durante 6 meses.' },
   blog: { titulo: 'Blog', descricao: 'Novidades e dicas para criadores e fãs.' },
-  'alternativa-oprivado': { titulo: 'Alternativa ao Oprivado (O Privado) em Angola', descricao: 'Procuras uma alternativa ao Oprivado? A Porta Fechada é a plataforma angolana de conteúdo exclusivo: Multicaixa Express, criadores verificados e levantamentos em até 48 horas.' },
 };
 
 /** Páginas só com sessão: título para o separador, e nunca indexadas. */

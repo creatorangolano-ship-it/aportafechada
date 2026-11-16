@@ -7,5 +7,5 @@
  */
 export const INFO = ['sobre', 'funciona', 'faq', 'regras', 'termos', 'privacidade', 'dmca', 'contacto', 'afiliados', 'blog'];
 /** Páginas para o Google que não são informativas da plataforma (comparações). */
-export const COMPARAR = ['alternativa-oprivado'];
+export const COMPARAR: string[] = []; // 'oprivado-ou-a-porta-fechada' fica fora até o dono aprovar o texto
 export const PUBLIC: string[] = ['inicio', 'registar', 'confirmar', 'nova-senha', ...INFO, ...COMPARAR];
