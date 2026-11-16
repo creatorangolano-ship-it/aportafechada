@@ -136,7 +136,7 @@ function sparkline(vals: number[], cor: string): string {
 
 function barraDeFiltros(f: FiltrosDoPainel, d: DadosDoPainel | null, hoje: string): string {
   const opcoes = <T extends string>(lista: ReadonlyArray<[T, string]>, v: T | null | undefined, todos: string) =>
-    `<option value="">${todos}</option>${lista.map(([k, l]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${l}</option>`).join('')}`;
+    `<option value="">${todos}</option>${lista.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}`;
   const criadores = (d?.criadores ?? []).map((c) => [c.id, `${c.name || c.handle} (@${c.handle})`] as [string, string]);
   if (f.criador && !criadores.some(([id]) => id === f.criador)) criadores.unshift([f.criador, 'Criador escolhido']);
   const activos = [f.tipo, f.criador, f.contas, f.origem].filter(Boolean).length;
