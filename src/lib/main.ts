@@ -245,6 +245,14 @@ export async function render(keep = false): Promise<void> {
 
   header(r);
   const app = $('#app')!;
+  // Página desenhada no servidor (hoje só /registar sem sessão): fica como está, com o que
+  // a pessoa já escreveu enquanto o JavaScript descarregava. Só vale na primeira vez.
+  const doServidor = app.dataset.ssr;
+  delete app.dataset.ssr;
+  if (doServidor === r && r === 'registar' && !S.me) {
+    rodapeVisivel(r);
+    return;
+  }
   if (!keep) app.innerHTML = esqueleto(r);
   document.body.classList.add('a-carregar'); // barra fina no topo enquanto processa
   let h: string;

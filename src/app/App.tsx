@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from 'react';
  */
 const app = typeof window === 'undefined' ? null : import('@/lib/main');
 
-export default function App() {
+export default function App({ rota, inicial }: { rota?: string; inicial?: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [erro, setErro] = useState<Error | null>(null);
 
@@ -59,6 +59,12 @@ export default function App() {
         </div>
       </main>
     );
+  }
+
+  // Página já desenhada no servidor (/registar): fica tal e qual até a app a assumir.
+  // `data-ssr` diz ao roteador que pode reaproveitar este HTML (e o que já foi escrito nele).
+  if (inicial) {
+    return <main className="wrap" id="app" ref={ref} data-ssr={rota} dangerouslySetInnerHTML={{ __html: inicial }} />;
   }
 
   // Enquanto o JavaScript descarrega (em rede móvel pode levar uns segundos), mostra a

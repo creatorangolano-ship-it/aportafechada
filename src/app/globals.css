@@ -1435,3 +1435,6 @@ img,video,svg,canvas,iframe{max-width:100%}
   body.authed .top .tbtn{width:36px;height:36px}
 }
 @media (max-width:330px){body.authed .top .brand span{display:none}}
+
+/* /registar vem desenhado do servidor; com sessão guardada a app vai para outra página, por isso não se mostra. */
+.sessao #app[data-ssr]{visibility:hidden}

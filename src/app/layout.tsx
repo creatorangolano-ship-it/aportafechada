@@ -48,6 +48,9 @@ export const viewport: Viewport = {
  * aplicado antes do browser pintar. O `<Script>` do Next é diferido, o que
  * perderia essa corrida.
  *
+ * Marca `html.sessao` quando há sessão guardada: quem já tem conta não chega a ver o
+ * formulário de registo desenhado no servidor (globals.css esconde-o até a app arrancar).
+ *
  * Aproveita para pré-carregar a imagem principal da página de entrada, mas só
  * quando é essa a página que vai aparecer: sem sessão guardada do Supabase
  * (`sb-*-auth-token`) e no endereço / ou /registar. Quem já tem sessão
@@ -56,7 +59,7 @@ export const viewport: Viewport = {
  * Se activares o CSP em `next.config.mjs`, este é o único script inline da
  * página e precisa do sha256 correspondente — recalcula-o sempre que o mudares.
  */
-const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname;if((h==='/'||h==='/registar')&&!Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)})){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';document.head.appendChild(l)}}catch(e){}`;
+const THEME_BOOT = `try{document.documentElement.dataset.theme=localStorage.getItem('apf-theme')||'light';var h=location.pathname,t=Object.keys(localStorage).some(function(k){return /^sb-.*-auth-token$/.test(k)});if(t)document.documentElement.classList.add('sessao');if((h==='/'||h==='/registar')&&!t){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/avif';l.href='/img/hero.avif';document.head.appendChild(l)}}catch(e){}`;
 
 /**
  * Píxel da Meta no `<head>`, com o PageView da página de entrada logo à chegada do HTML.

@@ -7,6 +7,7 @@ import type { RegData } from '../state';
 import { CATS, CITIES, BANKS, COUNTRIES } from '../config';
 import { captcha } from '../captcha';
 import { pixelEvento } from '../pixel';
+import { authShell, pwField, registoHtml } from './entrada';
 
 import type { FormControl } from '../types';
 
@@ -22,20 +23,7 @@ const COMPANY = {
   dpoEmail: 'Creatorangolano@gmail.com',
 };
 
-/* ---------- Moldura da página inicial ---------- */
-function authShell(card: any, second: any) {
-  return `<section class="home">
-   <div class="blob-wrap" aria-hidden="true"><div class="blob"></div></div>
-   <div class="home-side">
-    <div class="lcard">
-     <div class="lbrand">${LOGO(34, 42)}<span>A Porta Fechada</span></div>
-     <p class="ltag">Os teus criadores favoritos, os conteúdos que só partilham contigo.</p>
-     ${card}
-    </div>
-    ${second}
-   </div></section>`;
-}
-const pwField = (id: any, ph: any, ac: any) => `<div class="pw"><input class="linp" id="${id}" type="password" autocomplete="${ac}" placeholder="${ph}" aria-label="${ph}"><button type="button" class="eye" data-act="eye" data-for="${id}" aria-label="Mostrar palavra-passe">${ic('eye')}</button></div>`;
+/* A moldura da página inicial e o formulário de registo vivem em `entrada.ts` (o servidor também os desenha). */
 
 /* ---------- Perfil público (sem sessão) ----------
    O que vê quem abre /perfil/<nome> sem conta: o Google, quem recebe o link no
@@ -100,19 +88,7 @@ export function vInicio() {
 }
 
 export function vSignup() {
-  const d: Partial<RegData> = S.reg?.data ?? {};
-  return authShell(`<h1 class="sr-only">Criar conta na A Porta Fechada</h1><form id="signupForm" class="stack" style="gap:12px" novalidate>
-     <input class="linp" id="rName" autocomplete="name" placeholder="Nome" aria-label="Nome" value="${esc(d.name || '')}">
-     <input class="linp" id="rEmail" type="email" autocomplete="email" placeholder="Email válido" aria-label="Email" value="${esc(d.email || '')}">
-     <select class="linp" id="rCountry" aria-label="País">${COUNTRIES.map((c) => `<option ${(d.country || 'Angola') === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
-     ${pwField('rPass', 'Palavra-passe', 'new-password')}
-     <p class="small muted" style="line-height:1.6">Ao clicar em “Criar conta”, confirmas que tens 18 anos ou mais e aceitas os <a href="#termos">Termos e condições</a> e a <a href="#privacidade">Política de privacidade</a>.</p>
-     <span class="err" id="rErr" hidden></span>
-     <button class="btn pri block lg">Criar conta</button>
-    </form>
-    <div class="or" style="margin:4px 0">ou</div>
-    <button class="gbtn" data-act="google">${GOOGLE}Criar conta com Google</button>`,
-  `<a class="lcard lnew" href="#inicio">Já tem uma conta? <b>Entrar</b></a>`);
+  return registoHtml(S.reg?.data ?? {});
 }
 
 export function vConfirmEmail() {
