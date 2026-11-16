@@ -24,6 +24,7 @@ export const PUBLICAS: Record<string, { titulo: string; descricao: string }> = {
   contacto: { titulo: 'Contacto', descricao: 'Fala com a equipa da A Porta Fechada. Respondemos em até 24 horas úteis.' },
   afiliados: { titulo: 'Programa de afiliados', descricao: 'Convida criadores e ganha 5% das vendas deles durante 6 meses.' },
   blog: { titulo: 'Blog', descricao: 'Novidades e dicas para criadores e fãs.' },
+  'onlyfans-angola': { titulo: 'Conteúdo exclusivo em Angola, como o OnlyFans, em kwanzas', descricao: 'A plataforma angolana de conteúdo exclusivo: como o OnlyFans, mas com pagamentos em kwanzas por Multicaixa Express e levantamentos em até 48 horas. Criar conta é grátis.' },
 };
 
 /** Páginas só com sessão: título para o separador, e nunca indexadas. */

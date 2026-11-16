@@ -1,62 +1,64 @@
 /**
- * Página de comparação (/oprivado-ou-a-porta-fechada), para quem pesquisa no Google por
- * «Oprivado», «O Privado» ou «plataformas como o Oprivado».
+ * Página /onlyfans-angola, para quem pesquisa no Google por «OnlyFans Angola», «OnlyFans angolano»
+ * ou «site tipo OnlyFans em Angola».
  *
  * Regras desta página (para não sermos castigados pelo Google nem termos problemas com a marca):
- * - só dizemos coisas verdadeiras sobre a A Porta Fechada; sobre o Oprivado, nada que não
- *   possamos provar (nem preços, nem defeitos);
- * - fica claro que não temos ligação ao Oprivado;
- * - o nome aparece onde é natural (título, subtítulos, perguntas), nunca repetido à força
- *   nem escondido;
- * - a A Porta Fechada apresenta-se como plataforma própria, nunca como «alternativa» (pedido do dono).
+ * - fala só da A Porta Fechada; o OnlyFans aparece apenas como referência, sem dizer nada
+ *   sobre ele que não seja do conhecimento geral (é estrangeiro, cobra em dólares com cartão);
+ * - nunca falar de outras plataformas angolanas (pedido do dono);
+ * - nunca nos apresentar como «alternativa» (pedido do dono);
+ * - fica claro que não temos ligação ao OnlyFans;
+ * - o nome aparece onde é natural, nunca repetido à força nem escondido.
  *
  * Texto HTML puro: o servidor desenha-a antes de o JavaScript chegar, e o browser usa a mesma
  * função. Não pode importar nada que toque no DOM ou no Supabase.
  */
 
-export const ROTA_OPRIVADO = 'oprivado-ou-a-porta-fechada';
+export const ROTA_ONLYFANS = 'onlyfans-angola';
 
 /** Perguntas e respostas: aparecem na página e vão para o Google como FAQPage (page.tsx). */
-export const OPRIVADO_FAQ: Array<[string, string]> = [
-  ['A Porta Fechada é o Oprivado?', 'Não. A Porta Fechada e o Oprivado (oprivado.ao) são plataformas diferentes, de empresas diferentes. Não temos qualquer ligação ao Oprivado.'],
-  ['Que plataformas de conteúdo exclusivo existem em Angola?', 'Em Angola há várias, entre elas o Oprivado e A Porta Fechada. Na A Porta Fechada, criadores vendem conteúdo exclusivo por subscrição, publicações pagas, gorjetas, mensagens e lives, com pagamentos em kwanzas por Multicaixa Express.'],
-  ['Posso estar no Oprivado e na A Porta Fechada ao mesmo tempo?', 'Sim. Não pedimos exclusividade. Muitos criadores usam mais de uma plataforma para chegar a mais fãs.'],
-  ['Como pago na A Porta Fechada?', 'Com Multicaixa Express ou referência Multicaixa (no ATM ou no internet banking). Também podes carregar a carteira e pagar com o saldo.'],
+export const ONLYFANS_FAQ: Array<[string, string]> = [
+  ['Existe um OnlyFans angolano?', 'A Porta Fechada é a plataforma angolana de conteúdo exclusivo: criadores vendem subscrições, publicações pagas, gorjetas, mensagens e lives, e os fãs pagam em kwanzas com Multicaixa Express.'],
+  ['A Porta Fechada é o OnlyFans?', 'Não. A Porta Fechada é uma plataforma angolana independente e não tem qualquer ligação ao OnlyFans.'],
+  ['Preciso de cartão internacional para pagar?', 'Não. Pagas com Multicaixa Express ou referência Multicaixa (no ATM ou no internet banking), em kwanzas. Também podes carregar a carteira e pagar com o saldo.'],
   ['Quanto tempo demora a receber como criador?', 'Depois de pedires o levantamento, o valor chega à tua conta bancária em Angola em até 48 horas, sempre em nome do titular.'],
+  ['Que conteúdos posso publicar?', 'Fotografias, vídeos, texto e lives, dentro das regras da comunidade: música, fitness, moda, humor, culinária, bastidores e muito mais. Cada publicação pode ser grátis, para subscritores ou vendida à parte.'],
   ['Criar conta é grátis?', 'Sim. Criar conta é grátis, para fãs e para criadores. A plataforma só fica com uma parte quando o criador vende.'],
 ];
 
-export function oprivadoHtml(): string {
-  const faq = OPRIVADO_FAQ.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
+export function onlyfansHtml(): string {
+  const faq = ONLYFANS_FAQ.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
   return `<article class="doc">
-   <h1>Oprivado ou A Porta Fechada: como escolher a tua plataforma de conteúdo exclusivo</h1>
-   <p class="lead">Estás a decidir onde vender ou ver conteúdo exclusivo em Angola, no Oprivado, n'«O Privado» ou noutra plataforma? Conhece A Porta Fechada: pagamentos em kwanzas, criadores verificados e levantamentos em até 48 horas.</p>
+   <h1>A plataforma de conteúdo exclusivo feita para Angola</h1>
+   <p class="lead">Conheces o OnlyFans? A Porta Fechada funciona com a mesma ideia, mas foi feita para Angola: os fãs pagam em kwanzas com Multicaixa Express e os criadores recebem no banco angolano em até 48 horas.</p>
    <p><a class="btn pri lg" href="/registar">Criar conta grátis</a></p>
 
    <h2>O que é A Porta Fechada</h2>
    <p>A plataforma angolana onde criadores partilham conteúdo exclusivo com os fãs e ganham dinheiro com isso: subscrições mensais, publicações vendidas à parte, gorjetas, mensagens pagas e lives com bilhete. Fotografia, música, fitness, moda, humor, culinária, bastidores: o criador decide o que publica e quanto cobra.</p>
 
-   <h2>O que A Porta Fechada oferece</h2>
+   <h2>Pensada para quem está em Angola</h2>
+   <p>Plataformas estrangeiras como o OnlyFans cobram em dólares e pedem cartão internacional, que muitos angolanos não têm. Na A Porta Fechada é tudo em kwanzas:</p>
    <ul>
-    <li><b>Pagamentos em kwanzas, à angolana:</b> Multicaixa Express, referência Multicaixa no ATM ou internet banking, ou saldo da carteira.</li>
+    <li><b>Pagar é simples:</b> Multicaixa Express, referência Multicaixa no ATM ou internet banking, ou saldo da carteira.</li>
     <li><b>O criador recebe depressa:</b> pedes o levantamento e o dinheiro chega à tua conta bancária em Angola em até 48 horas, sem taxa extra da plataforma sobre o levantamento.</li>
-    <li><b>Várias formas de ganhar:</b> subscrição, publicações pagas, gorjetas, mensagens pagas e lives, tudo no mesmo perfil.</li>
-    <li><b>Criadores verificados:</b> todos confirmam a identidade e a idade (18+) com documento e selfie antes de poderem receber.</li>
-    <li><b>Conteúdo protegido:</b> os ficheiros pagos só abrem com links temporários para quem tem acesso, e cada conteúdo mostra o nome de quem o está a ver.</li>
-    <li><b>Privacidade:</b> o teu email, data de nascimento e dados bancários nunca aparecem no perfil, e os perfis de fãs não aparecem nas pesquisas.</li>
+    <li><b>Em português, com apoio local:</b> a equipa está em Luanda e responde em até 24 horas úteis.</li>
+   </ul>
+
+   <h2>Várias formas de ganhar</h2>
+   <ul>
+    <li><b>Subscrição mensal:</b> os teus subscritores vêem tudo o que publicas para eles.</li>
+    <li><b>Publicações pagas:</b> vende uma foto ou um vídeo à parte.</li>
+    <li><b>Gorjetas e mensagens pagas:</b> os fãs mais próximos apoiam-te directamente.</li>
+    <li><b>Lives com bilhete:</b> transmite em directo para quem pagou a entrada.</li>
     <li><b>Programa de afiliados:</b> convida criadores e ganha uma parte das vendas deles durante 6 meses.</li>
    </ul>
 
-   <h2>O que comparar antes de escolher uma plataforma</h2>
-   <p>Seja o Oprivado, A Porta Fechada ou outra, faz estas perguntas antes de criar o teu perfil de criador:</p>
-   <ol>
-    <li>Os fãs conseguem pagar com o que já usam (Multicaixa Express, referência)?</li>
-    <li>Em quanto tempo o dinheiro chega ao teu banco, e há custos no levantamento?</li>
-    <li>Que parte de cada venda fica para a plataforma?</li>
-    <li>O conteúdo pago está protegido contra partilhas?</li>
-    <li>A plataforma verifica a idade e a identidade de quem publica?</li>
-   </ol>
-   <p>As nossas respostas estão em <a href="/funciona">Como funciona</a> e nas <a href="/faq">Perguntas frequentes</a>.</p>
+   <h2>Segurança e privacidade</h2>
+   <ul>
+    <li><b>Criadores verificados:</b> todos confirmam a identidade e a idade (18+) com documento e selfie antes de poderem receber.</li>
+    <li><b>Conteúdo protegido:</b> os ficheiros pagos só abrem com links temporários para quem tem acesso, e cada conteúdo mostra o nome de quem o está a ver.</li>
+    <li><b>Os teus dados ficam contigo:</b> o email, a data de nascimento e os dados bancários nunca aparecem no perfil, e os perfis de fãs não aparecem nas pesquisas.</li>
+   </ul>
 
    <h2>Como começar em 3 passos</h2>
    <ol>
@@ -64,11 +66,12 @@ export function oprivadoHtml(): string {
     <li>Escolhe «Quero ser criador», define o preço e envia o documento com uma selfie.</li>
     <li>Depois da aprovação, o teu perfil aparece em Explorar e começas a vender.</li>
    </ol>
+   <p>Mais detalhes em <a href="/funciona">Como funciona</a> e nas <a href="/faq">Perguntas frequentes</a>.</p>
 
-   <h2>Perguntas frequentes sobre o Oprivado e A Porta Fechada</h2>
+   <h2>Perguntas frequentes</h2>
    ${faq}
 
-   <p class="small muted" style="margin-top:24px">Oprivado é uma marca de terceiros, citada aqui apenas para comparação. A Porta Fechada não tem qualquer ligação ao Oprivado nem é aprovada por ele.</p>
+   <p class="small muted" style="margin-top:24px">OnlyFans é uma marca registada de terceiros, citada apenas como referência. A Porta Fechada não tem qualquer ligação ao OnlyFans.</p>
    <p><a class="btn pri lg" href="/registar">Criar conta grátis</a></p>
   </article>`;
 }
