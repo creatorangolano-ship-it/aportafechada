@@ -44,7 +44,7 @@ export interface Ajustes {
   fInt: Partial<Record<Filtro, number>>;
   beleza: Record<Beleza, number>;
   efeito: Efeito;
-  /** intensidade de cada efeito, 0 a 1 */
+  /** intensidade dos efeitos que a têm (só a maquilhagem), 0 a 1 */
   eInt: Partial<Record<Efeito, number>>;
 }
 
@@ -302,7 +302,7 @@ function criarRosto() {
 
 /* ---------- Efeitos de cara desenhados por cima da imagem ---------- */
 
-/** k: intensidade do efeito (0 a 1) — transparência, e tamanho nos efeitos à volta da cabeça. */
+/** k: intensidade da maquilhagem (0 a 1); os outros efeitos ignoram-na. */
 function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: number, H: number, t: number, k = 1): void {
   const X = (p: P) => p.x * W, Y = (p: P) => p.y * H;
   const lw = f.largura * W;                         // largura da cara em píxeis
@@ -316,7 +316,8 @@ function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: numb
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, 0, 0); c.restore();
   };
   c.save();
-  c.globalAlpha = 0.25 + 0.75 * k;
+  // Só a maquilhagem tem intensidade (transparência); os outros efeitos aparecem sempre inteiros.
+  c.globalAlpha = e === 'maquilhagem' ? 0.15 + 0.85 * k : 1;
   const ga = c.globalAlpha;
   if (e === 'oculos') {
     c.translate(mx, my); c.rotate(f.ang);

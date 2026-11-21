@@ -162,7 +162,8 @@ function desenhaFiltros(): void {
       nome = BELEZA.find(([k]) => k === fxBel)![1]; valor = a.beleza[fxBel];
     } else {
       html = EFEITOS.map(([k, n, e]) => item(k, n, e, k === a.efeito)).join('');
-      if (a.efeito !== 'nenhum') { nome = EFEITOS.find(([k]) => k === a.efeito)![1]; valor = intEfeito(a); }
+      // Só a maquilhagem tem intensidade; óculos, gatinha, coroa… ou estão ou não estão.
+      if (a.efeito === 'maquilhagem') { nome = 'Maquilhagem'; valor = intEfeito(a); }
     }
     const x = row.scrollLeft; row.innerHTML = html; row.scrollLeft = x;
     const sl = $('#lvFxSl'), r = $<HTMLInputElement>('#lvFxSlR');
