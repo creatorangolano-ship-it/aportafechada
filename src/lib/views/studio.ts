@@ -120,13 +120,14 @@ function tabNova(c: any) {
 }
 
 async function tabLives(c: any) {
-  const { data } = await sb.from('lives').select('*').eq('creator_id', c.id).order('starts_at', { ascending: false }).limit(30);
+  // Só a live que está a decorrer (ou por começar): as terminadas não ficam registadas aqui.
+  const { data } = await sb.from('lives').select('*').eq('creator_id', c.id).neq('status', 'ended').order('starts_at', { ascending: false }).limit(5);
   const ids = (data || []).map((l) => l.id);
   const { data: sold } = ids.length ? await sb.from('orders').select('target_id').eq('kind', 'ticket').eq('status', 'paid').in('target_id', ids) : { data: [] };
   const n = (id: any) => (sold || []).filter((x) => x.target_id === id).length;
   return `<div class="pagehead"><div><h1>Lives</h1><p>Transmites a partir do navegador, com câmara e microfone. Quem te segue, subscreve ou tem bilhete recebe uma notificação quando começas.</p></div></div>
    <div class="two"><div class="stack">${(data || []).length ? (data || []).map((l) => `<div class="box pad row between wrapf"><div><b style="color:var(--ink)">${esc(l.title)}</b><div class="small muted">${l.status === 'live' ? 'Ao vivo agora' : l.status === 'ended' ? 'Terminada' : fmtDate(l.starts_at, true)} · ${l.price ? 'bilhete ' + kz(l.price) + ' · ' + n(l.id) + ' vendidos' : 'entrada livre'}</div></div>
-     <div class="row" style="gap:8px">${l.status === 'live' ? `<a class="btn pri sm" href="#live-${l.id}">Abrir</a><button class="btn out sm" data-act="liveEnd" data-id="${l.id}">Terminar</button>` : l.status === 'ended' ? '<span class="tag plain">Terminada</span>' : `<a class="btn pri sm" href="#live-${l.id}">Começar</a><button class="btn out sm" data-act="liveDel" data-id="${l.id}">Cancelar</button>`}</div></div>`).join('') : '<div class="box empty">Ainda não fizeste nenhuma live.</div>'}</div>
+     <div class="row" style="gap:8px">${l.status === 'live' ? `<a class="btn pri sm" href="#live-${l.id}">Abrir</a><button class="btn out sm" data-act="liveEnd" data-id="${l.id}">Terminar</button>` : l.status === 'ended' ? '<span class="tag plain">Terminada</span>' : `<a class="btn pri sm" href="#live-${l.id}">Começar</a><button class="btn out sm" data-act="liveDel" data-id="${l.id}">Cancelar</button>`}</div></div>`).join('') : '<div class="box empty">Não tens nenhuma live a decorrer.</div>'}</div>
    <form class="box pad stack" id="liveNewForm" novalidate><h3>Nova live</h3>
     <div class="field"><label for="lvTitle">Título</label><input id="lvTitle" maxlength="80" placeholder="Ex.: Conversa com os subscritores"></div>
     <div class="field"><label for="lvPrice">Bilhete (Kz)</label><input id="lvPrice" type="number" min="0" step="100" value="0"><span class="hint">0 para entrada livre. Mínimo 200 Kz quando é pago.</span></div>
