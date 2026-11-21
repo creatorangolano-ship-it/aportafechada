@@ -1544,3 +1544,13 @@ html:not(.sessao) body:has(#app[data-ssr="inicio"], #app[data-ssr="registar"]) .
 @keyframes pzRot{0%{transform:rotate(0) scale(.3);opacity:0}15%{opacity:1;transform:rotate(25deg) scale(1)}88%{opacity:1}100%{transform:rotate(160deg) scale(1.2);opacity:0}}
 .pz-drop{position:absolute;z-index:9;pointer-events:none;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.85),rgba(255,240,190,.35) 35%,rgba(255,220,120,.12) 70%);box-shadow:inset 0 -2px 4px rgba(255,255,255,.4),0 1px 3px rgba(0,0,0,.25);backdrop-filter:blur(1.5px) brightness(1.15);animation:pzDrop 2.6s ease-in forwards}
 @keyframes pzDrop{0%{transform:scale(0);opacity:0}8%{transform:scale(1.1);opacity:1}25%{transform:scale(1)}100%{transform:translateY(90px) scaleY(1.4);opacity:0}}
+
+/* Live: câmara e microfone desligados */
+.lvcamoff{position:absolute;inset:0;z-index:1;display:none;flex-direction:column;gap:12px;align-items:center;justify-content:center;background:radial-gradient(60% 45% at 50% 45%,#3a0614,#0c0a0b);color:#fff;font-weight:700;font-size:15px}
+.lvcamoff .avatar{width:96px;height:96px;font-size:36px}
+.lvstage.camoff .lvcamoff{display:flex}
+.lvstage.camoff .lvvideo{visibility:hidden}
+.lvmicoff{position:absolute;z-index:12;left:12px;top:calc(64px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:13px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:600}
+.lvstage.micoff .lvmicoff{display:inline-flex}
+.lvround.off{background:#fff;color:#111}
+.lvmini.camoff .v video{visibility:hidden}
