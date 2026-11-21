@@ -1577,3 +1577,4 @@ html:not(.sessao) body:has(#app[data-ssr="inicio"], #app[data-ssr="registar"]) .
 .lvfi.on .c{border-color:#fff;transform:scale(1.06)}
 .lvfi .n{white-space:nowrap}
 .lvfi .v{position:absolute;right:-4px;top:-4px;min-width:20px;height:18px;padding:0 5px;border-radius:9px;background:var(--acc);color:#fff;font-style:normal;font-size:10px;font-weight:700;display:grid;place-items:center}
+.lvfx-sl[hidden],.lvfx[hidden]{display:none}
