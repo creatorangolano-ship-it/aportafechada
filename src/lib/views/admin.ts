@@ -39,7 +39,7 @@ async function tentar(f: () => Promise<unknown>, ok?: string): Promise<boolean> 
  * Cada entrada declara a permissão de que precisa; sem ela, nem aparece. */
 type Aba = { k: string; l: string; i: string; perm?: Parameters<Backoffice['pode']>[0]; fila?: Fila };
 const GRUPOS: Array<{ g: string | null; abas: Aba[] }> = [
-  { g: null, abas: [{ k: 'visao', l: 'Visão geral', i: 'home' }] },
+  { g: null, abas: [{ k: 'visao', l: 'Visão geral', i: 'home' }, { k: 'dashboard', l: 'Dashboard', i: 'chart', perm: 'ver_financas' }] },
   { g: 'Filas de trabalho', abas: [
     { k: 'verificacoes', l: 'Verificações', i: 'shield', fila: 'kyc' },
     { k: 'denuncias', l: 'Denúncias', i: 'flag', fila: 'rep' },
@@ -138,7 +138,6 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
   const filas = FILAS.filter((q) => !q.perm || b.pode(q.perm));
   // As tabelas e os números começam já; as datas do mais antigo precisam das contagens.
   const tabelas = Promise.all([kycTable(b, 5), reportTable(b, 5)]);
-  const painelP = adm ? painelHTML(b) : null;
   const n = await nP;
   const antigos = await Promise.all(filas.map((q) => (n[q.fila] ? b.maisAntigo(q.fila).catch(() => null) : Promise.resolve(null))));
   const lista = filas.map((q, i) => {
@@ -158,13 +157,12 @@ async function paginaVisao(b: Backoffice, nP: PContagens): Promise<Pagina> {
     ? `<div class="pnemdia">${ic('check')}<span><b>Filas em dia.</b> Nenhuma verificação, denúncia, levantamento, pedido de suporte ou de banimento à espera.</span></div>`
     : `<h2 class="cssec">Precisa de atenção</h2><div class="qgrid" style="--n:${Math.min(comItens.length, 5)}">${comItens.map(({ i }) => lista[i]).join('')}</div>`;
 
-  const numeros = painelP ? `<div class="pn">${await painelP}</div>` : '';
-
+  const atalho = adm ? `<button class="pnemdia" style="width:100%;text-align:left;cursor:pointer;margin-top:12px" data-act="adTab" data-v="dashboard">${ic('chart')}<span><b>Dashboard</b> · vendas, receita, novas contas e criadores que mais vendem.</span></button>` : '';
   const [kyc, rep] = await tabelas;
   return {
     h: adm ? 'Visão geral' : 'Moderação',
     lead: adm ? '' : 'Não tens acesso a vendas, receita, levantamentos nem mensagens privadas: isso é só do admin completo.',
-    body: adm ? `${atencaoAdm}${numeros}` : `${atencao}
+    body: `${adm ? atencaoAdm + atalho : atencao}
      <div class="sech"><h3>Verificações recentes</h3><button class="btn link" data-act="adTab" data-v="verificacoes">Abrir fila</button></div>${kyc}
      <div class="sech"><h3>Denúncias recentes</h3><button class="btn link" data-act="adTab" data-v="denuncias">Abrir fila</button></div>${rep}`,
   };
@@ -304,6 +302,15 @@ async function paginaDefinicoes(b: Backoffice): Promise<Pagina> {
   };
 }
 
+/** Dashboard (só admin completo): os números e gráficos do negócio, com filtros de período. */
+async function paginaDashboard(b: Backoffice): Promise<Pagina> {
+  return {
+    h: 'Dashboard',
+    lead: 'Vendas, receita, novas contas e criadores. Passa o rato (ou toca) nos gráficos para ver os valores de cada dia.',
+    body: await ler(async () => `<div class="pn">${await painelHTML(b)}</div>`),
+  };
+}
+
 /** `nP` é a promessa das contagens: as consultas da secção correm ao mesmo tempo que ela. */
 async function pagina(b: Backoffice, t: string, nP: PContagens): Promise<Pagina> {
   switch (t) {
@@ -322,6 +329,7 @@ async function pagina(b: Backoffice, t: string, nP: PContagens): Promise<Pagina>
     case 'mensagens': return paginaMensagens(b);
     case 'promocoes': return paginaPromocoes(b);
     case 'definicoes': return paginaDefinicoes(b);
+    case 'dashboard': return paginaDashboard(b);
     default: return paginaVisao(b, nP);
   }
 }

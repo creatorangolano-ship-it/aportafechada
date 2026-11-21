@@ -60,6 +60,7 @@ const I: Record<string, string> = {
   trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
   expand: '<path d="M4 9V4.5h4.5M20 9V4.5h-4.5M4 15v4.5h4.5M20 15v4.5h-4.5"/>',
   menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+  chart: '<path d="M4 20h16"/><rect x="5.5" y="11" width="3" height="6.5" rx="1"/><rect x="10.5" y="6.5" width="3" height="11" rx="1"/><rect x="15.5" y="3.5" width="3" height="14" rx="1"/>',
   // Selo da conta oficial da gestão: escudo cheio com visto (o dos criadores é a roseta «badge»).
   escudo: '<path d="M12 2.5 3.8 5.8v6.1c0 5 3.5 8.6 8.2 10 4.7-1.4 8.2-5 8.2-10V5.8L12 2.5Z" fill="currentColor" stroke="none"/><path d="m8.3 12.2 2.6 2.5 4.9-5" stroke="#fff" stroke-width="2.2"/>',
 };
