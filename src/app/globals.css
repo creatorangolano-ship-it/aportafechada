@@ -1554,3 +1554,4 @@ html:not(.sessao) body:has(#app[data-ssr="inicio"], #app[data-ssr="registar"]) .
 .lvstage.micoff .lvmicoff{display:inline-flex}
 .lvround.off{background:#fff;color:#111}
 .lvmini.camoff .v video{visibility:hidden}
+@media (max-width:400px){.lvbar .lvround{width:38px;height:38px;font-size:18px}.lvbar{gap:6px}}

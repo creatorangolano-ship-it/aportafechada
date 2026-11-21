@@ -60,6 +60,7 @@ export async function vLives(): Promise<string> {
 type LKRoom = import('livekit-client').Room;
 type Gift = { key: string; name: string; icon: string; price: number };
 type Efeitos = import('../presentes/efeitos').Efeitos;
+type Camara = import('../lives/camara').Camara;
 
 let room: LKRoom | null = null;
 /** A live ligada neste momento (aberta ou minimizada). */
@@ -67,6 +68,8 @@ let ligada: { id: string; host: boolean } | null = null;
 let videoEl: HTMLVideoElement | null = null;
 /** Câmara e microfone desligados por quem faz a live (para quem vê: o que o criador desligou). */
 let camOff = false, micOff = false;
+/** Câmara com filtros de quem transmite e a publicação dela no LiveKit. */
+let camara: Camara | null = null, camPub: import('livekit-client').LocalTrackPublication | null = null;
 let chatCh: ReturnType<typeof sb.channel> | null = null, liveCh: ReturnType<typeof sb.channel> | null = null;
 let fx: Efeitos | null = null;
 let gifts: Gift[] = [];
@@ -87,6 +90,7 @@ function leave(): void {
   mountGen++;
   try { room?.disconnect(); } catch { /* já desligada */ }
   room = null; ligada = null; videoEl = null; camOff = false; micOff = false;
+  camara?.parar(); camara = null; camPub = null;
   if (chatCh) { void sb.removeChannel(chatCh); chatCh = null; }
   if (liveCh) { void sb.removeChannel(liveCh); liveCh = null; }
   fx?.parar(); fx = null;
@@ -118,13 +122,28 @@ function minimizar(): void {
 
 const MIC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 const MIC_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.6 2.5M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18"/></svg>';
+const FLIP = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg>';
 const CAM = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5l6-3.5v10l-6-3.5"/></svg>';
 const CAM_OFF = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 10.5l6-3.5v10l-4-2.3M9 6h4a2.5 2.5 0 0 1 2.5 2.5V12M15.5 16A2.5 2.5 0 0 1 13 18H5a2.5 2.5 0 0 1-2.5-2.5v-7A2.5 2.5 0 0 1 4.6 6M3 3l18 18"/></svg>';
 
 /** Botões de quem faz a live: ligar/desligar o microfone e a câmara. */
 function botoesHost(): string {
   return `<button class="lvround${micOff ? ' off' : ''}" id="lvMicBtn" data-act="lvMic" aria-pressed="${micOff}" aria-label="${micOff ? 'Ligar o microfone' : 'Desligar o microfone'}" title="${micOff ? 'Ligar o microfone' : 'Desligar o microfone'}">${micOff ? MIC_OFF.replace(/16/g, '20') : MIC}</button>`
-    + `<button class="lvround${camOff ? ' off' : ''}" id="lvCamBtn" data-act="lvCam" aria-pressed="${camOff}" aria-label="${camOff ? 'Ligar a câmara' : 'Desligar a câmara'}" title="${camOff ? 'Ligar a câmara' : 'Desligar a câmara'}">${camOff ? CAM_OFF : CAM}</button>`;
+    + `<button class="lvround${camOff ? ' off' : ''}" id="lvCamBtn" data-act="lvCam" aria-pressed="${camOff}" aria-label="${camOff ? 'Ligar a câmara' : 'Desligar a câmara'}" title="${camOff ? 'Ligar a câmara' : 'Desligar a câmara'}">${camOff ? CAM_OFF : CAM}</button>`
+    + `<button class="lvround" data-act="lvFlip" aria-label="Virar a câmara" title="Virar a câmara">${FLIP}</button>`
+    + `<button class="lvround" data-act="lvFx" aria-label="Filtros" title="Filtros">✨</button>`;
+}
+
+/** Pré-visualização de quem transmite: em espelho com a câmara da frente (como no TikTok). */
+function espelho(): void {
+  if (videoEl) videoEl.style.transform = camara?.frente ? 'scaleX(-1)' : '';
+}
+
+function desenhaFiltros(): void {
+  const g = $('#lvFxGrid'); if (!g || !camara) return;
+  void import('../lives/camara').then(({ FILTROS }) => {
+    g.innerHTML = FILTROS.map(([k, n, e]) => `<button class="lvg${k === camara?.filtro ? ' on' : ''}" data-act="lvFxPick" data-k="${k}"><span class="i">${e}</span><span class="n">${n}</span></button>`).join('');
+  });
 }
 
 /** Mostra (ou tira) os avisos de câmara/microfone desligados e atualiza os botões. */
@@ -161,9 +180,12 @@ export async function vLive(id: string): Promise<string> {
      ${join ? min : ''}${host && l.status === 'live' ? `<button class="btn pri sm" data-act="liveEnd" data-id="${l.id}">Encerrar</button>` : host ? `<a class="lvbtn" href="#estudio" aria-label="Voltar">${ic('x')}</a>` : fechar}</div>
     ${join ? `<div class="lvchat" id="lchatList" aria-live="polite"></div>
     <div class="lvbar"><form class="lvform" id="liveForm" data-id="${l.id}"><input type="text" id="liveInput" maxlength="300" placeholder="Diz alguma coisa…" aria-label="Mensagem" autocomplete="off"><button aria-label="Enviar">${ic('send')}</button></form>
-     ${host ? botoesHost() : `<button class="lvround gift" data-act="lvGifts" aria-label="Presentes">🎁</button>`}<button class="lvround" data-act="lvHeart" aria-label="Enviar coração">❤️</button></div>
+     ${host ? botoesHost() : `<button class="lvround gift" data-act="lvGifts" aria-label="Presentes">🎁</button><button class="lvround" data-act="lvHeart" aria-label="Enviar coração">❤️</button>`}</div>
     <button class="lvcombo" id="lvCombo" data-act="lvCombo" hidden></button>
-    ${host ? '' : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
+    ${host ? `<div class="lvsheet" id="lvFxSheet" hidden role="dialog" aria-label="Filtros">
+     <div class="hd"><b>Filtros</b><button class="lvx" data-act="lvFx" aria-label="Fechar">${ic('x')}</button></div>
+     <div class="grid" id="lvFxGrid"></div>
+     <p class="cred">Os fãs veem a live com o filtro que escolheres.</p></div>` : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
      <div class="hd"><b>Presentes</b><button class="lvx" data-act="lvGifts" aria-label="Fechar">${ic('x')}</button></div>
      <div class="grid" id="lvGiftGrid"></div>
      <div class="ft"><span class="small">Saldo <b id="lvSaldo">${kz(saldo)}</b></span><button class="btn soft sm" data-act="lvTopup">Carregar carteira</button><button class="btn pri sm" id="lvSend" data-act="lvSend" disabled>Enviar</button></div>
@@ -302,10 +324,16 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
     if (ctx.host) {
       window.addEventListener('beforeunload', avisoSair);  // fechar o separador pede confirmação
       camOff = false; micOff = false;
-      await r.localParticipant.enableCameraAndMicrophone();
-      if (room !== r) return;                              // encerrou durante o pedido de permissão
-      const pub = [...r.localParticipant.videoTrackPublications.values()][0];
-      if (pub?.track) attach(pub.track);
+      // Câmara com filtros (beleza, brilho…) e possibilidade de virar; o microfone vai à parte.
+      const { criarCamara } = await import('../lives/camara');
+      const cam = await criarCamara();
+      if (room !== r) { cam.parar(); return; }             // encerrou durante o pedido de permissão
+      camara = cam;
+      const lt = new LK.LocalVideoTrack(cam.track, undefined, true);
+      camPub = await r.localParticipant.publishTrack(lt, { source: LK.Track.Source.Camera, simulcast: true });
+      await r.localParticipant.setMicrophoneEnabled(true);
+      if (room !== r) return;
+      attach(lt); espelho();
     } else {
       status('À espera do vídeo do criador…');
       r.remoteParticipants.forEach((p) => p.trackPublications.forEach((t) => t.track && attach(t.track)));
@@ -396,12 +424,20 @@ export const liveActions: Actions = {
     if (!room || !ligada?.host) return;
     const off = !camOff;
     try {
-      await room.localParticipant.setCameraEnabled(!off); camOff = off;
-      if (!off) { const pub = [...room.localParticipant.videoTrackPublications.values()][0]; const el = pub?.track?.attach() as HTMLVideoElement | undefined;
-        if (el) { el.style.cssText = 'width:100%;height:100%;object-fit:cover;background:#000;display:block'; el.muted = true; el.playsInline = true; videoEl = el; const box = $('#lkVideo') || $('#lvMini .v'); if (box) { box.innerHTML = ''; box.appendChild(el); } } }
+      if (camara && camPub) { await camara.ligar(!off); if (off) await camPub.mute(); else await camPub.unmute(); }
+      else await room.localParticipant.setCameraEnabled(!off);
+      camOff = off;
       marcaEstado(); toast(off ? 'Câmara desligada' : 'Câmara ligada');
     } catch (e) { toast(errText(e)); }
   },
+  /** Vira a câmara (frente/trás). */
+  async lvFlip() {
+    if (!camara || camOff) return;
+    try { await camara.virar(); espelho(); } catch (e) { toast(errText(e)); }
+  },
+  /** Abre/fecha a gaveta dos filtros. */
+  lvFx() { const s = $('#lvFxSheet'); if (!s) return; s.hidden = !s.hidden; if (!s.hidden) desenhaFiltros(); },
+  lvFxPick(d) { if (!camara) return; camara.escolher(d.k as import('../lives/camara').Filtro); desenhaFiltros(); },
   /** Minimizar: a live continua numa janela pequena enquanto se navega no site. */
   lvMin() { go('inicio'); },
   lvOpen() { if (ligada) go('live-' + ligada.id); },
