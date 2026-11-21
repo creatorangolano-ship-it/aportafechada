@@ -139,29 +139,52 @@ function espelho(): void {
   if (videoEl) videoEl.style.transform = camara?.frente ? 'scaleX(-1)' : '';
 }
 
+/** Separador aberto na tira de quem transmite, e o ajuste de beleza escolhido para a barra. */
+let fxTab: 'filtros' | 'beleza' | 'efeitos' = 'filtros', fxBel: import('../lives/camara').Beleza = 'suave';
+
+/** Tira horizontal (como no TikTok): itens em fila com deslize lateral; tocar num item mostra a
+ *  barra de intensidade por cima. */
 function desenhaFiltros(): void {
-  const g = $('#lvFxGrid'), ef = $('#lvEfGrid'); if (!g || !ef || !camara) return;
-  void import('../lives/camara').then(({ FILTROS, EFEITOS }) => {
+  const row = $('#lvFxRow'); if (!row || !camara) return;
+  void import('../lives/camara').then(({ FILTROS, BELEZA, EFEITOS, intFiltro, intEfeito }) => {
     if (!camara) return;
-    const chip = (act: string, k: string, n: string, e: string, on: boolean) => `<button class="lvg${on ? ' on' : ''}" data-act="${act}" data-k="${k}"><span class="i">${e}</span><span class="n">${n}</span></button>`;
-    g.innerHTML = FILTROS.map(([k, n, e]) => chip('lvFxPick', k, n, e, k === camara!.filtro)).join('');
-    ef.innerHTML = EFEITOS.map(([k, n, e]) => chip('lvEfPick', k, n, e, k === camara!.efeito)).join('');
-    const r = $<HTMLInputElement>('#lvRosto'), o = $<HTMLInputElement>('#lvOlhos');
-    if (r && o) {
-      r.value = String(Math.round(camara.rosto * 100)); o.value = String(Math.round(camara.olhos * 100));
-      if (!r.dataset.ok) {
-        r.dataset.ok = '1';
-        const muda = () => camara?.ajustar(Number(r.value) / 100, Number(o.value) / 100);
-        r.addEventListener('input', muda); o.addEventListener('input', muda);
-      }
+    const a = camara.a;
+    for (const b of document.querySelectorAll<HTMLElement>('#lvFxSheet .lvtab')) b.classList.toggle('on', b.dataset.k === fxTab);
+    const item = (k: string, n: string, circ: string, on: boolean, extra = '', estilo = '') =>
+      `<button class="lvfi${on ? ' on' : ''}" data-act="lvFxPick" data-k="${k}" aria-pressed="${on}"><span class="c"${estilo}>${circ}${extra}</span><span class="n">${n}</span></button>`;
+    let html = '', nome = '', valor = -1;
+    if (fxTab === 'filtros') {
+      html = FILTROS.map(([k, n, cores]) => item(k, n, '', k === a.filtro, '', ` style="background:linear-gradient(135deg,${cores})"`)).join('');
+      if (a.filtro !== 'natural') { nome = FILTROS.find(([k]) => k === a.filtro)![1]; valor = intFiltro(a); }
+    } else if (fxTab === 'beleza') {
+      html = BELEZA.map(([k, n, e]) => item(k, n, e, k === fxBel, a.beleza[k] > 0 ? `<i class="v">${Math.round(a.beleza[k] * 100)}</i>` : '')).join('')
+        + `<button class="lvfi" data-act="lvFxRepor"><span class="c">↺</span><span class="n">Repor</span></button>`;
+      nome = BELEZA.find(([k]) => k === fxBel)![1]; valor = a.beleza[fxBel];
+    } else {
+      html = EFEITOS.map(([k, n, e]) => item(k, n, e, k === a.efeito)).join('');
+      if (a.efeito !== 'nenhum') { nome = EFEITOS.find(([k]) => k === a.efeito)![1]; valor = intEfeito(a); }
+    }
+    const x = row.scrollLeft; row.innerHTML = html; row.scrollLeft = x;
+    const sl = $('#lvFxSl'), r = $<HTMLInputElement>('#lvFxSlR');
+    if (!sl || !r) return;
+    sl.hidden = valor < 0;
+    if (valor >= 0) { $('#lvFxSlN')!.textContent = nome; r.value = String(Math.round(valor * 100)); $('#lvFxSlV')!.textContent = r.value; }
+    if (!r.dataset.ok) {
+      r.dataset.ok = '1';
+      r.addEventListener('input', () => {
+        if (!camara) return;
+        const v = Number(r.value) / 100, a2 = camara.a;
+        $('#lvFxSlV')!.textContent = r.value;
+        if (fxTab === 'filtros') camara.definir({ fInt: { ...a2.fInt, [a2.filtro]: v } });
+        else if (fxTab === 'efeitos') camara.definir({ eInt: { ...a2.eInt, [a2.efeito]: v } });
+        else {
+          camara.definir({ beleza: { ...a2.beleza, [fxBel]: v } });
+          const b = document.querySelector<HTMLElement>(`#lvFxRow .lvfi[data-k="${fxBel}"] .c`);
+          if (b) { let i = b.querySelector('.v'); if (v > 0) { if (!i) { i = document.createElement('i'); i.className = 'v'; b.appendChild(i); } i.textContent = r.value; } else i?.remove(); }
+        }
+      });
     }
   });
-}
-
-/** Separador da gaveta de quem transmite: filtros/efeitos ou rosto. */
-function separador(qual: string): void {
-  for (const b of document.querySelectorAll<HTMLElement>('#lvFxSheet .lvtab')) b.classList.toggle('on', b.dataset.k === qual);
-  for (const p of document.querySelectorAll<HTMLElement>('#lvFxSheet .lvpane')) p.hidden = p.dataset.k !== qual;
 }
 
 /** Mostra (ou tira) os avisos de câmara/microfone desligados e atualiza os botões. */
@@ -200,14 +223,10 @@ export async function vLive(id: string): Promise<string> {
     <div class="lvbar"><form class="lvform" id="liveForm" data-id="${l.id}"><input type="text" id="liveInput" maxlength="300" placeholder="Diz alguma coisa…" aria-label="Mensagem" autocomplete="off"><button aria-label="Enviar">${ic('send')}</button></form>
      ${host ? botoesHost() : `<button class="lvround gift" data-act="lvGifts" aria-label="Presentes">🎁</button><button class="lvround" data-act="lvHeart" aria-label="Enviar coração">❤️</button>`}</div>
     <button class="lvcombo" id="lvCombo" data-act="lvCombo" hidden></button>
-    ${host ? `<div class="lvsheet" id="lvFxSheet" hidden role="dialog" aria-label="Filtros">
-     <div class="hd"><span class="lvtabs"><button class="lvtab on" data-act="lvTab" data-k="filtros">Filtros</button><button class="lvtab" data-act="lvTab" data-k="efeitos">Efeitos</button><button class="lvtab" data-act="lvTab" data-k="rosto">Rosto</button></span><button class="lvx" data-act="lvFx" aria-label="Fechar">${ic('x')}</button></div>
-     <div class="lvpane" data-k="filtros"><div class="grid" id="lvFxGrid"></div></div>
-     <div class="lvpane" data-k="efeitos" hidden><div class="grid" id="lvEfGrid"></div></div>
-     <div class="lvpane" data-k="rosto" hidden>
-      <label class="lvslider"><span>Rosto fino</span><input type="range" id="lvRosto" min="0" max="100" step="1" value="0"></label>
-      <label class="lvslider"><span>Olhos grandes</span><input type="range" id="lvOlhos" min="0" max="100" step="1" value="0"></label></div>
-     <p class="cred">Os fãs veem a live com o filtro e os efeitos que escolheres.</p></div>` : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
+    ${host ? `<div class="lvfx" id="lvFxSheet" hidden role="dialog" aria-label="Filtros e efeitos">
+     <div class="lvfx-sl" id="lvFxSl" hidden><span id="lvFxSlN"></span><input type="range" id="lvFxSlR" min="0" max="100" step="1" aria-label="Intensidade"><b id="lvFxSlV"></b></div>
+     <div class="lvfx-hd"><span class="lvtabs"><button class="lvtab on" data-act="lvFxTab" data-k="filtros">Filtros</button><button class="lvtab" data-act="lvFxTab" data-k="beleza">Beleza</button><button class="lvtab" data-act="lvFxTab" data-k="efeitos">Efeitos</button></span><button class="lvx" data-act="lvFx" aria-label="Fechar">${ic('x')}</button></div>
+     <div class="lvfx-row" id="lvFxRow"></div></div>` : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
      <div class="hd"><b>Presentes</b><button class="lvx" data-act="lvGifts" aria-label="Fechar">${ic('x')}</button></div>
      <div class="grid" id="lvGiftGrid"></div>
      <div class="ft"><span class="small">Saldo <b id="lvSaldo">${kz(saldo)}</b></span><button class="btn soft sm" data-act="lvTopup">Carregar carteira</button><button class="btn pri sm" id="lvSend" data-act="lvSend" disabled>Enviar</button></div>
@@ -458,10 +477,21 @@ export const liveActions: Actions = {
     try { await camara.virar(); espelho(); } catch (e) { toast(errText(e)); }
   },
   /** Abre/fecha a gaveta dos filtros. */
-  lvFx() { const s = $('#lvFxSheet'); if (!s) return; s.hidden = !s.hidden; if (!s.hidden) desenhaFiltros(); },
-  lvFxPick(d) { if (!camara) return; camara.escolher(d.k as import('../lives/camara').Filtro); desenhaFiltros(); },
-  lvEfPick(d) { if (!camara) return; camara.escolherEfeito(d.k as import('../lives/camara').Efeito); desenhaFiltros(); },
-  lvTab(d) { separador(d.k || 'filtros'); },
+  /** Abre/fecha a tira de filtros, beleza e efeitos. */
+  lvFx() {
+    const s = $('#lvFxSheet'); if (!s) return;
+    s.hidden = !s.hidden; $('#liveStage')?.classList.toggle('fxon', !s.hidden);
+    if (!s.hidden) desenhaFiltros();
+  },
+  lvFxTab(d) { fxTab = (d.k as typeof fxTab) || 'filtros'; const r = $('#lvFxRow'); if (r) r.scrollLeft = 0; desenhaFiltros(); },
+  lvFxPick(d) {
+    if (!camara || !d.k) return;
+    if (fxTab === 'filtros') camara.definir({ filtro: d.k as import('../lives/camara').Filtro });
+    else if (fxTab === 'efeitos') camara.definir({ efeito: d.k as import('../lives/camara').Efeito });
+    else fxBel = d.k as import('../lives/camara').Beleza;
+    desenhaFiltros();
+  },
+  lvFxRepor() { if (!camara) return; void import('../lives/camara').then(({ BELEZA_PADRAO }) => { camara?.definir({ beleza: { ...BELEZA_PADRAO } }); desenhaFiltros(); }); },
   /** Minimizar: a live continua numa janela pequena enquanto se navega no site. */
   lvMin() { go('inicio'); },
   lvOpen() { if (ligada) go('live-' + ligada.id); },

@@ -1,16 +1,23 @@
-// Câmara de quem faz a live, como no TikTok: virar (frente/trás), filtros de beleza,
-// afinar o rosto, olhos maiores e efeitos de cara (óculos, gatinha, coroa…).
+// Câmara de quem faz a live, como no TikTok: virar (frente/trás), filtros de cor com intensidade,
+// beleza ajustável (suavizar a pele, iluminar, rosto fino, olhos grandes) e efeitos de cara.
 // A imagem da câmara passa por um shader WebGL (deformação + pele suavizada + cor); os efeitos
 // de cara são desenhados por cima num canvas 2D, e é esse canvas (captureStream) que vai para
 // o LiveKit — assim os fãs veem a imagem já com tudo aplicado.
 
-export type Filtro = 'natural' | 'beleza' | 'brilho' | 'quente' | 'frio' | 'vivo' | 'pb';
+export type Filtro = 'natural' | 'quente' | 'dourado' | 'rosado' | 'frio' | 'vivo' | 'suave' | 'pb';
 export type Efeito = 'nenhum' | 'oculos' | 'gato' | 'coroa' | 'coracoes' | 'maquilhagem' | 'brilhos';
+export type Beleza = 'suave' | 'luz' | 'rosto' | 'olhos';
 
-/** [chave, nome, emoji] pela ordem em que aparecem na gaveta. */
+/** [chave, nome, cores da miniatura] pela ordem em que aparecem na tira. */
 export const FILTROS: [Filtro, string, string][] = [
-  ['natural', 'Normal', '🙂'], ['beleza', 'Beleza', '✨'], ['brilho', 'Brilho', '☀️'],
-  ['quente', 'Quente', '🌅'], ['frio', 'Frio', '❄️'], ['vivo', 'Vívido', '🌈'], ['pb', 'P&B', '🎞️'],
+  ['natural', 'Normal', '#8a8f98,#c9ccd2'], ['quente', 'Quente', '#c96a2b,#f3c07a'], ['dourado', 'Dourado', '#a8741a,#ffd76a'],
+  ['rosado', 'Rosado', '#c45a7c,#ffc2d4'], ['frio', 'Frio', '#2f6fa8,#a9d6ff'], ['vivo', 'Vívido', '#d0103c,#2bd47d'],
+  ['suave', 'Suave', '#b9a7a0,#efe6e0'], ['pb', 'P&B', '#222,#ddd'],
+];
+
+/** Ajustes de beleza: cada um com a sua barra (combinam-se entre si). */
+export const BELEZA: [Beleza, string, string][] = [
+  ['suave', 'Suavizar', '✨'], ['luz', 'Iluminar', '☀️'], ['rosto', 'Rosto fino', '🙂'], ['olhos', 'Olhos', '👁️'],
 ];
 
 /** Efeitos de cara (seguem o rosto). */
@@ -19,20 +26,36 @@ export const EFEITOS: [Efeito, string, string][] = [
   ['coracoes', 'Corações', '😍'], ['maquilhagem', 'Maquilhagem', '💄'], ['brilhos', 'Brilhos', '🌟'],
 ];
 
-/** suavizar, brilho, calor, saturação, contraste, cinzento */
-const PARAM: Record<Filtro, [number, number, number, number, number, number]> = {
-  natural: [0, 1, 0, 1, 1, 0],
-  beleza: [0.75, 1.06, 0.25, 1.05, 0.98, 0],
-  brilho: [0.45, 1.14, 0.1, 1.08, 0.95, 0],
-  quente: [0.35, 1.04, 0.9, 1.1, 1, 0],
-  frio: [0.35, 1.03, -0.8, 0.98, 1.02, 0],
-  vivo: [0.25, 1.03, 0.15, 1.35, 1.08, 0],
-  pb: [0.3, 1.05, 0, 1, 1.12, 1],
+/** Cor de cada filtro na intensidade máxima: brilho, calor, saturação, contraste, cinzento, rosa, desvanecer */
+const COR: Record<Filtro, [number, number, number, number, number, number, number]> = {
+  natural: [1, 0, 1, 1, 0, 0, 0],
+  quente: [1.04, 0.9, 1.1, 1, 0, 0, 0],
+  dourado: [1.06, 0.7, 1.15, 1.04, 0, -0.2, 0],
+  rosado: [1.05, 0.15, 1.05, 0.98, 0, 0.9, 0.04],
+  frio: [1.03, -0.85, 0.98, 1.02, 0, 0, 0],
+  vivo: [1.03, 0.15, 1.4, 1.1, 0, 0, 0],
+  suave: [1.06, 0.2, 0.85, 0.88, 0, 0.2, 0.1],
+  pb: [1.05, 0, 1, 1.15, 1, 0, 0],
 };
+
+export interface Ajustes {
+  filtro: Filtro;
+  /** intensidade de cada filtro, 0 a 1 (fica guardada por filtro, como no TikTok) */
+  fInt: Partial<Record<Filtro, number>>;
+  beleza: Record<Beleza, number>;
+  efeito: Efeito;
+  /** intensidade de cada efeito, 0 a 1 */
+  eInt: Partial<Record<Efeito, number>>;
+}
+
+const PADRAO: Ajustes = { filtro: 'natural', fInt: {}, beleza: { suave: 0.6, luz: 0.3, rosto: 0, olhos: 0 }, efeito: 'nenhum', eInt: {} };
+export const BELEZA_PADRAO: Readonly<Ajustes['beleza']> = PADRAO.beleza;
+export const intFiltro = (a: Ajustes, f: Filtro = a.filtro) => a.fInt[f] ?? 0.7;
+export const intEfeito = (a: Ajustes, e: Efeito = a.efeito) => a.eInt[e] ?? 1;
 
 const VS = 'attribute vec2 p;varying vec2 v;void main(){v=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}';
 const FS = `precision mediump float;varying vec2 v;uniform sampler2D t;uniform vec2 px;
-uniform float sm,br,wa,sa,co,gr;
+uniform float sm,br,wa,sa,co,gr,ro,fa,lu;
 uniform vec2 res,eL,eR,jL,jR,jT;uniform float eRad,eAmt,jRad,jAmt;
 // Afinar o rosto (o maxilar aproxima-se do centro) e olhos maiores (lupa suave à volta de cada olho).
 vec2 deforma(vec2 q){
@@ -60,10 +83,14 @@ void main(){
    s+=q*k;w+=k;}
   c=mix(c,s/w,sm);
  }
+ // iluminar: levanta as sombras e os meios-tons sem queimar as zonas claras
+ c=c+lu*.22*c*(1.-c)*2.;
  c*=br;c=(c-.5)*co+.5;
  c.r+=wa*.05;c.g+=wa*.012;c.b-=wa*.05;
+ c.r+=ro*.045;c.g-=ro*.02;c.b+=ro*.02;
  float l=dot(c,vec3(.299,.587,.114));
  c=mix(vec3(l),c,sa);c=mix(c,vec3(l),gr);
+ c=mix(c,vec3(.5)+c*.85,fa);
  gl_FragColor=vec4(clamp(c,0.,1.),1.);
 }`;
 
@@ -72,26 +99,33 @@ export interface Camara {
   track: MediaStreamTrack;
   /** true quando é a câmara da frente (a pré-visualização de quem transmite fica em espelho). */
   frente: boolean;
-  filtro: Filtro;
-  efeito: Efeito;
-  /** Afinar o rosto, de 0 a 1. */
-  rosto: number;
-  /** Olhos maiores, de 0 a 1. */
-  olhos: number;
+  /** Escolhas atuais (guardadas no aparelho para a próxima live). */
+  a: Ajustes;
+  /** Muda uma parte das escolhas e guarda. */
+  definir(m: Partial<Ajustes>): void;
   virar(): Promise<void>;
-  escolher(f: Filtro): void;
-  escolherEfeito(e: Efeito): void;
-  ajustar(rosto: number, olhos: number): void;
   /** Liga/desliga a câmara a sério (a luz da câmara apaga quando está desligada). */
   ligar(on: boolean): Promise<void>;
   parar(): void;
 }
 
-const ler = (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } };
-const gravar = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } };
-const guardado = (): Filtro => { const f = ler('lvFiltro') as Filtro | null; return f && f in PARAM ? f : 'beleza'; };
-const efeitoGuardado = (): Efeito => { const e = ler('lvEfeito'); return EFEITOS.some(([k]) => k === e) ? (e as Efeito) : 'nenhum'; };
-const num = (k: string) => { const v = ler(k); const n = v === null ? 0 : Number(v); return n >= 0 && n <= 1 ? n : 0; };
+const CHAVE = 'lvAjustes';
+function lerAjustes(): Ajustes {
+  try {
+    const j = JSON.parse(localStorage.getItem(CHAVE) || 'null');
+    if (j && typeof j === 'object') {
+      return {
+        filtro: FILTROS.some(([k]) => k === j.filtro) ? j.filtro : PADRAO.filtro,
+        fInt: typeof j.fInt === 'object' && j.fInt ? j.fInt : {},
+        beleza: { ...PADRAO.beleza, ...(typeof j.beleza === 'object' ? j.beleza : {}) },
+        efeito: EFEITOS.some(([k]) => k === j.efeito) ? j.efeito : PADRAO.efeito,
+        eInt: typeof j.eInt === 'object' && j.eInt ? j.eInt : {},
+      };
+    }
+  } catch { /* sem armazenamento ou dados estragados */ }
+  return structuredClone(PADRAO);
+}
+const gravarAjustes = (a: Ajustes) => { try { localStorage.setItem(CHAVE, JSON.stringify(a)); } catch { /* sem armazenamento */ } };
 
 async function abrir(frente: boolean): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
@@ -111,9 +145,9 @@ export async function criarCamara(): Promise<Camara> {
   // Sem WebGL: publica a câmara tal como está (sem filtros nem efeitos).
   if (!gl) {
     const cam: Camara = {
-      track: raw.getVideoTracks()[0], frente: true, filtro: 'natural', efeito: 'nenhum', rosto: 0, olhos: 0,
+      track: raw.getVideoTracks()[0], frente: true, a: structuredClone(PADRAO),
+      definir() { /* sem filtros */ },
       async virar() { throw new Error('Este aparelho não deixa virar a câmara durante a live.'); },
-      escolher() { /* sem filtros */ }, escolherEfeito() { /* sem efeitos */ }, ajustar() { /* sem efeitos */ },
       async ligar(on) { raw.getVideoTracks().forEach((t) => (t.enabled = on)); },
       parar() { raw.getTracks().forEach((t) => t.stop()); },
     };
@@ -127,14 +161,14 @@ export async function criarCamara(): Promise<Camara> {
   const ap = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0);
   const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
   for (const [k, val] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, val);
-  const U = Object.fromEntries(['px', 'sm', 'br', 'wa', 'sa', 'co', 'gr', 'res', 'eL', 'eR', 'jL', 'jR', 'jT', 'eRad', 'eAmt', 'jRad', 'jAmt']
+  const U = Object.fromEntries(['px', 'sm', 'br', 'wa', 'sa', 'co', 'gr', 'ro', 'fa', 'lu', 'res', 'eL', 'eR', 'jL', 'jR', 'jT', 'eRad', 'eAmt', 'jRad', 'jAmt']
     .map((n) => [n, gl.getUniformLocation(pr, n)]));
 
   let ativo = true, ligada = true;
   const cam: Camara = {
-    track: null as unknown as MediaStreamTrack, frente: true, filtro: guardado(), efeito: efeitoGuardado(),
-    rosto: num('lvRosto'), olhos: num('lvOlhos'),
-    virar, escolher, escolherEfeito, ajustar, ligar, parar,
+    track: null as unknown as MediaStreamTrack, frente: true, a: lerAjustes(),
+    definir(m) { Object.assign(cam.a, m); gravarAjustes(cam.a); },
+    virar, ligar, parar,
   };
   // O vídeo publicado é este canvas 2D: a imagem do WebGL + os efeitos de cara por cima.
   const out = document.createElement('canvas');
@@ -153,25 +187,30 @@ export async function criarCamara(): Promise<Camara> {
     if (cv.width !== vid.videoWidth || cv.height !== vid.videoHeight) {
       cv.width = out.width = vid.videoWidth; cv.height = out.height = vid.videoHeight; gl.viewport(0, 0, cv.width, cv.height);
     }
-    const W = cv.width, H = cv.height;
-    const precisa = cam.efeito !== 'nenhum' || cam.rosto > 0 || cam.olhos > 0;
+    const W = cv.width, H = cv.height, a = cam.a, b = a.beleza;
+    const precisa = a.efeito !== 'nenhum' || b.rosto > 0 || b.olhos > 0;
     const f = precisa ? rosto.ver(vid, agora) : null;
     gl.uniform2f(U.res, W, H);
     if (f) {
       gl.uniform2f(U.eL, f.eL.x * W, f.eL.y * H); gl.uniform2f(U.eR, f.eR.x * W, f.eR.y * H);
       gl.uniform2f(U.jL, f.jL.x * W, f.jL.y * H); gl.uniform2f(U.jR, f.jR.x * W, f.jR.y * H); gl.uniform2f(U.jT, f.jT.x * W, f.jT.y * H);
-      gl.uniform1f(U.eRad, f.olho * W * 1.6); gl.uniform1f(U.eAmt, cam.olhos * 0.34);
-      gl.uniform1f(U.jRad, f.largura * W * 0.45); gl.uniform1f(U.jAmt, cam.rosto * 0.24);
+      gl.uniform1f(U.eRad, f.olho * W * 1.6); gl.uniform1f(U.eAmt, b.olhos * 0.34);
+      gl.uniform1f(U.jRad, f.largura * W * 0.45); gl.uniform1f(U.jAmt, b.rosto * 0.24);
     } else { gl.uniform1f(U.eAmt, 0); gl.uniform1f(U.jAmt, 0); }
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, vid);
-    const [sm, br, wa, sa, co, gr] = PARAM[cam.filtro];
+    // Filtro de cor: mistura entre o natural e o filtro, conforme a intensidade.
+    const k = a.filtro === 'natural' ? 0 : intFiltro(a);
+    const n = COR.natural, c = COR[a.filtro];
+    const m = (i: number) => n[i] + (c[i] - n[i]) * k;
     // O raio da suavização acompanha a resolução (o mesmo efeito em 480p e em 1080p).
     const esc = Math.max(1, Math.min(W, H) / 720);
     gl.uniform2f(U.px, esc / W, esc / H);
-    gl.uniform1f(U.sm, sm); gl.uniform1f(U.br, br); gl.uniform1f(U.wa, wa); gl.uniform1f(U.sa, sa); gl.uniform1f(U.co, co); gl.uniform1f(U.gr, gr);
+    gl.uniform1f(U.sm, b.suave * 0.9); gl.uniform1f(U.lu, b.luz);
+    gl.uniform1f(U.br, m(0)); gl.uniform1f(U.wa, m(1)); gl.uniform1f(U.sa, m(2)); gl.uniform1f(U.co, m(3));
+    gl.uniform1f(U.gr, m(4)); gl.uniform1f(U.ro, m(5)); gl.uniform1f(U.fa, m(6));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     ctx.drawImage(cv, 0, 0);
-    if (f && cam.efeito !== 'nenhum') desenhaEfeito(ctx, cam.efeito, f, W, H, agora);
+    if (f && a.efeito !== 'nenhum') desenhaEfeito(ctx, a.efeito, f, W, H, agora, intEfeito(a));
   };
   desenha();
   cam.track = out.captureStream(30).getVideoTracks()[0];
@@ -181,12 +220,6 @@ export async function criarCamara(): Promise<Camara> {
     raw.getTracks().forEach((t) => t.stop());
     raw = novo; vid.srcObject = raw; await vid.play().catch(() => {});
     cam.frente = !cam.frente;
-  }
-  function escolher(f: Filtro) { cam.filtro = f; gravar('lvFiltro', f); }
-  function escolherEfeito(e: Efeito) { cam.efeito = e; gravar('lvEfeito', e); }
-  function ajustar(r: number, o: number) {
-    cam.rosto = Math.min(1, Math.max(0, r)); cam.olhos = Math.min(1, Math.max(0, o));
-    gravar('lvRosto', String(cam.rosto)); gravar('lvOlhos', String(cam.olhos));
   }
   async function ligar(on: boolean) {
     if (on === ligada) return;
@@ -269,7 +302,8 @@ function criarRosto() {
 
 /* ---------- Efeitos de cara desenhados por cima da imagem ---------- */
 
-function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: number, H: number, t: number): void {
+/** k: intensidade do efeito (0 a 1) — transparência, e tamanho nos efeitos à volta da cabeça. */
+function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: number, H: number, t: number, k = 1): void {
   const X = (p: P) => p.x * W, Y = (p: P) => p.y * H;
   const lw = f.largura * W;                         // largura da cara em píxeis
   const mx = (X(f.eL) + X(f.eR)) / 2, my = (Y(f.eL) + Y(f.eR)) / 2;
@@ -282,6 +316,8 @@ function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: numb
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, 0, 0); c.restore();
   };
   c.save();
+  c.globalAlpha = 0.25 + 0.75 * k;
+  const ga = c.globalAlpha;
   if (e === 'oculos') {
     c.translate(mx, my); c.rotate(f.ang);
     const lx = ed / 2, rw = ed * 0.46, rh = ed * 0.33;
@@ -318,7 +354,7 @@ function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: numb
       const a = t / 900 + (i * Math.PI * 2) / 6;
       const px = Math.cos(a) * lw * 0.62, py = Math.sin(a) * lw * 0.16 - lw * 0.32;
       const x = topo.x + px * Math.cos(f.ang) - py * Math.sin(f.ang), y = topo.y + px * Math.sin(f.ang) + py * Math.cos(f.ang);
-      c.globalAlpha = Math.sin(a) > 0 ? 1 : 0.75;
+      c.globalAlpha = ga * (Math.sin(a) > 0 ? 1 : 0.75);
       emoji('❤️', x, y, lw * (0.16 + 0.05 * Math.sin(a)));
     }
   } else if (e === 'maquilhagem') {
@@ -336,7 +372,7 @@ function desenhaEfeito(c: CanvasRenderingContext2D, e: Efeito, f: Rosto, W: numb
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI * 2) / 8 + t / 2500;
       const r = lw * (0.62 + 0.06 * Math.sin(t / 300 + i));
-      c.globalAlpha = 0.5 + 0.5 * Math.sin(t / 200 + i * 1.7);
+      c.globalAlpha = ga * (0.5 + 0.5 * Math.sin(t / 200 + i * 1.7));
       emoji('✨', cx + Math.cos(a) * r, cy + Math.sin(a) * r * 1.2, lw * 0.13, 0);
     }
   }
