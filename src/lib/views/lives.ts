@@ -1,5 +1,5 @@
 // Lives: lista, bilhetes, sala com vídeo (LiveKit) e chat em tempo real
-import { sb, $, esc, kz, ic, avatarOf, toast, errText, fmtDate, fn, rerender, go } from '../lib';
+import { sb, $, esc, kz, ic, avatarOf, toast, errText, fmtDate, fn, rerender, go, modal, closeModal } from '../lib';
 import { register } from '../registry';
 import { S } from '../state';
 import { openPay } from '../pay';
@@ -45,29 +45,73 @@ export async function vLives(): Promise<string> {
   const on = list.filter((l) => l.status === 'live'), next = list.filter((l) => l.status === 'scheduled');
   return `<div class="pagehead"><div><h1>Lives</h1><p>Emissões ao vivo dos criadores. Algumas são gratuitas, outras pedem bilhete.</p></div>${S.creator?.status === 'approved' ? `<button class="btn pri" data-act="stGo" data-v="lives">${ic('live')}Iniciar live</button>` : ''}</div>
    <h3 style="margin-bottom:14px">Ao vivo agora</h3>${on.length ? `<div class="lgrid">${on.map((l) => liveCard(l, A)).join('')}</div>` : '<p class="muted">Ninguém está ao vivo neste momento.</p>'}
-   <h3 style="margin:36px 0 14px">Próximas lives</h3>${next.length ? `<div class="lgrid">${next.map((l) => liveCard(l, A)).join('')}</div>` : '<p class="muted">Sem lives agendadas.</p>'}`;
+   ${next.length ? `<h3 style="margin:36px 0 14px">Próximas lives</h3><div class="lgrid">${next.map((l) => liveCard(l, A)).join('')}</div>` : ''}`;
 }
 
 /* ---------- Sala ---------- */
 
-/* A biblioteca de vídeo só é carregada quando alguém entra numa sala, e vem do
- * pacote npm (não de um CDN). Ver `config.ts`. */
+/* A biblioteca de vídeo e as animações dos presentes só são carregadas quando alguém
+ * entra numa sala, e vêm do pacote npm (não de um CDN). Ver `config.ts`.
+ *
+ * Minimizar: sair da sala para outra página NÃO desliga a live. O vídeo passa para uma
+ * janela pequena no canto (`#lvMini`), e quem está em directo continua a transmitir.
+ * Para quem transmite, a única forma de sair é «Encerrar»: assim uma live nunca fica
+ * «ao vivo» sem ninguém do outro lado. Quem vê fecha a janela pequena quando quiser. */
 type LKRoom = import('livekit-client').Room;
+type Gift = { key: string; name: string; icon: string; price: number };
+type Efeitos = import('../presentes/efeitos').Efeitos;
+
 let room: LKRoom | null = null;
+/** A live ligada neste momento (aberta ou minimizada). */
+let ligada: { id: string; host: boolean } | null = null;
+let videoEl: HTMLVideoElement | null = null;
 let chatCh: ReturnType<typeof sb.channel> | null = null, liveCh: ReturnType<typeof sb.channel> | null = null;
+let fx: Efeitos | null = null;
+let gifts: Gift[] = [];
+let escolhido = '';
+let comboT = 0, coracaoT = 0;
 
 /** Geração da montagem atual. Qualquer operação assíncrona verifica este valor antes de
  *  tocar em nada: sem ele, sair da página a meio do fetch do chat fazia a continuação de
- *  mountLive() criar os canais e ligar a câmara DEPOIS do leave() já ter corrido — o criador
+ *  mountLive() criar os canais e ligar a câmara DEPOIS de se ter saído — o criador
  *  ficava a transmitir sem saber, e os canais ficavam vazados. */
 let mountGen = 0;
 
+const avisoSair = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+const nomeDe = (p: any): string => p?.name || p?.handle || 'Fã';
+
+/** Desliga tudo: vídeo, canais, animações e a janela pequena. */
 function leave(): void {
-  mountGen++;                      // invalida qualquer montagem em curso
+  mountGen++;
   try { room?.disconnect(); } catch { /* já desligada */ }
-  room = null;
+  room = null; ligada = null; videoEl = null;
   if (chatCh) { void sb.removeChannel(chatCh); chatCh = null; }
   if (liveCh) { void sb.removeChannel(liveCh); liveCh = null; }
+  fx?.parar(); fx = null;
+  $('#lvMini')?.remove();
+  window.removeEventListener('beforeunload', avisoSair);
+}
+
+/** Ao mudar de página: se a live está ligada, minimiza; senão, desliga. */
+function sairDaSala(): void {
+  mountGen++;
+  clearTimeout(comboT);
+  fx?.parar(); fx = null;
+  if (chatCh) { void sb.removeChannel(chatCh); chatCh = null; }
+  if (room && ligada) minimizar(); else leave();
+}
+
+function minimizar(): void {
+  if (!ligada) return;
+  $('#lvMini')?.remove();
+  const box = document.createElement('div');
+  box.id = 'lvMini'; box.className = 'lvmini';
+  box.innerHTML = `<button class="v" data-act="lvOpen" aria-label="Voltar à live"></button><span class="onair">AO VIVO</span>
+    <div class="b">${ligada.host
+      ? `<button class="btn pri sm" data-act="liveEnd" data-id="${ligada.id}">Encerrar</button>`
+      : `<button class="lvx" data-act="lvClose" aria-label="Fechar a live">${ic('x')}</button>`}</div>`;
+  if (videoEl) box.querySelector('.v')!.appendChild(videoEl);
+  document.body.appendChild(box);
 }
 
 export async function vLive(id: string): Promise<string> {
@@ -82,50 +126,114 @@ export async function vLive(id: string): Promise<string> {
   else if (l.status === 'scheduled' && !host) gate = `<div class="gate"><b style="font-size:18px">Começa ${fmtDate(l.starts_at, true)}</b><span>${l.price ? 'Já tens bilhete.' : 'Entrada livre.'} Recebes uma notificação quando começar.</span></div>`;
   else if (l.status === 'scheduled' && host) gate = `<div class="gate"><b style="font-size:18px">Pronta para começar?</b><span class="small">O navegador vai pedir acesso à câmara e ao microfone.</span><button class="btn pri" data-act="liveStart" data-id="${l.id}">Começar agora</button></div>`;
   const img = c.cover_url || c.profile.avatar_url;
-  const canChat = has && l.status === 'live';
-  S.liveCtx = { id: l.id, host, join: has && l.status === 'live' };
-  return `<div class="row between wrapf" style="margin-bottom:14px"><a class="btn link" href="#lives">${ic('back', 'style="width:16px;height:16px"')}Todas as lives</a>${host && l.status === 'live' ? `<button class="btn pri sm" data-act="liveEnd" data-id="${l.id}">Terminar live</button>` : ''}</div>
-   <div class="liveroom">
-    <div class="stage" id="liveStage">${gate && img ? `<img src="${esc(img)}" alt="" style="filter:blur(14px) brightness(.55);transform:scale(1.1)">` : ''}
-     ${l.status === 'live' ? `<span class="onair">AO VIVO</span><span class="viewers" id="lvViewers"></span>` : ''}
-     ${gate || `<div id="lkVideo" style="position:absolute;inset:0"></div><span class="wm c">@${esc(S.me!.handle)}</span><p class="muted" id="lkStatus" style="position:relative;color:#fff">A ligar…</p>`}
-     <div class="cap"><b>${esc(l.title)}</b><span class="small">${esc(cname(c))} · ${l.price ? 'bilhete ' + kz(l.price) : 'entrada livre'}</span></div></div>
-    <div class="lchat"><div class="hd"><span>Chat da live</span>${!host && has ? `<button class="btn soft sm" data-act="tip" data-id="${c.id}" data-live="${l.id}">${ic('gift')}Gorjeta</button>` : ''}</div>
-     <div class="list" id="lchatList"></div>
-     <form class="compose" id="liveForm" data-id="${l.id}"><input type="text" id="liveInput" maxlength="300" placeholder="${canChat ? 'Escreve no chat' : 'O chat abre quando a live começar'}" ${canChat ? '' : 'disabled'} aria-label="Mensagem" autocomplete="off"><button class="btn pri" style="padding:11px 14px" aria-label="Enviar" ${canChat ? '' : 'disabled'}>${ic('send')}</button></form>
-    </div></div>`;
+  const join = has && l.status === 'live';
+  S.liveCtx = { id: l.id, host, join, creator: c.id };
+  const saldo = Number(S.me!.wallet_balance || 0);
+  const min = `<button class="lvbtn" data-act="lvMin" aria-label="Minimizar" title="Minimizar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>`;
+  const fechar = `<button class="lvbtn" data-act="lvClose" aria-label="Sair da live" title="Sair">${ic('x')}</button>`;
+  return `<div class="lvroom">
+   <div class="lvstage" id="liveStage">${gate && img ? `<img class="lvbg" src="${esc(img)}" alt="">` : ''}
+    ${gate || `<div id="lkVideo" class="lvvideo"></div><span class="wm c">@${esc(S.me!.handle)}</span><p class="lvstatus" id="lkStatus">A ligar…</p>`}
+    <div class="lvtop"><span class="lvwho">${avatarOf(c.profile, 'sm')}<span><b>${esc(cname(c))}</b><small>${esc(l.title)}</small></span></span>
+     ${l.status === 'live' ? `<span class="onair">AO VIVO</span><span class="viewers" id="lvViewers"></span>` : ''}<span class="lvsp"></span>
+     ${join ? min : ''}${host && l.status === 'live' ? `<button class="btn pri sm" data-act="liveEnd" data-id="${l.id}">Encerrar</button>` : host ? `<a class="lvbtn" href="#estudio" aria-label="Voltar">${ic('x')}</a>` : fechar}</div>
+    ${join ? `<div class="lvchat" id="lchatList" aria-live="polite"></div>
+    <div class="lvbar"><form class="lvform" id="liveForm" data-id="${l.id}"><input type="text" id="liveInput" maxlength="300" placeholder="Diz alguma coisa…" aria-label="Mensagem" autocomplete="off"><button aria-label="Enviar">${ic('send')}</button></form>
+     ${host ? '' : `<button class="lvround gift" data-act="lvGifts" aria-label="Presentes">🎁</button>`}<button class="lvround" data-act="lvHeart" aria-label="Enviar coração">❤️</button></div>
+    <button class="lvcombo" id="lvCombo" data-act="lvCombo" hidden></button>
+    ${host ? '' : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
+     <div class="hd"><b>Presentes</b><button class="lvx" data-act="lvGifts" aria-label="Fechar">${ic('x')}</button></div>
+     <div class="grid" id="lvGiftGrid"></div>
+     <div class="ft"><span class="small">Saldo <b id="lvSaldo">${kz(saldo)}</b></span><button class="btn soft sm" data-act="lvTopup">Carregar carteira</button><button class="btn pri sm" id="lvSend" data-act="lvSend" disabled>Enviar</button></div>
+     <p class="cred">Os presentes são pagos com a carteira. Só tu vês o valor. Modelos 3D: «Lion» de doizy e «Bottle of Champagne» de Sirolalo (Sketchfab, CC BY).</p></div>`}`
+    : `<div class="lvcap"><b>${esc(l.title)}</b><span class="small">${esc(cname(c))} · ${l.price ? 'bilhete ' + kz(l.price) : 'entrada livre'}</span></div>`}
+   </div></div>`;
 }
 
 function chatLine(m: any): string {
-  const n = esc(m.profile?.name || m.profile?.handle || 'Fã');
-  return m.tip_amount ? `<div class="tipmsg">${n} enviou ${kz(m.tip_amount)}${m.body ? ': ' + esc(m.body) : ''}</div>` : `<div><b style="color:var(--ink)">${n}</b> ${esc(m.body)}</div>`;
+  const n = esc(nomeDe(m.profile));
+  const g = m.gift ? gifts.find((x) => x.key === m.gift) : null;
+  // O valor nunca aparece a quem está a ver: só o presente e quem o enviou.
+  if (g) return `<div class="lvmsg gift"><b>${n}</b> enviou ${esc(g.name)} ${g.icon}</div>`;
+  if (m.gift || m.tip_amount) return `<div class="lvmsg gift"><b>${n}</b> enviou um presente 🎁${m.body ? ': ' + esc(m.body) : ''}</div>`;
+  return `<div class="lvmsg"><b>${n}</b> ${esc(m.body)}</div>`;
 }
 
-/** Chamado depois de desenhar a sala: liga o chat e o vídeo. */
+function addChat(html: string): void {
+  const el = $('#lchatList'); if (!el) return;
+  el.insertAdjacentHTML('beforeend', html);
+  while (el.childElementCount > 60) el.firstElementChild!.remove();
+  el.scrollTop = el.scrollHeight;
+}
+
+function desenhaGaveta(): void {
+  const g = $('#lvGiftGrid'); if (!g) return;
+  g.innerHTML = gifts.map((x) => `<button class="lvg${x.key === escolhido ? ' on' : ''}" data-act="lvPick" data-k="${esc(x.key)}"><span class="i">${x.icon}</span><span class="n">${esc(x.name)}</span><small>${kz(x.price)}</small></button>`).join('');
+  const s = $<HTMLButtonElement>('#lvSend'); if (s) s.disabled = !escolhido;
+  const b = $('#lvSaldo'); if (b) b.textContent = kz(S.me?.wallet_balance || 0);
+}
+
+/** Chamado depois de desenhar a sala: liga o chat, o vídeo e as animações. */
 export async function mountLive(): Promise<void> {
   const ctx = S.liveCtx; if (!ctx) return;
-  S.cleanup.push(leave);
+  // Outra live ainda ligada (minimizada)?
+  if (ligada && ligada.id !== ctx.id) {
+    if (ligada.host) { toast('Estás em directo. Encerra a tua live antes de entrares noutra.'); go('live-' + ligada.id); return; }
+    leave();
+  }
+  S.cleanup.push(sairDaSala);
   const gen = ++mountGen;
   const alive = (): boolean => gen === mountGen;
-  const list = $('#lchatList');
-  const { data: msgs } = await sb.from('live_chat').select('*, profile:profiles(handle,name)').eq('live_id', ctx.id).order('created_at', { ascending: false }).limit(80);
+  if (!ctx.join) { if (ligada?.id === ctx.id) leave(); return; }
+  $('#lvMini')?.remove();
+
+  if (!gifts.length) {
+    const { data } = await sb.from('live_gifts').select('key,name,icon,price').eq('active', true).order('sort');
+    gifts = (data || []) as Gift[];
+  }
+  if (!alive()) return;
+  escolhido = ''; desenhaGaveta();
+
+  // Animações dos presentes (three.js), carregadas só aqui.
+  void import('../presentes/efeitos').then((m) => {
+    const stage = $('#liveStage');
+    if (!alive() || !stage) return;
+    fx = m.iniciar(stage, () => videoEl);
+  }).catch((e) => console.warn('efeitos', e));
+
+  const { data: msgs } = await sb.from('live_chat').select('*, profile:profiles(handle,name)').eq('live_id', ctx.id).order('created_at', { ascending: false }).limit(40);
   if (!alive()) return;                                  // o utilizador já saiu enquanto esperávamos
+  const list = $('#lchatList');
   if (list) { list.innerHTML = (msgs || []).reverse().map((m) => chatLine(m)).join(''); list.scrollTop = list.scrollHeight; }
   chatCh = sb.channel('live-chat-' + ctx.id)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat', filter: `live_id=eq.${ctx.id}` }, async (x) => {
       if (!alive()) return;
-      const { data: p } = await sb.from('profiles').select('handle,name').eq('id', (x.new as any).user_id).maybeSingle();
+      const m = x.new as any;
+      const { data: p } = await sb.from('profiles').select('handle,name,avatar_url').eq('id', m.user_id).maybeSingle();
       if (!alive()) return;
-      const el = $('#lchatList'); if (!el) return;
-      el.insertAdjacentHTML('beforeend', chatLine({ ...x.new, profile: p })); el.scrollTop = el.scrollHeight;
-    }).subscribe();
-  liveCh = sb.channel('live-row-' + ctx.id)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lives', filter: `id=eq.${ctx.id}` }, (x) => {
-      if (!alive()) return;
-      if ((x.new as any).status === 'ended' && !ctx.host) { toast('A live terminou'); rerender(); }
-      if ((x.new as any).status === 'live' && !ctx.join) rerender();
-    }).subscribe();
-  if (ctx.join) await connect(ctx, alive);
+      addChat(chatLine({ ...m, profile: p }));
+      const g = m.gift ? gifts.find((y) => y.key === m.gift) : null;
+      if (g) fx?.mostrar(g, nomeDe(p), (p as any)?.avatar_url);
+    })
+    .on('broadcast', { event: 'heart' }, () => { if (alive()) fx?.coracao(); })
+    .subscribe();
+  if (!liveCh) {
+    const id = ctx.id;
+    liveCh = sb.channel('live-row-' + id)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lives', filter: `id=eq.${id}` }, (x) => {
+        if ((x.new as any).status !== 'ended' || !ligada || ligada.id !== id || ligada.host) return;
+        const naSala = !!$('#liveStage');
+        leave(); toast('A live terminou');
+        if (naSala) rerender();
+      }).subscribe();
+  }
+  if (room && ligada?.id === ctx.id) {                   // a voltar de minimizado
+    const box = $('#lkVideo');
+    if (box && videoEl) { box.innerHTML = ''; box.appendChild(videoEl); $('#lkStatus')!.textContent = ''; }
+    const v = $('#lvViewers'); if (v) v.textContent = `${room.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`;
+    return;
+  }
+  await connect(ctx, alive);
 }
 
 async function connect(ctx: { id: string; host: boolean }, alive: () => boolean): Promise<void> {
@@ -137,31 +245,34 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
     ]);
     if (!alive()) return;                                  // saiu enquanto carregava o token
     const r = new LK.Room({ adaptiveStream: true, dynacast: true });
-    const box = $('#lkVideo');
     const attach = (track: import('livekit-client').RemoteTrackPublication | any) => {
-      if (!alive()) return;
-      if (!box) return;
+      if (!ligada && !alive()) return;
       const el = track.attach();
-      if (track.kind === 'video') { box.innerHTML = ''; el.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000'; box.appendChild(el); status(''); }
-      else document.body.appendChild(el);
+      if (track.kind === 'video') {
+        el.style.cssText = 'width:100%;height:100%;object-fit:cover;background:#000;display:block';
+        el.muted = true; el.playsInline = true; videoEl = el;
+        const box = $('#lkVideo') || $('#lvMini .v');
+        if (box) { box.innerHTML = ''; box.appendChild(el); }
+        status('');
+      } else document.body.appendChild(el);
     };
     const count = () => { const v = $('#lvViewers'); if (v) v.textContent = `${r.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`; };
     r.on(LK.RoomEvent.TrackSubscribed, (track) => attach(track))
-      .on(LK.RoomEvent.TrackUnsubscribed, (track) => track.detach().forEach((e) => e.remove()))
+      .on(LK.RoomEvent.TrackUnsubscribed, (track) => track.detach().forEach((e) => { if (e === videoEl) videoEl = null; e.remove(); }))
       .on(LK.RoomEvent.ParticipantConnected, count).on(LK.RoomEvent.ParticipantDisconnected, count)
       .on(LK.RoomEvent.AudioPlaybackStatusChanged, () => {
-        if (!alive() || !r.canPlaybackAudio || $('#unmute')) return;
+        if (!r.canPlaybackAudio || $('#unmute')) return;
         $('#liveStage')?.insertAdjacentHTML('beforeend', `<button class="btn pri unmute" id="unmute" data-act="liveAudio">${ic('volume')}Ativar som</button>`);
       })
       .on(LK.RoomEvent.Disconnected, () => status('Ligação terminada.'));
     await r.connect(url, token);
-    room = r;                                             // só publica a sala depois de ligada
     if (!alive()) { try { r.disconnect(); } catch { /* já desligada */ } return; }
+    room = r; ligada = { id: ctx.id, host: ctx.host };     // só publica a sala depois de ligada
     count();
     if (ctx.host) {
+      window.addEventListener('beforeunload', avisoSair);  // fechar o separador pede confirmação
       await r.localParticipant.enableCameraAndMicrophone();
-      // Se o criador tiver saído durante o pedido de permissão, desligava-se mal a câmara ligasse.
-      if (!alive()) { try { r.disconnect(); } catch { /* já desligada */ } return; }
+      if (room !== r) return;                              // encerrou durante o pedido de permissão
       const pub = [...r.localParticipant.videoTrackPublications.values()][0];
       if (pub?.track) attach(pub.track);
     } else {
@@ -174,6 +285,38 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
       : /Edge Function|Failed to fetch|LIVEKIT/i.test(String(e)) ? 'O servidor das lives não respondeu. Tenta outra vez dentro de alguns minutos.'
       : errText(e));
   }
+}
+
+/* ---------- Presentes ---------- */
+
+function semSaldo(g: Gift): void {
+  modal(`<h3>Carrega a carteira</h3><p class="muted" style="margin:8px 0 16px">Os presentes são pagos com o saldo da carteira. Para enviar ${g.icon} ${esc(g.name)} precisas de ${kz(g.price)}; tens ${kz(S.me?.wallet_balance || 0)}.</p>
+    <button class="btn pri block" data-act="lvTopup">Carregar carteira</button>`);
+}
+
+function mostraCombo(g: Gift): void {
+  const b = $<HTMLButtonElement>('#lvCombo'); if (!b) return;
+  b.innerHTML = `<span class="i">${g.icon}</span><b>COMBO</b><i class="ring"></i>`;
+  b.dataset.k = g.key; b.hidden = false;
+  b.classList.remove('run'); void b.offsetWidth; b.classList.add('run');
+  clearTimeout(comboT); comboT = window.setTimeout(() => { b.hidden = true; }, 3000);
+}
+
+let aEnviar = false;
+async function enviarPresente(k: string): Promise<void> {
+  const ctx = S.liveCtx, g = gifts.find((x) => x.key === k);
+  if (!ctx || !g || !S.me || aEnviar) return;
+  if (ctx.host) return toast('Não podes enviar presentes a ti próprio.');
+  const bal = Number(S.me.wallet_balance || 0);
+  if (bal < g.price) { semSaldo(g); return; }
+  aEnviar = true;
+  const { error } = await sb.rpc('pay_with_wallet', { p_kind: 'tip', p_target: ctx.creator, p_amount: null, p_meta: { gift: g.key, live_id: ctx.id } });
+  aEnviar = false;
+  if (error) { if (/Saldo insuficiente/i.test(error.message)) semSaldo(g); else toast(errText(error)); return; }
+  S.me.wallet_balance = bal - g.price;
+  document.dispatchEvent(new Event('apf:header'));
+  const sh = $('#lvSheet'); if (sh) sh.hidden = true;
+  desenhaGaveta(); mostraCombo(g);
 }
 
 export const liveActions: Actions = {
@@ -204,11 +347,27 @@ export const liveActions: Actions = {
   async liveEnd(d) {
     if (!S.me) return toast('A sessão expirou. Entra outra vez.');
     if (!d.id) return;
+    if (!confirm('Encerrar a live? Quem está a ver deixa de te ver.')) return;
     const { error } = await sb.from('lives').update({ status: 'ended' }).eq('id', d.id).eq('creator_id', S.me.id);
     if (error) return toast(errText(error));
-    leave(); toast('Live terminada'); S.stTab = 'lives'; go('estudio');
+    leave(); toast('Live encerrada'); S.stTab = 'lives'; go('estudio');
   },
   liveAudio() { room?.startAudio(); $('#unmute')?.remove(); },
+  /** Minimizar: a live continua numa janela pequena enquanto se navega no site. */
+  lvMin() { go('inicio'); },
+  lvOpen() { if (ligada) go('live-' + ligada.id); },
+  /** Só quem vê pode fechar sem encerrar. */
+  lvClose() { if (ligada?.host) return; const naSala = !!$('#liveStage'); leave(); if (naSala) go('lives'); },
+  lvGifts() { const s = $('#lvSheet'); if (!s) return; s.hidden = !s.hidden; if (!s.hidden) desenhaGaveta(); },
+  lvPick(d) { escolhido = d.k || ''; desenhaGaveta(); },
+  lvSend() { if (escolhido) void enviarPresente(escolhido); },
+  lvCombo() { const k = $('#lvCombo')?.dataset.k; if (k) void enviarPresente(k); },
+  lvTopup() { closeModal(); go('carteira'); },
+  lvHeart() {
+    fx?.coracao();
+    const now = Date.now(); if (now - coracaoT < 250) return; coracaoT = now;
+    void chatCh?.send({ type: 'broadcast', event: 'heart', payload: {} });
+  },
 };
 
 export const liveSubmit: SubmitFn = async (f) => {

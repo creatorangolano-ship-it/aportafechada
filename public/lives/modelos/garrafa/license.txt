@@ -1,0 +1,11 @@
+Model Information:
+* title:	Bottle of Champagne
+* source:	https://sketchfab.com/3d-models/bottle-of-champagne-a3947c1c74484bc2940e60ffd2e84b9a
+* author:	Sirolalo (https://sketchfab.com/Sirolalo)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Bottle of Champagne" (https://sketchfab.com/3d-models/bottle-of-champagne-a3947c1c74484bc2940e60ffd2e84b9a) by Sirolalo (https://sketchfab.com/Sirolalo) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

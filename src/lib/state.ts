@@ -63,7 +63,7 @@ export type Reg = {
 /** Contexto de uma live já montada (ver `mountLive`). Sobrevive a um re-render para
  *  que o `leave()` possa desligar câmara, microfone e canal mesmo depois de a view
  *  ter sido redesenhada por outro motivo. */
-type LiveCtx = { id: string; host: boolean; join: boolean };
+type LiveCtx = { id: string; host: boolean; join: boolean; creator?: string };
 
 /** Rascunho de publicação guardado enquanto o utilizador navega entre separadores
  *  do estúdio. Sem isto, trocar de separador deita o texto por fora. */
