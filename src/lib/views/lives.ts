@@ -140,10 +140,28 @@ function espelho(): void {
 }
 
 function desenhaFiltros(): void {
-  const g = $('#lvFxGrid'); if (!g || !camara) return;
-  void import('../lives/camara').then(({ FILTROS }) => {
-    g.innerHTML = FILTROS.map(([k, n, e]) => `<button class="lvg${k === camara?.filtro ? ' on' : ''}" data-act="lvFxPick" data-k="${k}"><span class="i">${e}</span><span class="n">${n}</span></button>`).join('');
+  const g = $('#lvFxGrid'), ef = $('#lvEfGrid'); if (!g || !ef || !camara) return;
+  void import('../lives/camara').then(({ FILTROS, EFEITOS }) => {
+    if (!camara) return;
+    const chip = (act: string, k: string, n: string, e: string, on: boolean) => `<button class="lvg${on ? ' on' : ''}" data-act="${act}" data-k="${k}"><span class="i">${e}</span><span class="n">${n}</span></button>`;
+    g.innerHTML = FILTROS.map(([k, n, e]) => chip('lvFxPick', k, n, e, k === camara!.filtro)).join('');
+    ef.innerHTML = EFEITOS.map(([k, n, e]) => chip('lvEfPick', k, n, e, k === camara!.efeito)).join('');
+    const r = $<HTMLInputElement>('#lvRosto'), o = $<HTMLInputElement>('#lvOlhos');
+    if (r && o) {
+      r.value = String(Math.round(camara.rosto * 100)); o.value = String(Math.round(camara.olhos * 100));
+      if (!r.dataset.ok) {
+        r.dataset.ok = '1';
+        const muda = () => camara?.ajustar(Number(r.value) / 100, Number(o.value) / 100);
+        r.addEventListener('input', muda); o.addEventListener('input', muda);
+      }
+    }
   });
+}
+
+/** Separador da gaveta de quem transmite: filtros/efeitos ou rosto. */
+function separador(qual: string): void {
+  for (const b of document.querySelectorAll<HTMLElement>('#lvFxSheet .lvtab')) b.classList.toggle('on', b.dataset.k === qual);
+  for (const p of document.querySelectorAll<HTMLElement>('#lvFxSheet .lvpane')) p.hidden = p.dataset.k !== qual;
 }
 
 /** Mostra (ou tira) os avisos de câmara/microfone desligados e atualiza os botões. */
@@ -183,9 +201,13 @@ export async function vLive(id: string): Promise<string> {
      ${host ? botoesHost() : `<button class="lvround gift" data-act="lvGifts" aria-label="Presentes">🎁</button><button class="lvround" data-act="lvHeart" aria-label="Enviar coração">❤️</button>`}</div>
     <button class="lvcombo" id="lvCombo" data-act="lvCombo" hidden></button>
     ${host ? `<div class="lvsheet" id="lvFxSheet" hidden role="dialog" aria-label="Filtros">
-     <div class="hd"><b>Filtros</b><button class="lvx" data-act="lvFx" aria-label="Fechar">${ic('x')}</button></div>
-     <div class="grid" id="lvFxGrid"></div>
-     <p class="cred">Os fãs veem a live com o filtro que escolheres.</p></div>` : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
+     <div class="hd"><span class="lvtabs"><button class="lvtab on" data-act="lvTab" data-k="filtros">Filtros</button><button class="lvtab" data-act="lvTab" data-k="efeitos">Efeitos</button><button class="lvtab" data-act="lvTab" data-k="rosto">Rosto</button></span><button class="lvx" data-act="lvFx" aria-label="Fechar">${ic('x')}</button></div>
+     <div class="lvpane" data-k="filtros"><div class="grid" id="lvFxGrid"></div></div>
+     <div class="lvpane" data-k="efeitos" hidden><div class="grid" id="lvEfGrid"></div></div>
+     <div class="lvpane" data-k="rosto" hidden>
+      <label class="lvslider"><span>Rosto fino</span><input type="range" id="lvRosto" min="0" max="100" step="1" value="0"></label>
+      <label class="lvslider"><span>Olhos grandes</span><input type="range" id="lvOlhos" min="0" max="100" step="1" value="0"></label></div>
+     <p class="cred">Os fãs veem a live com o filtro e os efeitos que escolheres.</p></div>` : `<div class="lvsheet" id="lvSheet" hidden role="dialog" aria-label="Presentes">
      <div class="hd"><b>Presentes</b><button class="lvx" data-act="lvGifts" aria-label="Fechar">${ic('x')}</button></div>
      <div class="grid" id="lvGiftGrid"></div>
      <div class="ft"><span class="small">Saldo <b id="lvSaldo">${kz(saldo)}</b></span><button class="btn soft sm" data-act="lvTopup">Carregar carteira</button><button class="btn pri sm" id="lvSend" data-act="lvSend" disabled>Enviar</button></div>
@@ -438,6 +460,8 @@ export const liveActions: Actions = {
   /** Abre/fecha a gaveta dos filtros. */
   lvFx() { const s = $('#lvFxSheet'); if (!s) return; s.hidden = !s.hidden; if (!s.hidden) desenhaFiltros(); },
   lvFxPick(d) { if (!camara) return; camara.escolher(d.k as import('../lives/camara').Filtro); desenhaFiltros(); },
+  lvEfPick(d) { if (!camara) return; camara.escolherEfeito(d.k as import('../lives/camara').Efeito); desenhaFiltros(); },
+  lvTab(d) { separador(d.k || 'filtros'); },
   /** Minimizar: a live continua numa janela pequena enquanto se navega no site. */
   lvMin() { go('inicio'); },
   lvOpen() { if (ligada) go('live-' + ligada.id); },
