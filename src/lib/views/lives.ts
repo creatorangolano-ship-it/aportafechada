@@ -366,16 +366,33 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
     if (ctx.host) {
       window.addEventListener('beforeunload', avisoSair);  // fechar o separador pede confirmação
       camOff = false; micOff = false;
-      // Câmara com filtros (beleza, brilho…) e possibilidade de virar; o microfone vai à parte.
+      // Câmara com filtros (beleza, efeitos…) e possibilidade de virar. Se neste aparelho a imagem
+      // com filtros não arrancar em 6 s, a live segue com a câmara normal em vez de ficar presa.
+      status('A abrir a câmara…');
       const { criarCamara } = await import('../lives/camara');
-      const cam = await criarCamara();
-      if (room !== r) { cam.parar(); return; }             // encerrou durante o pedido de permissão
-      camara = cam;
-      const lt = new LK.LocalVideoTrack(cam.track, undefined, true);
-      camPub = await r.localParticipant.publishTrack(lt, { source: LK.Track.Source.Camera, simulcast: true });
-      await r.localParticipant.setMicrophoneEnabled(true);
-      if (room !== r) return;
-      attach(lt); espelho();
+      let cam: Camara | null = null;
+      try { cam = await criarCamara(); } catch (e) {
+        if (/Permission|NotAllowed/i.test(String(e))) throw e;
+        console.warn('câmara com filtros', e);
+      }
+      if (room !== r) { cam?.parar(); return; }            // encerrou durante o pedido de permissão
+      if (cam && !(await cam.pronta(6000))) { console.warn('câmara com filtros sem imagem'); cam.parar(); cam = null; }
+      if (room !== r) { cam?.parar(); return; }
+      if (cam) {
+        camara = cam;
+        const lt = new LK.LocalVideoTrack(cam.track, undefined, true);
+        camPub = await r.localParticipant.publishTrack(lt, { source: LK.Track.Source.Camera, simulcast: true });
+        if (cam.audio) await r.localParticipant.publishTrack(new LK.LocalAudioTrack(cam.audio, undefined, true), { source: LK.Track.Source.Microphone });
+        else await r.localParticipant.setMicrophoneEnabled(true);
+        if (room !== r) return;
+        attach(lt); espelho();
+      } else {
+        await r.localParticipant.enableCameraAndMicrophone();
+        if (room !== r) return;
+        const pub = [...r.localParticipant.videoTrackPublications.values()][0];
+        if (pub?.track) attach(pub.track);
+        toast('Os filtros não funcionam neste aparelho; a live segue com a câmara normal.');
+      }
     } else {
       status('À espera do vídeo do criador…');
       r.remoteParticipants.forEach((p) => p.trackPublications.forEach((t) => t.track && attach(t.track)));
@@ -474,13 +491,14 @@ export const liveActions: Actions = {
   },
   /** Vira a câmara (frente/trás). */
   async lvFlip() {
-    if (!camara || camOff) return;
+    if (camOff) return;
+    if (!camara) return toast('Neste aparelho não dá para virar a câmara durante a live.');
     try { await camara.virar(); espelho(); } catch (e) { toast(errText(e)); }
   },
-  /** Abre/fecha a gaveta dos filtros. */
   /** Abre/fecha a tira de filtros, beleza e efeitos. */
   lvFx() {
     const s = $('#lvFxSheet'); if (!s) return;
+    if (!camara && s.hidden) return toast('Os filtros não funcionam neste aparelho.');
     s.hidden = !s.hidden; $('#liveStage')?.classList.toggle('fxon', !s.hidden);
     if (!s.hidden) desenhaFiltros();
   },

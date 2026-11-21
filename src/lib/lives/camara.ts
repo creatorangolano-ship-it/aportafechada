@@ -107,6 +107,10 @@ export interface Camara {
   /** Liga/desliga a câmara a sério (a luz da câmara apaga quando está desligada). */
   ligar(on: boolean): Promise<void>;
   parar(): void;
+  /** Faixa do microfone, pedida junto com a câmara (no iPhone, um segundo pedido pode desligar o primeiro). */
+  audio?: MediaStreamTrack;
+  /** Resolve true quando a primeira imagem com filtros fica pronta, ou false se não chegar a tempo. */
+  pronta(ms: number): Promise<boolean>;
 }
 
 const CHAVE = 'lvAjustes';
@@ -127,29 +131,38 @@ function lerAjustes(): Ajustes {
 }
 const gravarAjustes = (a: Ajustes) => { try { localStorage.setItem(CHAVE, JSON.stringify(a)); } catch { /* sem armazenamento */ } };
 
-async function abrir(frente: boolean): Promise<MediaStream> {
+async function abrir(frente: boolean, audio = false): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
-    audio: false,
+    audio: audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
     video: { facingMode: frente ? 'user' : { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
   });
 }
 
 export async function criarCamara(): Promise<Camara> {
-  let raw = await abrir(true);
+  // Câmara e microfone num só pedido.
+  const tudo = await abrir(true, true);
+  const audio = tudo.getAudioTracks()[0];
+  let raw = new MediaStream(tudo.getVideoTracks());
+  // O Safari do iPhone não entrega imagens de um <video> que não esteja na página: fica na página,
+  // invisível (não pode ser display:none, senão também pára).
   const vid = document.createElement('video');
   vid.muted = true; vid.playsInline = true; vid.autoplay = true;
-  vid.srcObject = raw; await vid.play().catch(() => {});
+  vid.setAttribute('playsinline', ''); vid.setAttribute('muted', '');
+  vid.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1';
+  document.body.appendChild(vid);
+  const tocar = () => Promise.race([vid.play().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
+  vid.srcObject = raw; await tocar();
 
   const cv = document.createElement('canvas');
   const gl = cv.getContext('webgl', { preserveDrawingBuffer: true, antialias: false }) as WebGLRenderingContext | null;
   // Sem WebGL: publica a câmara tal como está (sem filtros nem efeitos).
   if (!gl) {
     const cam: Camara = {
-      track: raw.getVideoTracks()[0], frente: true, a: structuredClone(PADRAO),
-      definir() { /* sem filtros */ },
+      track: raw.getVideoTracks()[0], frente: true, a: structuredClone(PADRAO), audio,
+      definir() { /* sem filtros */ }, async pronta() { return true; },
       async virar() { throw new Error('Este aparelho não deixa virar a câmara durante a live.'); },
       async ligar(on) { raw.getVideoTracks().forEach((t) => (t.enabled = on)); },
-      parar() { raw.getTracks().forEach((t) => t.stop()); },
+      parar() { raw.getTracks().forEach((t) => t.stop()); audio?.stop(); vid.remove(); },
     };
     return cam;
   }
@@ -164,11 +177,15 @@ export async function criarCamara(): Promise<Camara> {
   const U = Object.fromEntries(['px', 'sm', 'br', 'wa', 'sa', 'co', 'gr', 'ro', 'fa', 'lu', 'res', 'eL', 'eR', 'jL', 'jR', 'jT', 'eRad', 'eAmt', 'jRad', 'jAmt']
     .map((n) => [n, gl.getUniformLocation(pr, n)]));
 
-  let ativo = true, ligada = true;
+  let ativo = true, ligada = true, imagens = 0;
   const cam: Camara = {
-    track: null as unknown as MediaStreamTrack, frente: true, a: lerAjustes(),
+    track: null as unknown as MediaStreamTrack, frente: true, a: lerAjustes(), audio,
     definir(m) { Object.assign(cam.a, m); gravarAjustes(cam.a); },
     virar, ligar, parar,
+    pronta(ms) {
+      if (imagens > 0) return Promise.resolve(true);
+      return new Promise((r) => { const t0 = performance.now(); const v = () => (imagens > 0 ? r(true) : performance.now() - t0 > ms ? r(false) : setTimeout(v, 100)); v(); });
+    },
   };
   // O vídeo publicado é este canvas 2D: a imagem do WebGL + os efeitos de cara por cima.
   const out = document.createElement('canvas');
@@ -210,6 +227,7 @@ export async function criarCamara(): Promise<Camara> {
     gl.uniform1f(U.gr, m(4)); gl.uniform1f(U.ro, m(5)); gl.uniform1f(U.fa, m(6));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     ctx.drawImage(cv, 0, 0);
+    imagens++;
     if (f && a.efeito !== 'nenhum') desenhaEfeito(ctx, a.efeito, f, W, H, agora, intEfeito(a));
   };
   desenha();
@@ -218,15 +236,15 @@ export async function criarCamara(): Promise<Camara> {
   async function virar() {
     const novo = await abrir(!cam.frente).catch(() => { throw new Error('Este aparelho só tem uma câmara.'); });
     raw.getTracks().forEach((t) => t.stop());
-    raw = novo; vid.srcObject = raw; await vid.play().catch(() => {});
+    raw = novo; vid.srcObject = raw; await tocar();
     cam.frente = !cam.frente;
   }
   async function ligar(on: boolean) {
     if (on === ligada) return;
-    if (on) { raw = await abrir(cam.frente).catch(() => abrir(true)); vid.srcObject = raw; await vid.play().catch(() => {}); ligada = true; }
+    if (on) { raw = await abrir(cam.frente).catch(() => abrir(true)); vid.srcObject = raw; await tocar(); ligada = true; }
     else { ligada = false; raw.getTracks().forEach((t) => t.stop()); }
   }
-  function parar() { ativo = false; raw.getTracks().forEach((t) => t.stop()); cam.track.stop(); rosto.parar(); }
+  function parar() { ativo = false; raw.getTracks().forEach((t) => t.stop()); audio?.stop(); cam.track.stop(); rosto.parar(); vid.remove(); }
   return cam;
 }
 
