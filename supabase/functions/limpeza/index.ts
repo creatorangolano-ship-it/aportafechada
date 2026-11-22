@@ -1,7 +1,9 @@
 // Limpeza de hora a hora (chamada pelo pg_cron, ver supabase/migrations/0014_limpeza.sql).
-// Apaga os estados com mais de 24 horas e os ficheiros que ficaram sem publicação ou estado.
+// Apaga os estados com mais de 24 horas e os ficheiros que ficaram sem publicação ou estado,
+// e termina as lives abandonadas (quem transmitia saiu sem carregar em «Terminar»).
 // Só aceita pedidos com a chave do Vault no cabeçalho x-limpeza.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { participantes } from '../_shared/livekit.ts';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -35,6 +37,28 @@ Deno.serve(async (req) => {
   // 2) Linhas dos estados expirados (as visualizações vão em cascata).
   const { count: estados, error: e2 } = await admin.from('stories').delete({ count: 'exact' }).lt('expires_at', new Date().toISOString());
   if (e2) falhas.push(`stories: ${e2.message}`);
+
+  // 3) Lives abandonadas: marcadas «ao vivo» há mais de 5 minutos, mas o criador não está na sala.
+  //    Verifica-se duas vezes com um minuto de intervalo, para não terminar a live a quem só
+  //    recarregou a página ou perdeu a rede por instantes. Corre em segundo plano (o pg_cron não
+  //    espera tanto pela resposta).
+  const lives = async () => {
+    const { data: aoVivo } = await admin.from('lives').select('id,creator_id,room_name')
+      .eq('status', 'live').lt('started_at', new Date(Date.now() - 5 * 60_000).toISOString());
+    const ausentes = async (l: { id: string; creator_id: string; room_name: string }[]) =>
+      (await Promise.all(l.map(async (x) => { const p = await participantes(x.room_name); return p && !p.includes(x.creator_id) ? x : null; })))
+        .filter((x): x is NonNullable<typeof x> => !!x);
+    let suspeitas = await ausentes(aoVivo || []);
+    if (!suspeitas.length) return;
+    await new Promise((r) => setTimeout(r, 60_000));
+    suspeitas = await ausentes(suspeitas);
+    if (!suspeitas.length) return;
+    const { error: e3 } = await admin.from('lives').update({ status: 'ended' })
+      .in('id', suspeitas.map((x) => x.id)).eq('status', 'live');
+    console.log('lives abandonadas terminadas', suspeitas.map((x) => x.id), e3?.message ?? '');
+  };
+  // @ts-ignore EdgeRuntime existe no Supabase
+  EdgeRuntime.waitUntil(lives().catch((e) => console.error('lives abandonadas', e)));
 
   return json({ estados: estados || 0, ficheiros, falhas });
 });
