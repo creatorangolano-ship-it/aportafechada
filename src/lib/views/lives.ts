@@ -342,7 +342,14 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
         status('');
       } else document.body.appendChild(el);
     };
-    const count = () => { const v = $('#lvViewers'); if (v) v.textContent = `${r.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`; };
+    // Quem vê: se o criador sair (fechou a app, perdeu a rede), diz-se em vez de ficar «À espera…».
+    const semCriador = () => ![...r.remoteParticipants.values()].some((p) => p.permissions?.canPublish);
+    const avisoCriador = () => {
+      if (ctx.host) return;
+      if (semCriador()) status('O criador saiu da live. Se não voltar, a live termina sozinha.');
+      else if (!videoEl) status('À espera do vídeo do criador…');
+    };
+    const count = () => { const v = $('#lvViewers'); if (v) v.textContent = `${r.remoteParticipants.size + (ctx.host ? 0 : 1)} a ver`; avisoCriador(); };
     // Quem vê: o criador pode desligar a câmara ou o microfone a meio.
     const estadoRemoto = (pub: { kind: string; isMuted: boolean }, ausente = false) => {
       if (ctx.host) return;
@@ -394,7 +401,7 @@ async function connect(ctx: { id: string; host: boolean }, alive: () => boolean)
         toast('Os filtros não funcionam neste aparelho; a live segue com a câmara normal.');
       }
     } else {
-      status('À espera do vídeo do criador…');
+      avisoCriador();
       r.remoteParticipants.forEach((p) => p.trackPublications.forEach((t) => t.track && attach(t.track)));
     }
   } catch (e) {
